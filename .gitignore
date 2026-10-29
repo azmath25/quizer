@@ -1,0 +1,16 @@
+node_modules/
+functions/node_modules/
+dist/
+*.log
+.firebase/
+.env*
+!.env.example
+*service-account*.json
+*credentials*.json
+*-private.json
+*.local.js
+.openai/
+
+# Generated visual-QA fixtures; recreate with npm run qa:capture.
+tests/qa/generated.json
+tests/qa/generated-images/
