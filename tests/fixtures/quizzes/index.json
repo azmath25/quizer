@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "quizzes": [
+    {
+      "id": "olympiad-warmup",
+      "file": "olympiad-warmup.quiz.json",
+      "title": "Mixed mathematics",
+      "description": "Parity, congruences, geometry, counting, and probability.",
+      "subject": "Mixed topics",
+      "difficulty": "Olympiad",
+      "durationMinutes": 20,
+      "questionCount": 8,
+      "points": 20,
+      "openCount": 4,
+      "choiceCount": 4
+    },
+    {
+      "id": "algebra-essentials",
+      "file": "algebra-essentials.quiz.json",
+      "title": "Algebra",
+      "description": "Equations, identities, roots, and numeric expressions.",
+      "subject": "Algebra",
+      "difficulty": "Foundation",
+      "durationMinutes": 15,
+      "questionCount": 6,
+      "points": 15,
+      "openCount": 4,
+      "choiceCount": 2
+    },
+    {
+      "id": "geometry-perspective",
+      "file": "geometry-perspective.quiz.json",
+      "title": "Geometry",
+      "description": "Angles, areas, and an isosceles-triangle proof.",
+      "subject": "Geometry",
+      "difficulty": "Intermediate",
+      "durationMinutes": 18,
+      "questionCount": 5,
+      "points": 13,
+      "openCount": 4,
+      "choiceCount": 1
+    }
+  ]
+}

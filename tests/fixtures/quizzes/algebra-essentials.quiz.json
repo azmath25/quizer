@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "id": "algebra-essentials",
+  "title": "Algebra",
+  "description": "Equations, identities, roots, and numeric expressions.",
+  "subject": "Algebra",
+  "difficulty": "Foundation",
+  "durationMinutes": 15,
+  "settings": {
+    "shuffleQuestions": false,
+    "shuffleOptions": false,
+    "allowBack": true,
+    "showSolutions": true,
+    "penalty": 0
+  },
+  "assets": {},
+  "questions": [
+    {
+      "id": "q1",
+      "type": "open",
+      "prompt": "Solve $3x-7=14$.",
+      "points": 2,
+      "explanation": "Add $7$ and divide by $3$: $x=21/3=7$.",
+      "answerMode": "auto",
+      "tolerance": 0.000001,
+      "answers": [
+        "7"
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "choice",
+      "prompt": "Which expression equals $(a+b)^2$?",
+      "points": 2,
+      "explanation": "Multiply $(a+b)(a+b)$ and collect like terms.",
+      "answerMode": "auto",
+      "tolerance": 0.000001,
+      "options": [
+        {
+          "id": "o1",
+          "text": "$a^2+b^2$"
+        },
+        {
+          "id": "o2",
+          "text": "$a^2+2ab+b^2$"
+        },
+        {
+          "id": "o3",
+          "text": "$a^2+ab+b^2$"
+        },
+        {
+          "id": "o4",
+          "text": "$2a^2+2b^2$"
+        }
+      ],
+      "answer": "o2"
+    },
+    {
+      "id": "q3",
+      "type": "open",
+      "prompt": "Find the positive solution of $x^2=18$. A radical or a decimal is fine.",
+      "points": 3,
+      "explanation": "$x=\\sqrt{18}=3\\sqrt{2}$.",
+      "answerMode": "auto",
+      "tolerance": 0.000001,
+      "answers": [
+        "3*sqrt(2)"
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "open",
+      "prompt": "If $f(x)=2x^2-1$, find $f(3)$.",
+      "points": 2,
+      "explanation": "$f(3)=2\\cdot 9-1=17$.",
+      "answerMode": "auto",
+      "tolerance": 0.000001,
+      "answers": [
+        "17"
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "choice",
+      "prompt": "What is the product of the two roots of $x^2-5x+6=0$?",
+      "points": 3,
+      "explanation": "By Viète's formulas the product is the constant term, $6$. Alternatively, factor $(x-2)(x-3)$.",
+      "answerMode": "auto",
+      "tolerance": 0.000001,
+      "options": [
+        {
+          "id": "o1",
+          "text": "$-6$"
+        },
+        {
+          "id": "o2",
+          "text": "$-5$"
+        },
+        {
+          "id": "o3",
+          "text": "$5$"
+        },
+        {
+          "id": "o4",
+          "text": "$6$"
+        }
+      ],
+      "answer": "o4"
+    },
+    {
+      "id": "q6",
+      "type": "open",
+      "prompt": "Simplify $\\frac{2}{3}+\\frac{5}{6}$. Enter a fraction or a decimal.",
+      "points": 3,
+      "explanation": "$\\frac{2}{3}+\\frac{5}{6}=\\frac{4+5}{6}=\\frac{3}{2}$.",
+      "answerMode": "auto",
+      "tolerance": 0.000001,
+      "answers": [
+        "3/2"
+      ]
+    }
+  ]
+}
