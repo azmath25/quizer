@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function own(uid) { return request.auth != null && request.auth.uid == uid; }
+    function boundedList() { return request.query.limit != null && request.query.limit <= 100; }
+    match /catalog/{quizId} { allow get: if true; allow list: if boundedList(); }
+    match /users/{uid} {
+      allow get: if own(uid);
+      match /notifications/{notificationId} { allow get: if own(uid); allow list: if own(uid) && boundedList(); }
+    }
+    match /roles/{uid} { allow get: if own(uid); }
+    // Canonical writes and sensitive reads belong to Functions. Blocks v1 keys/scores too.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

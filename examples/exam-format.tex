@@ -1,0 +1,21 @@
+% The common exam-class question/choices format is also supported.
+\documentclass{exam}
+\quiztitle{An exam-style example}
+\quiztime{10}
+\begin{document}
+\begin{questions}
+\question[2] What is $\sqrt{81}$?
+\begin{choices}
+\choice $8$
+\CorrectChoice $9$
+\choice $18$
+\end{choices}
+\begin{solution}The nonnegative square root of $81$ is $9$.\end{solution}
+\question[3] Find the positive solution of $x^2=2$.
+\answer{sqrt(2)}
+\question[5] Prove that the square of an odd integer is odd.
+\begin{solution}
+Write the integer as $2k+1$. Its square is $4k^2+4k+1=2(2k^2+2k)+1$.
+\end{solution}
+\end{questions}
+\end{document}

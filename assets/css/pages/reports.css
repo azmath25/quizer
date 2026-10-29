@@ -1,0 +1,84 @@
+.report-toolbar {
+  margin-top: 24px;
+}
+.event-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.event-row:last-child {
+  border-bottom: 0;
+}
+.event-marker {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-blue);
+  color: var(--primary);
+}
+.event-main h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.event-main p {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+}
+.event-time {
+  font-size: 0.73rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.report-stats {
+  margin-bottom: 24px;
+}
+.access-message {
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  margin-top: 9px;
+}
+.participant {
+  font-weight: 650;
+}
+.participant small {
+  font-weight: 400;
+  color: var(--muted);
+  display: block;
+}
+.management-actions {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+.link-output {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.history-feed {
+  padding: 4px 0;
+}
+@media (max-width: 760px) {
+  .event-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .event-time {
+    grid-column: 2;
+    white-space: normal;
+    margin-top: -6px;
+  }
+  .event-marker {
+    width: 28px;
+    height: 28px;
+  }
+}

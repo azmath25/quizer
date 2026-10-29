@@ -1,0 +1,32 @@
+.admin-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  background: var(--surface-blue);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.admin-intro .icon {
+  color: var(--primary);
+}
+.job-progress {
+  min-width: 140px;
+}
+.job-error {
+  max-width: 320px;
+  font-size: 0.78rem;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+.admin-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.admin-controls .button {
+  font-size: 0.75rem;
+}

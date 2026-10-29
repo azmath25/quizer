@@ -1,0 +1,22 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function role() { return firestore.get(/databases/(default)/documents/roles/$(request.auth.uid)).data; }
+    function reservation(assetId) { return firestore.get(/databases/(default)/documents/assets/$(assetId)).data; }
+    function permitted(uid, assetId) {
+      let r = role();
+      let a = reservation(assetId);
+      return request.auth.uid == uid && request.auth.token.email_verified == true
+        && r.role in ['teacher','admin'] && r.accountStatus == 'active'
+        && a.ownerId == uid && a.status == 'awaiting_upload'
+        && request.time < a.expiresAt
+        && a.stagingPath == 'staging/' + uid + '/' + assetId + '/original'
+        && request.resource.size == a.expectedBytes
+        && request.resource.contentType == a.declaredContentType
+        && request.resource.size <= 20 * 1024 * 1024
+        && request.resource.contentType in ['image/png','image/jpeg','image/webp','image/gif','text/plain','application/json','application/x-tex'];
+    }
+    match /staging/{uid}/{assetId}/original { allow create: if request.auth != null && resource == null && permitted(uid, assetId); allow read, update, delete: if false; }
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}
