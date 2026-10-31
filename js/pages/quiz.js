@@ -155,18 +155,34 @@ async function runner(root, initial, session) {
     root.querySelector("#next").textContent =
       index === a.order.length - 1 ? "Review & submit" : "Next problem";
   }
+  const itemCache = new Map();
+  function fetchItem(itemId) {
+    if (!itemCache.has(itemId))
+      itemCache.set(
+        itemId,
+        api("getAttemptQuestions", { attemptId, itemIds: [itemId] }).then(
+          (r) => r.items[0],
+          (err) => {
+            itemCache.delete(itemId);
+            throw err;
+          },
+        ),
+      );
+    return itemCache.get(itemId);
+  }
+  function prefetch(itemId) {
+    if (itemId) fetchItem(itemId).catch(() => {});
+  }
   async function showQuestion() {
     if (stopped) return;
     const view = ++viewSequence;
     question.innerHTML = loading("Loading problem…");
     const itemId = a.order[index],
-      result = await api("getAttemptQuestions", {
-        attemptId,
-        itemIds: [itemId],
-      });
+      item = await fetchItem(itemId);
     if (getSession().epoch !== epoch) return;
-    const item = result.items[0];
-    if (!pending.has(itemId)) answers.set(itemId, item.answer);
+    prefetch(a.settings.allowBack ? a.order[index + 1] : undefined);
+    if (!pending.has(itemId) && !answers.has(itemId))
+      answers.set(itemId, item.answer);
     const current =
       pending.get(itemId)?.value ?? answers.get(itemId)?.value ?? "";
     const images = await resolveImages(item.questionAssetBindings, {

@@ -1,7 +1,17 @@
 import { getFirebaseServices, getSession } from "../firebase-client.js";
 const pendingRequests = new Map();
 document.addEventListener("session-cleared", () => pendingRequests.clear());
-export async function api(action, data = {}, requestId) {
+const inflight = new Map();
+document.addEventListener("session-cleared", () => inflight.clear());
+export function api(action, data = {}, requestId) {
+  if (requestId) return call(action, data, requestId);
+  const key = JSON.stringify([getSession().epoch, action, data]);
+  if (inflight.has(key)) return inflight.get(key);
+  const p = call(action, data).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+async function call(action, data = {}, requestId) {
   const c = await getFirebaseServices(),
     epoch = getSession().epoch;
   const key = JSON.stringify([epoch, action, data]);

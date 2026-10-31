@@ -187,23 +187,22 @@ define(
       );
       revisionId = source.quizRevisionId;
       settings = source.settingsSnapshot;
-      total = 0;
-      for (const itemId of selected) {
-        const item = await c.get(
-          `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`,
-        );
-        total += item.points;
-      }
+      total = null;
     }
+    const itemPath = (itemId) =>
+      `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`;
+    const itemDocs = new Map(
+      await Promise.all(
+        selected.map(async (itemId) => [itemId, await c.get(itemPath(itemId))]),
+      ),
+    );
+    if (total === null)
+      total = selected.reduce((sum, itemId) => sum + itemDocs.get(itemId).points, 0);
     const order = settings.shuffleQuestions ? shuffle(selected) : selected,
       optionOrder = {};
     for (const itemId of order) {
-      const item = await c.get(
-        `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`,
-      );
-      optionOrder[itemId] = settings.shuffleOptions
-        ? shuffle(item.options.map((o) => o.id))
-        : item.options.map((o) => o.id);
+      const ids = itemDocs.get(itemId).options.map((o) => o.id);
+      optionOrder[itemId] = settings.shuffleOptions ? shuffle(ids) : ids;
     }
     const profile = await c.get(`users/${c.actor.uid}`, false),
       attemptId = c.key("att_", r.quizId);
