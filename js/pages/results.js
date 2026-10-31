@@ -1,3 +1,4 @@
+import { go, onLeave } from "../core/router.js";
 import { api } from "../services/api.js";
 import { resolveImages } from "../services/assets.js";
 import { getSession } from "../firebase-client.js";
@@ -66,7 +67,7 @@ export async function mount(root, session) {
           quizId: a.quizId,
           sourceAttemptId: attemptId,
         });
-        location.href = `quiz.html?attempt=${next.attemptId}`;
+        go(`quiz.html?attempt=${next.attemptId}`);
       });
       for (const kind of ["score", "solutions"])
         action(root, "#release-" + kind, async () => {
@@ -202,7 +203,10 @@ export async function mount(root, session) {
     root.querySelector("#more-results").hidden = nextOffset === null;
   }
   await load();
-  document.addEventListener("session-cleared", () => clearTimeout(poll), {
-    once: true,
+  const stopPoll = () => clearTimeout(poll);
+  document.addEventListener("session-cleared", stopPoll, { once: true });
+  onLeave(() => {
+    stopPoll();
+    document.removeEventListener("session-cleared", stopPoll);
   });
 }

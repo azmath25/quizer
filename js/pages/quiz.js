@@ -1,3 +1,4 @@
+import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
 import { resolveImages } from "../services/assets.js";
 import {
@@ -32,7 +33,7 @@ export async function mount(root, session) {
     quizId = params.get("id");
   if (attemptId) {
     if (!session.user) {
-      location.replace(loginURL());
+      go(loginURL(), { replace: true });
       return;
     }
     return runner(root, await api("getAttempt", { attemptId }), session);
@@ -87,7 +88,7 @@ export async function mount(root, session) {
 async function runner(root, initial, session) {
   let a = initial;
   if (a.status !== "active") {
-    location.replace(`results.html?id=${a.attemptId}`);
+    go(`results.html?id=${a.attemptId}`, { replace: true });
     return;
   }
   const attemptId = a.attemptId,
@@ -373,7 +374,7 @@ async function runner(root, initial, session) {
     clearInterval(timer);
     clearRecovery(uid, attemptId);
     window.removeEventListener("beforeunload", unload);
-    location.replace(`results.html?id=${attemptId}`);
+    go(`results.html?id=${attemptId}`, { replace: true });
   }
   let checking = false;
   async function checkExpiry() {
@@ -389,7 +390,7 @@ async function runner(root, initial, session) {
         inflight = null;
         clearRecovery(uid, attemptId);
         window.removeEventListener("beforeunload", unload);
-        location.replace(`results.html?id=${attemptId}`);
+        go(`results.html?id=${attemptId}`, { replace: true });
       }
     } finally {
       checking = false;
@@ -432,21 +433,28 @@ async function runner(root, initial, session) {
       event.returnValue = "";
     }
   };
-  window.addEventListener("beforeunload", unload);
-  document.addEventListener("visibilitychange", () => {
+  const visibility = () => {
     if (document.hidden) flush().catch(() => {});
     else checkExpiry().catch(() => {});
+  };
+  const sessionCleared = () => {
+    stopped = true;
+    clearInterval(timer);
+    clearTimeout(debounce);
+    pending.clear();
+  };
+  window.addEventListener("beforeunload", unload);
+  document.addEventListener("visibilitychange", visibility);
+  document.addEventListener("session-cleared", sessionCleared, { once: true });
+  onLeaveGuard(() => !stopped && (pending.size > 0 || !!inflight));
+  onLeave(() => {
+    stopped = true;
+    clearInterval(timer);
+    clearTimeout(debounce);
+    window.removeEventListener("beforeunload", unload);
+    document.removeEventListener("visibilitychange", visibility);
+    document.removeEventListener("session-cleared", sessionCleared);
   });
-  document.addEventListener(
-    "session-cleared",
-    () => {
-      stopped = true;
-      clearInterval(timer);
-      clearTimeout(debounce);
-      pending.clear();
-    },
-    { once: true },
-  );
   action(root, "#previous", () => navigate(index - 1));
   action(root, "#next", () =>
     index === a.order.length - 1 ? submit() : navigate(index + 1),
@@ -506,7 +514,7 @@ async function runner(root, initial, session) {
     pending.clear();
     clearRecovery(uid, attemptId);
     window.removeEventListener("beforeunload", unload);
-    location.replace(`results.html?id=${attemptId}`);
+    go(`results.html?id=${attemptId}`, { replace: true });
   });
   const recovery = loadRecovery(uid, attemptId);
   if (recovery?.changes?.length) {

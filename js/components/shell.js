@@ -10,8 +10,8 @@ const links = [
 export function mountShell() {
   const header = document.querySelector("#site-header");
   header.innerHTML = `<div class="header-inner"><a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true">∑</span><span>Math Quiz</span></a><nav aria-label="Main navigation" id="desktop-nav"></nav><a class="profile-link" href="profile.html" id="account-link">${icon("profile")}<span>Profile</span></a></div>`;
-  const page = document.body.dataset.page;
-  watchSession((s) => {
+  const draw = (s) => {
+    const page = document.body.dataset.page;
     const nav = links
       .filter(([key]) => key !== "teach" || s.capabilities.teach)
       .filter(([key]) => key !== "admin" || s.capabilities.admin);
@@ -42,7 +42,9 @@ export function mountShell() {
     const footer = document.querySelector("#site-footer");
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Appearance</a></span>`;
     if (s.profile?.preferences) applyAppearance(s.profile.preferences);
-  });
+  };
+  watchSession(draw);
+  document.addEventListener("route-changed", () => draw(getSession()));
 }
 export function applyAppearance(preferences) {
   localStorage.setItem("mathquiz.appearance", JSON.stringify(preferences));

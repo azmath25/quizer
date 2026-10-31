@@ -1,3 +1,4 @@
+import { go } from "../core/router.js";
 import {
   loginWithEmail,
   loginWithGoogle,
@@ -18,7 +19,7 @@ export async function mount(root, session) {
     new URLSearchParams(location.search).get("returnTo"),
   );
   if (session.user) {
-    location.replace(destination);
+    go(destination, { replace: true });
     return;
   }
   let mode = "login";
@@ -41,11 +42,11 @@ export async function mount(root, session) {
           data.get("password"),
         );
       else await loginWithEmail(data.get("email"), data.get("password"));
-      location.replace(destination);
+      go(destination, { replace: true });
     });
     action(root, "#google", async () => {
       await loginWithGoogle();
-      location.replace(destination);
+      go(destination, { replace: true });
     });
     root.querySelector("#switch").onclick = () => {
       mode = mode === "login" ? "register" : "login";
