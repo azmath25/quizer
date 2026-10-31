@@ -1,3 +1,4 @@
+import "./core/device.js";
 import {
   initFirebase,
   getSession,
@@ -132,6 +133,10 @@ const warmers = {
   "index.html": () => warm("getDashboard"),
   "quizzes.html": () => warm("listPublicQuizzes", { limit: 12 }),
   "activity.html": () => getSession().user && warm("listMyAttempts", { limit: 20 }),
+  "problems.html": () =>
+    getSession().capabilities.teach &&
+    (warm("listProblems", { view: "mine", lifecycle: "active", limit: 12 }),
+    warm("listStars")),
   "teaching.html": () =>
     getSession().capabilities.teach &&
     warm("listMyQuizzes", { limit: 20, lifecycle: "active" }),

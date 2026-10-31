@@ -112,6 +112,7 @@ test("Star and bulk problem actions are registered with the right roles", async 
     ["setStar", "user"],
     ["listStars", "user"],
     ["bulkUpdateProblems", "teacher"],
+    ["getQuizProblemStats", "teacher"],
   ])
     assert.equal(handlers.get(name)?.permission, role);
 });

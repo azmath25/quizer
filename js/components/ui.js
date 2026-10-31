@@ -183,6 +183,41 @@ export function sheet({ title, body, footer = "", wide = false }) {
   node.showModal();
   return { node, close };
 }
+let toastHost;
+// Short-lived message with an optional action such as Undo.
+export function toast(text, { label, onAction, timeout = 7000, tone = "" } = {}) {
+  if (!toastHost) {
+    toastHost = document.createElement("div");
+    toastHost.className = "toast-host";
+    toastHost.setAttribute("role", "status");
+    toastHost.setAttribute("aria-live", "polite");
+    document.body.append(toastHost);
+  }
+  const node = document.createElement("div");
+  node.className = "toast " + tone;
+  const span = document.createElement("span");
+  span.textContent = text;
+  node.append(span);
+  const remove = () => node.remove();
+  if (label && onAction) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "toast__action";
+    b.textContent = label;
+    b.onclick = async () => {
+      remove();
+      try {
+        await onAction();
+      } catch (error) {
+        toast(error.message || "Could not undo.", { tone: "error" });
+      }
+    };
+    node.append(b);
+  }
+  toastHost.append(node);
+  setTimeout(remove, timeout);
+  return remove;
+}
 export const confirmDialog = (title, body, confirm = "Confirm") =>
   dialog({ title, body: `<p>${e(body)}</p>`, confirm, danger: true });
 export function quizCard(q, { management = false } = {}) {

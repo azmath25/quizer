@@ -17,6 +17,8 @@ import {
   busy,
   message,
   confirmDialog,
+  downloadBlob,
+  toast,
   dialog,
   pagination,
   timezone,
@@ -129,21 +131,21 @@ export async function mount(root) {
     });
     action(panel, "#trash", async () => {
       const restore = quiz.lifecycle === "trashed";
-      if (
-        !restore &&
-        !(await confirmDialog(
-          "Move quiz to Trash?",
-          "New attempts will stop. Student results and saved versions are retained.",
-          "Move to Trash",
-        ))
-      )
-        return;
-      await api(restore ? "restoreQuiz" : "trashQuiz", {
+      const result = await api(restore ? "restoreQuiz" : "trashQuiz", {
         quizId,
         expectedVersion: quiz.version,
       });
       await refresh();
       await showContent();
+      if (!restore)
+        toast("Quiz moved to Trash", {
+          label: "Undo",
+          onAction: async () => {
+            await api("restoreQuiz", { quizId, expectedVersion: result.version });
+            await refresh();
+            await showContent();
+          },
+        });
     });
     action(panel, "#backup", async () => {
       const job = await api("exportQuizBackup", { quizId });
@@ -394,7 +396,7 @@ export async function mount(root) {
   async function showResults() {
     const revisions = await api("listQuizRevisions", { quizId, limit: 100 });
     const ready = revisions.items.filter((r) => r.state === "ready");
-    panel.innerHTML = `<section class="panel"><div class="section-head"><h2>Results</h2><button class="button secondary" id="export-csv">Export CSV</button></div><form class="toolbar" id="result-filter">${select("Revision", "revisionId", [["", "All revisions"], ...ready.map((v) => [v.id, `Revision ${v.revisionNumber}`])], "")}<button class="button primary">Apply</button></form><div id="statistics" class="report-stats"></div><div id="export-download"></div><div id="attempts">${attemptTable()}</div></section>`;
+    panel.innerHTML = `<section class="panel"><div class="section-head"><h2>Results</h2><button class="button secondary" id="export-csv">Export CSV</button></div><form class="toolbar" id="result-filter">${select("Revision", "revisionId", [["", "All revisions"], ...ready.map((v) => [v.id, `Revision ${v.revisionNumber}`])], "")}<button class="button primary">Apply</button></form><div id="statistics" class="report-stats"></div><div class="section-head"><h3>Per-problem results</h3><div class="actions"><button class="button secondary small" id="problem-stats-load">Show breakdown</button><button class="button secondary small" id="problem-stats-csv" hidden>Download CSV</button></div></div><div id="problem-stats"></div><div id="export-download"></div><div id="attempts">${attemptTable()}</div></section>`;
     let revisionId = "",
       rows = [];
     const list = panel.querySelector("#attempts"),
@@ -452,8 +454,45 @@ export async function mount(root) {
     }
     bindForm(panel.querySelector("#result-filter"), async (values) => {
       revisionId = values.get("revisionId");
+      panel.querySelector("#problem-stats").innerHTML = "";
+      panel.querySelector("#problem-stats-csv").hidden = true;
       await load();
       await stats();
+    });
+    let breakdown = null;
+    const plain = (t) => String(t ?? "").replace(/\s+/g, " ").trim();
+    action(panel, "#problem-stats-load", async () => {
+      breakdown = await api("getQuizProblemStats", {
+        quizId,
+        ...(revisionId ? { revisionId } : {}),
+      });
+      panel.querySelector("#problem-stats-csv").hidden = !breakdown.problems.length;
+      panel.querySelector("#problem-stats").innerHTML = breakdown.problems.length
+        ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>Problem</th><th>Correct</th><th>Common wrong answers</th></tr></thead><tbody>${breakdown.problems
+            .map(
+              (p) =>
+                `<tr><td>${p.index}</td><td>${e(plain(p.statementLatex).slice(0, 90))}</td><td><div class="bar" role="img" aria-label="${p.percentCorrect ?? 0}% correct"><span style="width:${p.percentCorrect ?? 0}%"></span></div>${p.percentCorrect === null ? "—" : p.percentCorrect + "%"} <span class="muted small">(${p.correct}/${p.answered})</span></td><td>${p.commonWrong.map((w) => `${e(plain(w.answer))} <span class="muted small">×${w.count}</span>`).join("<br>") || "—"}</td></tr>`,
+            )
+            .join("")}</tbody></table></div><p class="muted small">Based on the ${breakdown.attemptsConsidered} most recent submitted standard attempts.</p>`
+        : empty("No data yet", "Per-problem results appear after students submit.");
+    });
+    action(panel, "#problem-stats-csv", () => {
+      const cell = (v) => {
+        let t = String(v ?? "");
+        if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+        return '"' + t.replace(/"/g, '""') + '"';
+      };
+      const lines = [["Problem", "Statement", "Answered", "Correct", "Percent correct", "Common wrong answers"]].concat(
+        breakdown.problems.map((p) => [
+          p.index,
+          plain(p.statementLatex),
+          p.answered,
+          p.correct,
+          p.percentCorrect ?? "",
+          p.commonWrong.map((w) => `${plain(w.answer)} (${w.count})`).join("; "),
+        ]),
+      );
+      downloadBlob(lines.map((l) => l.map(cell).join(",")).join("\r\n"), "problem-results.csv", "text/csv");
     });
     action(panel, "#export-csv", async () => {
       const job = await api("exportQuizResults", {
