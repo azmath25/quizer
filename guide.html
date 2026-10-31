@@ -1,41 +1,194 @@
 <!doctype html>
 <html lang="en" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <meta name="theme-color" content="#0281af" />
-    <meta name="referrer" content="no-referrer" />
-    <meta
-      name="description"
-      content="Mathematics quizzes, reusable problems and teaching tools."
-    />
-    <title>LaTeX guide · Math Quiz</title>
-    <link rel="icon" href="assets/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
-    <script src="js/appearance-init.js"></script>
-    <link rel="stylesheet" href="assets/css/tokens.css?v=12" />
-    <link rel="stylesheet" href="assets/css/base.css?v=12" />
-    <link rel="stylesheet" href="assets/css/layout.css?v=12" />
-    <link rel="stylesheet" href="assets/css/components.css?v=12" />
-    <link rel="stylesheet" href="assets/css/pages/editor.css?v=12" />
-    <script src="js/math-config.js"></script>
-    <script defer src="assets/mathjax.js"></script>
-    <script type="module" src="js/app.js"></script>
-  </head>
-  <body data-page="guide">
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header id="site-header"></header>
-    <main id="main" tabindex="-1">
-      <noscript
-        >This website needs JavaScript to sign in and load quizzes.</noscript
-      >
-    </main>
-    <footer id="site-footer"></footer>
-    <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <meta name="theme-color" content="#0281af" />
+  <meta name="referrer" content="no-referrer" />
+  <meta
+    name="description"
+    content="Mathematics quizzes, reusable problems and teaching tools."
+  />
+  <title>LaTeX guide · Math Quiz</title>
+
+  <link rel="icon" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+  />
+
+  <script src="js/appearance-init.js"></script>
+
+  <link rel="stylesheet" href="assets/css/tokens.css?v=12" />
+  <link rel="stylesheet" href="assets/css/base.css?v=12" />
+  <link rel="stylesheet" href="assets/css/layout.css?v=12" />
+  <link rel="stylesheet" href="assets/css/components.css?v=12" />
+  <link rel="stylesheet" href="assets/css/pages/editor.css?v=12" />
+
+  <script src="js/math-config.js"></script>
+  <script defer src="assets/mathjax.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+
+  <style>
+    .guide-download-area {
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 40px;
+    }
+
+    .guide-download-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #0281af;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 24px;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .guide-download-btn:hover {
+      background: #026b92;
+      transform: translateY(-1px);
+    }
+
+    .guide-download-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+      transform: none;
+    }
+
+    @media print {
+      #site-header,
+      #site-footer,
+      #mobile-nav,
+      .guide-download-area {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body data-page="guide">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header id="site-header"></header>
+
+  <main id="main" tabindex="-1">
+    <noscript>
+      This website needs JavaScript to sign in and load quizzes.
+    </noscript>
+  </main>
+
+  <div class="guide-download-area">
+    <button
+      id="download-guide"
+      class="guide-download-btn"
+      type="button"
+    >
+      &#8595; Download Guide (PDF)
+    </button>
+  </div>
+
+  <footer id="site-footer"></footer>
+  <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
+
+  <script>
+    document
+      .getElementById("download-guide")
+      .addEventListener("click", async function () {
+        const button = this;
+        const guide = document.getElementById("main");
+
+        if (!guide || !guide.textContent.trim()) {
+          alert("The guide has not loaded yet.");
+          return;
+        }
+
+        if (typeof html2pdf === "undefined") {
+          alert("PDF generator could not be loaded.");
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = "Generating PDF...";
+
+        try {
+          // Finish rendering mathematical expressions.
+          if (window.MathJax?.typesetPromise) {
+            await MathJax.typesetPromise([guide]);
+          }
+
+          // Wait for fonts to finish loading.
+          await document.fonts.ready;
+
+          const options = {
+            margin: [12, 12, 12, 12],
+            filename: "Math-Quiz-LaTeX-Guide.pdf",
+
+            image: {
+              type: "jpeg",
+              quality: 0.98
+            },
+
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              backgroundColor: "#ffffff",
+              scrollX: 0,
+              scrollY: 0,
+              onclone: function (doc) {
+                doc.documentElement.setAttribute(
+                  "data-theme",
+                  "light"
+                );
+              }
+            },
+
+            jsPDF: {
+              unit: "mm",
+              format: "a4",
+              orientation: "portrait"
+            },
+
+            pagebreak: {
+              mode: ["css", "legacy"],
+              avoid: [
+                "pre",
+                "blockquote",
+                "table",
+                "tr",
+                ".MathJax",
+                "mjx-container"
+              ]
+            }
+          };
+
+          await html2pdf()
+            .set(options)
+            .from(guide)
+            .save();
+
+        } catch (error) {
+          console.error("PDF generation error:", error);
+          alert("Unable to generate the PDF.");
+        } finally {
+          button.disabled = false;
+          button.textContent = "↓ Download Guide (PDF)";
+        }
+      });
+  </script>
+</body>
 </html>
