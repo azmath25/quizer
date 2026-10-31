@@ -20,6 +20,7 @@ import {
   icon,
 } from "../components/ui.js";
 import { displayProblem } from "../components/math-content.js";
+import { toLatex } from "../services/ai.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -105,7 +106,7 @@ export async function mount(root, session) {
         (p, i) =>
           `<li class="sel-row" data-row="${e(p.id)}"><span class="sel-num">${i + 1}</span><span class="sel-title" title="${e(p.title)}">${e(p.title)}</span><label class="sel-points"><span class="sr-only">Points for ${e(p.title)}</span><input type="number" min="0.00000001" max="1000" step="any" value="${e(p.points)}" data-points="${e(p.id)}"></label><span class="sel-ctl"><button type="button" class="icon-button" data-move="up" data-id="${e(p.id)}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-move="down" data-id="${e(p.id)}" aria-label="Move down" ${i === values.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-remove="${e(p.id)}" aria-label="Remove ${e(p.title)}">${icon("close")}</button></span></li>`,
       )
-      .join("")}</ol><div class="sel-actions"><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button><div class="actions"><button class="button secondary small" id="bulk-visibility">Visibility</button><button class="button ghost small" id="clear-selection">Clear</button></div></div>`;
+      .join("")}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
     updateTotal();
     panel.querySelectorAll("[data-points]").forEach((n) =>
       n.addEventListener("input", () => {
@@ -146,6 +147,101 @@ export async function mount(root, session) {
     action(panel, "#bulk-visibility", bulkVisibility);
     action(panel, "#build-quiz", buildQuiz);
   }
+
+  const STAR_KEY = "mathquiz.starred";
+  const starred = new Set(JSON.parse(localStorage.getItem(STAR_KEY) || "[]"));
+  const isOwner = (p) => p.ownerId === session.user.uid;
+  function cardHtml(p) {
+    const own = isOwner(p),
+      id = e(p.id),
+      shared = p.bankVisibility === "teachers",
+      flipBtn = (label, text) =>
+        `<button type="button" class="button secondary small" data-flip-btn aria-label="${label}">${text}</button>`;
+    const front = `<div class="bank-select"><span class="subject">${e(p.subject || "Mathematics")}</span><span data-vis>${view === "mine" ? badge(shared ? "Shared" : "Private", shared ? "blue" : "") : ""}</span>${view !== "trash" ? `<label class="check"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>` : badge("Trash")}</div><h3>${e(p.title)}</h3><div class="bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div><p class="muted small">Revision ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</p><div class="actions">${p.tags.map((t) => badge(t)).join("")}</div><div class="card-foot"><span class="muted small">#${id.slice(0, 6)}</span>${flipBtn("Show actions for " + e(p.title), "Actions ⟲")}</div>`;
+    const act = (attr, label, extra = "") =>
+      `<button type="button" class="button secondary small" ${attr}="${id}" ${extra}>${label}</button>`;
+    const back = `<div class="bank-select"><strong class="sel-title" title="${e(p.title)}">${e(p.title)}</strong>${flipBtn("Back to problem", "Back ⟲")}</div><div class="bank-actions">${
+      view === "trash"
+        ? act("data-restore", "Restore") + act("data-copy-latex", "Copy LaTeX")
+        : act("data-copy-latex", "Copy LaTeX") +
+          act("data-copy-link", "Copy link") +
+          act("data-star", starred.has(p.id) ? "★ Starred" : "☆ Star", `aria-pressed="${starred.has(p.id)}"`) +
+          act("data-download", "Download .tex") +
+          act("data-preview", "Answer & solution") +
+          linkButton(own || session.capabilities.admin ? "Edit" : "View / copy", `problem-edit.html?id=${p.id}`, "secondary small") +
+          (own && view === "mine" ? `<button type="button" class="button secondary small" data-share="${id}">${shared ? "Unshare" : "Share"}</button>` : "") +
+          (own ? `<button type="button" class="button danger small" data-trash="${id}" aria-label="Move ${e(p.title)} to Trash">Trash</button>` : "")
+    }</div>`;
+    return `<article class="bank-card flip-container" data-card="${id}"><div class="flip-card bank-flip"><div class="flip-face flip-face--front panel bank-face">${front}</div><div class="flip-face flip-face--back panel bank-face" inert>${back}</div></div></article>`;
+  }
+  async function copyText(text, ok) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const t = document.createElement("textarea");
+      t.value = text;
+      document.body.append(t);
+      t.select();
+      document.execCommand("copy");
+      t.remove();
+    }
+    message(root, ok, "success");
+  }
+  async function latexOf(row) {
+    const d = await fetchDetail(row),
+      c = d.content,
+      g = d.grading || {};
+    return toLatex(
+      [
+        {
+          points: c.defaultPoints ?? 1,
+          statement: c.statementLatex,
+          type: c.type,
+          options: (c.options || []).map((o) => ({ text: o.textLatex, correct: o.id === g.correctOptionId })),
+          answer: (g.acceptedAnswers || [])[0],
+          solution: g.explanationLatex,
+        },
+      ],
+      row.title,
+    );
+  }
+  list.addEventListener("click", (ev) => {
+    const t = ev.target.closest("button");
+    if (!t || !list.contains(t)) return;
+    const card = t.closest("[data-card]");
+    if (t.hasAttribute("data-flip-btn")) {
+      const flip = card.querySelector(".flip-card"),
+        on = flip.classList.toggle("is-flipped");
+      card.querySelector(".flip-face--front").inert = on;
+      card.querySelector(".flip-face--back").inert = !on;
+      (on ? card.querySelector(".flip-face--back") : card.querySelector(".flip-face--front")).querySelector("[data-flip-btn]").focus({ preventScroll: true });
+      return;
+    }
+    const id = card?.dataset.card,
+      row = rows.find((r) => r.id === id);
+    if (!row) return;
+    if (t.hasAttribute("data-star")) {
+      starred.has(id) ? starred.delete(id) : starred.add(id);
+      localStorage.setItem(STAR_KEY, JSON.stringify([...starred]));
+      t.textContent = starred.has(id) ? "★ Starred" : "☆ Star";
+      t.setAttribute("aria-pressed", starred.has(id));
+    } else if (t.hasAttribute("data-copy-link"))
+      copyText(new URL(`problem-edit.html?id=${id}`, location.href).href, "Link copied.");
+    else if (t.hasAttribute("data-copy-latex"))
+      busy(t, async () => copyText(await latexOf(row), "LaTeX copied."), root);
+    else if (t.hasAttribute("data-download"))
+      busy(
+        t,
+        async () => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([await latexOf(row)], { type: "text/x-tex" }));
+          a.download = (row.title || "problem").replace(/[^\w.-]+/g, "_") + ".tex";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        },
+        root,
+      );
+  });
   function paintCard(id) {
     const row = rows.find((p) => p.id === id);
     const card = list.querySelector(`[data-card="${CSS.escape(id)}"]`);
@@ -171,13 +267,7 @@ export async function mount(root, session) {
     const owned = [...selected.values()].filter(mine);
     if (!owned.length)
       throw new Error("You can only change visibility of your own problems.");
-    const values = await dialog({
-      title: "Problem visibility",
-      body: `<p class="muted small">Applies to ${owned.length} of your selected problem${owned.length === 1 ? "" : "s"}.</p>${select("Visible to", "visibility", [["private", "Only me"], ["teachers", "All teachers"]], "private")}`,
-      confirm: "Apply",
-    });
-    if (!values) return;
-    const visibility = values.get("visibility");
+    const visibility = panel.querySelector("#bulk-vis").value;
     let failed = 0;
     for (let i = 0; i < owned.length; i += 5)
       await Promise.all(
@@ -214,7 +304,7 @@ export async function mount(root, session) {
       result.items
         .map(
           (p) =>
-            `<article class="panel bank-card" data-card="${e(p.id)}"><div class="bank-select"><span class="subject">${e(p.subject || "Mathematics")}</span><span data-vis>${view === "mine" ? badge(p.bankVisibility === "teachers" ? "Shared" : "Private", p.bankVisibility === "teachers" ? "blue" : "") : ""}</span>${view !== "trash" ? `<label class="check"><input type="checkbox" data-select="${e(p.id)}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>` : badge("Trash")}</div><h3>${e(p.title)}</h3><div class="bank-body math-content" data-body="${e(p.id)}"><div class="skeleton" style="height:56px"></div></div><p class="muted small">Revision ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</p><div class="actions">${p.tags.map((t) => badge(t)).join("")}</div><div class="card-foot"><button class="button ghost small" data-preview="${e(p.id)}">Preview</button><div class="actions">${view === "trash" ? `<button class="button secondary small" data-restore="${e(p.id)}">Restore</button>` : linkButton(p.ownerId === session.user.uid || session.capabilities.admin ? "Edit" : "View / copy", `problem-edit.html?id=${p.id}`, "secondary small")}${p.ownerId === session.user.uid && view === "mine" ? `<button class="button ghost small" data-share="${e(p.id)}">${p.bankVisibility === "teachers" ? "Unshare" : "Share"}</button>` : ""}${p.ownerId === session.user.uid && view !== "trash" ? `<button class="icon-button" data-trash="${e(p.id)}" aria-label="Move ${e(p.title)} to Trash">${icon("close")}</button>` : ""}</div></div></article>`,
+            cardHtml(p),
         )
         .join(""),
     );

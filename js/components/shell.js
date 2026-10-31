@@ -12,10 +12,10 @@ function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "assets/css/math.css?v=5";
+  link.href = "assets/css/math.css?v=6";
   const polish = document.createElement("link");
   polish.rel = "stylesheet";
-  polish.href = "assets/css/polish.css?v=1";
+  polish.href = "assets/css/polish.css?v=2";
   document.head.append(link, polish);
   const bg = document.createElement("div");
   bg.id = "math-bg";
@@ -26,7 +26,7 @@ function mountBackdrop() {
 export function mountShell() {
   mountBackdrop();
   const header = document.querySelector("#site-header");
-  header.innerHTML = `<div class="header-inner"><a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M43 17H21l11 15-11 15h22" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle class="brand-orbit" cx="46" cy="46" r="5" fill="#ffd66b"/></svg></span><span class="logo-flip-container" role="img" aria-label="Math Quiz"><span class="flip-card logo-flip-card"><span class="flip-face flip-face--front logo-face--small logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span><span class="flip-face flip-face--back logo-face--big logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span></span></span></a><nav aria-label="Main navigation" id="desktop-nav"></nav><a class="profile-link" href="profile.html" id="account-link">${icon("profile")}<span>Profile</span></a></div>`;
+  header.innerHTML = `<div class="header-inner"><a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M43 17H21l11 15-11 15h22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle class="brand-orbit" cx="46" cy="46" r="5" fill="var(--accent)"/></svg></span><span class="logo-flip-container" role="img" aria-label="Math Quiz"><span class="flip-card logo-flip-card"><span class="flip-face flip-face--front logo-face--small logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span><span class="flip-face flip-face--back logo-face--big logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span></span></span></a><nav aria-label="Main navigation" id="desktop-nav"></nav><a class="profile-link" href="profile.html" id="account-link">${icon("profile")}<span>Profile</span></a></div>`;
   const draw = (s) => {
     const page = document.body.dataset.page;
     const nav = links
@@ -60,7 +60,7 @@ export function mountShell() {
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Appearance</a></span>`;
     if (s.profile?.preferences) applyAppearance(s.profile.preferences);
     if (s.authResolved)
-      import("./assistant.js?v=1").then((m) => m.mountAssistant(s)).catch(() => {});
+      import("./assistant.js?v=2").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   watchSession(draw);
   document.addEventListener("route-changed", () => {
@@ -70,7 +70,7 @@ export function mountShell() {
 }
 export function applyAppearance(preferences) {
   localStorage.setItem("mathquiz.appearance", JSON.stringify(preferences));
-  document.documentElement.dataset.theme = preferences.theme || "light";
+  document.documentElement.dataset.theme = preferences.theme || "dark";
   document.documentElement.style.setProperty(
     "--text-scale",
     preferences.textScale || 1,

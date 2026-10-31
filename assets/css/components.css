@@ -614,15 +614,15 @@ tr:last-child td {
 /* Visual polish */
 .button.primary {
   background: var(--grad);
-  color: #fff;
-  box-shadow: 0 2px 8px #2459d340;
+  color: var(--on-primary);
+  box-shadow: var(--shadow);
   transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
 }
 .button.primary:hover {
   background: var(--grad);
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-lift);
+  box-shadow: var(--shadow);
 }
 .panel {
   border-radius: 14px;
@@ -668,9 +668,8 @@ tr:last-child td {
   display: block;
   height: 14px;
   border-radius: 7px;
-  background: linear-gradient(90deg, var(--surface-blue) 25%, var(--border) 50%, var(--surface-blue) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.2s linear infinite;
+  background: var(--surface-blue);
+  animation: blink 1.2s steps(2, jump-none) infinite;
 }
 .skeleton i:first-child { width: 55%; height: 20px; }
 .skeleton i:last-child { width: 80%; }

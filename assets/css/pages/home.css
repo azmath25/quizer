@@ -80,9 +80,10 @@ body[data-page="home"] .page-heading {
   position: relative;
   overflow: hidden;
   padding: 32px 30px;
-  border-radius: 18px;
-  background: var(--grad);
-  color: #fff;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  color: var(--text);
   box-shadow: var(--shadow-lift);
 }
 body[data-page="home"] .page-heading::after {
@@ -93,21 +94,22 @@ body[data-page="home"] .page-heading::after {
   font-size: 4.2rem;
   font-weight: 800;
   letter-spacing: 0.2em;
-  opacity: 0.12;
+  opacity: 0.1;
+  color: var(--primary);
   pointer-events: none;
   white-space: nowrap;
 }
 body[data-page="home"] .page-heading h1,
 body[data-page="home"] .page-heading p,
 body[data-page="home"] .page-heading .date-label {
-  color: #fff;
+  color: var(--text);
 }
 body[data-page="home"] .page-heading p {
   opacity: 0.88;
 }
 .welcome-strip {
   background: var(--grad-soft);
-  border-radius: 14px;
+  border-radius: 4px;
   border-left-color: var(--accent);
 }
 .quick-link {

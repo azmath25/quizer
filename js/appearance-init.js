@@ -4,7 +4,7 @@ try {
     prefs.theme,
   )
     ? prefs.theme
-    : "light";
+    : "dark";
   document.documentElement.style.setProperty(
     "--text-scale",
     [1, 1.125, 1.25].includes(prefs.textScale) ? prefs.textScale : 1,

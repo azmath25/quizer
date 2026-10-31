@@ -27,7 +27,7 @@ export function mountAssistant(session) {
   if (!document.querySelector("link[data-ai-css]")) {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "assets/css/assistant.css?v=2";
+    link.href = "assets/css/assistant.css?v=3";
     link.dataset.aiCss = "";
     document.head.append(link);
   }
