@@ -12,7 +12,11 @@
   --danger: #b42318;
   --success: #146c43;
   --amber: #855300;
-  --shadow: 0 3px 12px #17377707;
+  --shadow: 0 1px 2px #1737770d, 0 4px 14px #17377710;
+  --shadow-lift: 0 10px 28px #2459d322;
+  --accent: #7c4dff;
+  --grad: linear-gradient(135deg, #2459d3 0%, #6a4df0 100%);
+  --grad-soft: linear-gradient(135deg, #eaf2ff 0%, #f1ecff 100%);
   --radius: 10px;
   --content-max: 1200px;
   --text-scale: 1;
@@ -38,6 +42,10 @@
   --success: #87dbb0;
   --amber: #f1c77d;
   --shadow: none;
+  --shadow-lift: 0 10px 28px #0006;
+  --accent: #b39dff;
+  --grad: linear-gradient(135deg, #3b6fe0 0%, #7a5cf0 100%);
+  --grad-soft: linear-gradient(135deg, #1b3558 0%, #2a2a5e 100%);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
@@ -55,5 +63,13 @@
     --success: #87dbb0;
     --amber: #f1c77d;
     --shadow: none;
+    --shadow-lift: 0 10px 28px #0006;
+    --accent: #b39dff;
+    --grad: linear-gradient(135deg, #3b6fe0 0%, #7a5cf0 100%);
+    --grad-soft: linear-gradient(135deg, #1b3558 0%, #2a2a5e 100%);
+  --shadow-lift: 0 10px 28px #0006;
+  --accent: #b39dff;
+  --grad: linear-gradient(135deg, #3b6fe0 0%, #7a5cf0 100%);
+  --grad-soft: linear-gradient(135deg, #1b3558 0%, #2a2a5e 100%);
   }
 }
