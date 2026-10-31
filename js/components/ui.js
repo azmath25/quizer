@@ -32,7 +32,7 @@ export const linkButton = (label, url, tone = "primary", symbol = "") =>
 export const empty = (title, description = "", action = "") =>
   `<div class="empty"><div class="empty-icon">${icon("quiz")}</div><h3>${e(title)}</h3>${description ? `<p>${e(description)}</p>` : ""}${action}</div>`;
 export const loading = (message = "Loading…") =>
-  `<div class="loading" role="status"><span class="spinner"></span>${e(message)}</div>`;
+  `<div class="loading" role="status" aria-label="${e(message)}"><div class="skeleton"><i></i><i></i><i></i></div></div>`;
 export const notice = (text, tone = "info") =>
   `<div class="notice ${tone}" role="${tone === "error" ? "alert" : "status"}">${e(text)}</div>`;
 export const date = (value) =>
@@ -152,7 +152,10 @@ export const confirmDialog = (title, body, confirm = "Confirm") =>
   dialog({ title, body: `<p>${e(body)}</p>`, confirm, danger: true });
 export function quizCard(q, { management = false } = {}) {
   const id = q.quizId ?? q.id;
-  return `<article class="quiz-card"><div class="card-top"><span class="subject">${e(q.subject || "Mathematics")}</span>${badge(management ? (q.lifecycle === "trashed" ? "Trash" : q.publishedRevisionId ? "Published" : "Draft") : q.accessMode === "approval" ? "Approval required" : "Open", q.accessMode === "approval" ? "amber" : "blue")}</div><h3><a href="${management ? "quiz-manage" : "quiz"}.html?id=${e(id)}">${e(q.title)}</a></h3>${q.description ? `<p class="clamp">${e(q.description)}</p>` : ""}<div class="card-meta"><span>${icon("clock")}${duration(q.durationSeconds)}</span>${q.questionCount !== undefined ? `<span>${q.questionCount} problems</span>` : ""}${q.totalPoints !== undefined ? `<span>${points(q.totalPoints)} points</span>` : ""}</div><div class="card-foot"><span>${e(q.ownerDisplayName || "Teacher")}</span><a class="text-link" href="${management ? "quiz-manage" : "quiz"}.html?id=${e(id)}">${management ? "Manage" : "View quiz"} ${icon("arrow")}</a></div></article>`;
+  const subjectText = String(q.subject || "Mathematics"),
+    tone = [...subjectText].reduce((n, ch) => n + ch.charCodeAt(0), 0) % 5,
+    art = [[/algebra/i, "x²"], [/geom/i, "△"], [/calc|deriv|integr/i, "∫"], [/trig/i, "sin"], [/stat|prob/i, "σ"], [/number|arith/i, "ℕ"], [/linear|matri/i, "⎡⎦"], [/logic|set/i, "∈"]].find(([re]) => re.test(subjectText))?.[1] ?? ["∑", "π", "∫", "√", "∞"][tone];
+  return `<article class="quiz-card" data-tone="${tone}"><div class="qc-inner"><div class="qc-face qc-front"><span class="qc-ghost" aria-hidden="true">${e(art)}</span><div class="card-top"><span class="subject">${e(q.subject || "Mathematics")}</span>${badge(management ? (q.lifecycle === "trashed" ? "Trash" : q.publishedRevisionId ? "Published" : "Draft") : q.accessMode === "approval" ? "Approval required" : "Open", q.accessMode === "approval" ? "amber" : "blue")}</div><h3><a href="${management ? "quiz-manage" : "quiz"}.html?id=${e(id)}">${e(q.title)}</a></h3>${q.description ? `<p class="clamp">${e(q.description)}</p>` : ""}<div class="card-meta"><span>${icon("clock")}${duration(q.durationSeconds)}</span>${q.questionCount !== undefined ? `<span>${q.questionCount} problems</span>` : ""}${q.totalPoints !== undefined ? `<span>${points(q.totalPoints)} points</span>` : ""}</div><div class="card-foot"><span>${e(q.ownerDisplayName || "Teacher")}</span><a class="text-link" href="${management ? "quiz-manage" : "quiz"}.html?id=${e(id)}">${management ? "Manage" : "View quiz"} ${icon("arrow")}</a></div></div><div class="qc-face qc-back" aria-hidden="true"><span class="qc-symbol">${e(art)}</span><strong>${e(q.title)}</strong><span>${q.questionCount !== undefined ? q.questionCount + " problems · " : ""}${duration(q.durationSeconds)}</span><span class="qc-go">${management ? "Manage" : "Start"} ${icon("arrow")}</span></div></div></article>`;
 }
 export function pagination(container, load) {
   let cursor = null;

@@ -187,23 +187,22 @@ define(
       );
       revisionId = source.quizRevisionId;
       settings = source.settingsSnapshot;
-      total = 0;
-      for (const itemId of selected) {
-        const item = await c.get(
-          `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`,
-        );
-        total += item.points;
-      }
+      total = null;
     }
+    const itemPath = (itemId) =>
+      `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`;
+    const itemDocs = new Map(
+      await Promise.all(
+        selected.map(async (itemId) => [itemId, await c.get(itemPath(itemId))]),
+      ),
+    );
+    if (total === null)
+      total = selected.reduce((sum, itemId) => sum + itemDocs.get(itemId).points, 0);
     const order = settings.shuffleQuestions ? shuffle(selected) : selected,
       optionOrder = {};
     for (const itemId of order) {
-      const item = await c.get(
-        `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`,
-      );
-      optionOrder[itemId] = settings.shuffleOptions
-        ? shuffle(item.options.map((o) => o.id))
-        : item.options.map((o) => o.id);
+      const ids = itemDocs.get(itemId).options.map((o) => o.id);
+      optionOrder[itemId] = settings.shuffleOptions ? shuffle(ids) : ids;
     }
     const profile = await c.get(`users/${c.actor.uid}`, false),
       attemptId = c.key("att_", r.quizId);
@@ -285,6 +284,22 @@ define("getAttempt", "user", ["attemptId"], async (c, r) => {
   a = await expire(c, r.attemptId, a);
   return attemptDTO(c, a, r.attemptId);
 });
+async function attemptItemRow(c, a, attemptId, itemId) {
+  const [item, answer] = await Promise.all([
+    c.get(`quizzes/${a.quizId}/revisions/${a.quizRevisionId}/items/${itemId}`),
+    c.get(`attempts/${attemptId}/answers/${itemId}`, false),
+  ]);
+  return {
+    ...studentItem(item),
+    answer: answer
+      ? {
+          value: answer.value,
+          revision: answer.revision,
+          updatedAt: answer.updatedAt,
+        }
+      : { value: "", revision: 0, updatedAt: null },
+  };
+}
 define(
   "getAttemptQuestions",
   "user",
@@ -318,25 +333,7 @@ define(
         "RESOURCE_UNAVAILABLE",
         "This problem is unavailable.",
       );
-      const item = studentItem(
-        await c.get(
-          `quizzes/${a.quizId}/revisions/${a.quizRevisionId}/items/${itemId}`,
-        ),
-      );
-      const answer = await c.get(
-        `attempts/${r.attemptId}/answers/${itemId}`,
-        false,
-      );
-      const row = {
-        ...item,
-        answer: answer
-          ? {
-              value: answer.value,
-              revision: answer.revision,
-              updatedAt: answer.updatedAt,
-            }
-          : { value: "", revision: 0, updatedAt: null },
-      };
+      const row = await attemptItemRow(c, a, r.attemptId, itemId);
       const size = byteSize(row);
       if (bytes + size > 1000000 && items.length) break;
       bytes += size;
@@ -498,8 +495,14 @@ define(
         currentIndex: r.targetIndex,
         version: a.uiState.version + 1,
       };
+    const item = await attemptItemRow(
+      c,
+      a,
+      r.attemptId,
+      a.order[r.targetIndex],
+    );
     c.set(p, { ...a, currentFrontier, uiState });
-    return { currentFrontier, uiState };
+    return { currentFrontier, uiState, item };
   },
   { mutation: true },
 );

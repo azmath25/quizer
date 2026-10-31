@@ -244,9 +244,20 @@ main {
     font-weight: 600;
     border-radius: 8px;
   }
+  #mobile-nav {
+    margin: 0 10px 10px;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: var(--shadow-lift);
+    backdrop-filter: blur(10px);
+  }
+  #mobile-nav a {
+    border-radius: 16px;
+    transition: background 0.15s, color 0.15s;
+  }
   #mobile-nav a[aria-current] {
-    color: var(--primary);
-    background: var(--surface-blue);
+    color: #fff;
+    background: var(--grad);
   }
   .brand {
     font-size: 1.05rem;

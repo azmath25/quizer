@@ -1,3 +1,4 @@
+import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
 import { resolveImages } from "../services/assets.js";
 import {
@@ -32,7 +33,7 @@ export async function mount(root, session) {
     quizId = params.get("id");
   if (attemptId) {
     if (!session.user) {
-      location.replace(loginURL());
+      go(loginURL(), { replace: true });
       return;
     }
     return runner(root, await api("getAttempt", { attemptId }), session);
@@ -87,7 +88,7 @@ export async function mount(root, session) {
 async function runner(root, initial, session) {
   let a = initial;
   if (a.status !== "active") {
-    location.replace(`results.html?id=${a.attemptId}`);
+    go(`results.html?id=${a.attemptId}`, { replace: true });
     return;
   }
   const attemptId = a.attemptId,
@@ -155,18 +156,54 @@ async function runner(root, initial, session) {
     root.querySelector("#next").textContent =
       index === a.order.length - 1 ? "Review & submit" : "Next problem";
   }
+  const itemCache = new Map(),
+    ready = new Set();
+  function seedItem(item) {
+    itemCache.set(item.itemId, Promise.resolve(item));
+    ready.add(item.itemId);
+  }
+  function fetchItem(itemId) {
+    if (!itemCache.has(itemId))
+      itemCache.set(
+        itemId,
+        api("getAttemptQuestions", { attemptId, itemIds: [itemId] }).then(
+          (r) => {
+            ready.add(itemId);
+            return r.items[0];
+          },
+          (err) => {
+            itemCache.delete(itemId);
+            throw err;
+          },
+        ),
+      );
+    return itemCache.get(itemId);
+  }
+  function prefetch(itemId) {
+    if (!itemId) return;
+    fetchItem(itemId)
+      .then((item) =>
+        resolveImages(item.questionAssetBindings, {
+          kind: "attempt",
+          id: attemptId,
+        }),
+      )
+      .catch(() => {});
+  }
   async function showQuestion() {
     if (stopped) return;
     const view = ++viewSequence;
-    question.innerHTML = loading("Loading problem…");
-    const itemId = a.order[index],
-      result = await api("getAttemptQuestions", {
-        attemptId,
-        itemIds: [itemId],
-      });
+    const itemId = a.order[index];
+    if (!ready.has(itemId)) question.innerHTML = loading("Loading problem…");
+    const item = await fetchItem(itemId);
     if (getSession().epoch !== epoch) return;
-    const item = result.items[0];
-    if (!pending.has(itemId)) answers.set(itemId, item.answer);
+    if (a.settings.allowBack) {
+      prefetch(a.order[index + 1]);
+      prefetch(a.order[index - 1]);
+      prefetch(a.order[index + 2]);
+    }
+    if (!pending.has(itemId) && !answers.has(itemId))
+      answers.set(itemId, item.answer);
     const current =
       pending.get(itemId)?.value ?? answers.get(itemId)?.value ?? "";
     const images = await resolveImages(item.questionAssetBindings, {
@@ -325,19 +362,42 @@ async function runner(root, initial, session) {
     }
     if (pending.size) return flush();
   }
+  let syncChain = Promise.resolve();
+  function syncNavigation(target) {
+    const run = async () => {
+      const [, state] = await Promise.all([
+        flush(),
+        api("navigateAttempt", { attemptId, targetIndex: target }),
+      ]);
+      a.currentFrontier = state.currentFrontier;
+      a.uiState = state.uiState;
+      if (state.item) seedItem(state.item);
+    };
+    const result = syncChain.catch(() => {}).then(run);
+    syncChain = result;
+    return result;
+  }
   async function navigate(target) {
     if (target === index || navigating) return;
     navigating = true;
     try {
-      await flush();
-      const state = await api("navigateAttempt", {
-        attemptId,
-        targetIndex: target,
-      });
-      a.currentFrontier = state.currentFrontier;
-      a.uiState = state.uiState;
-      index = target;
-      await showQuestion();
+      const sync = syncNavigation(target);
+      if (ready.has(a.order[target])) {
+        // Problem already loaded: show it now and let the server catch up.
+        const previous = index;
+        index = target;
+        showQuestion().catch(() => {});
+        sync.catch((error) => {
+          if (index !== target) return;
+          index = previous;
+          showQuestion().catch(() => {});
+          saveLabel(error.message || "Could not change problem.", true);
+        });
+      } else {
+        await sync;
+        index = target;
+        await showQuestion();
+      }
       question.scrollIntoView({ block: "start", behavior: "smooth" });
     } finally {
       navigating = false;
@@ -357,7 +417,7 @@ async function runner(root, initial, session) {
     clearInterval(timer);
     clearRecovery(uid, attemptId);
     window.removeEventListener("beforeunload", unload);
-    location.replace(`results.html?id=${attemptId}`);
+    go(`results.html?id=${attemptId}`, { replace: true });
   }
   let checking = false;
   async function checkExpiry() {
@@ -373,7 +433,7 @@ async function runner(root, initial, session) {
         inflight = null;
         clearRecovery(uid, attemptId);
         window.removeEventListener("beforeunload", unload);
-        location.replace(`results.html?id=${attemptId}`);
+        go(`results.html?id=${attemptId}`, { replace: true });
       }
     } finally {
       checking = false;
@@ -400,6 +460,10 @@ async function runner(root, initial, session) {
             .toString()
             .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
     timerNode.classList.toggle("urgent", seconds !== null && seconds <= 60);
+    timerNode.classList.toggle(
+      "warn",
+      seconds !== null && seconds > 60 && seconds <= 300,
+    );
     if (seconds !== null && seconds <= 60 && lastWarning !== 1) {
       root.querySelector("#timer-announcement").textContent =
         "Less than one minute remains.";
@@ -416,21 +480,28 @@ async function runner(root, initial, session) {
       event.returnValue = "";
     }
   };
-  window.addEventListener("beforeunload", unload);
-  document.addEventListener("visibilitychange", () => {
+  const visibility = () => {
     if (document.hidden) flush().catch(() => {});
     else checkExpiry().catch(() => {});
+  };
+  const sessionCleared = () => {
+    stopped = true;
+    clearInterval(timer);
+    clearTimeout(debounce);
+    pending.clear();
+  };
+  window.addEventListener("beforeunload", unload);
+  document.addEventListener("visibilitychange", visibility);
+  document.addEventListener("session-cleared", sessionCleared, { once: true });
+  onLeaveGuard(() => !stopped && (pending.size > 0 || !!inflight));
+  onLeave(() => {
+    stopped = true;
+    clearInterval(timer);
+    clearTimeout(debounce);
+    window.removeEventListener("beforeunload", unload);
+    document.removeEventListener("visibilitychange", visibility);
+    document.removeEventListener("session-cleared", sessionCleared);
   });
-  document.addEventListener(
-    "session-cleared",
-    () => {
-      stopped = true;
-      clearInterval(timer);
-      clearTimeout(debounce);
-      pending.clear();
-    },
-    { once: true },
-  );
   action(root, "#previous", () => navigate(index - 1));
   action(root, "#next", () =>
     index === a.order.length - 1 ? submit() : navigate(index + 1),
@@ -490,7 +561,7 @@ async function runner(root, initial, session) {
     pending.clear();
     clearRecovery(uid, attemptId);
     window.removeEventListener("beforeunload", unload);
-    location.replace(`results.html?id=${attemptId}`);
+    go(`results.html?id=${attemptId}`, { replace: true });
   });
   const recovery = loadRecovery(uid, attemptId);
   if (recovery?.changes?.length) {

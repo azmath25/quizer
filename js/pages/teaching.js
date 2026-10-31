@@ -1,4 +1,4 @@
-import { api } from "../services/api.js";
+import { api, apiSWR } from "../services/api.js";
 import {
   pageHead,
   linkButton,
@@ -34,6 +34,7 @@ export async function mount(root) {
   const list = root.querySelector("#teaching-list"),
     filters = root.querySelector("#filters"),
     setPage = pagination(list, load);
+  let loadId = 0;
   async function load(cursor) {
     if (!cursor) list.innerHTML = loading();
     const action =
@@ -42,7 +43,7 @@ export async function mount(root) {
         : tab === "requests"
           ? "listTeacherRequests"
           : "listTeacherAttempts";
-    const result = await api(action, {
+    const params = {
       limit: 20,
       ...(tab === "quizzes"
         ? { lifecycle }
@@ -50,8 +51,14 @@ export async function mount(root) {
           ? { pendingOnly }
           : {}),
       ...(cursor ? { cursor } : {}),
-    });
+    };
     if (!cursor) {
+      const stamp = ++loadId;
+      await apiSWR(action, params, (r) => stamp === loadId && render(r, null));
+      return;
+    }
+    render(await api(action, params), cursor);
+    function render(result, cursor) {    if (!cursor) {
       list.innerHTML = tab === "results" ? attemptTable() : "";
       list.className = tab === "quizzes" ? "grid" : "panel";
     }
@@ -95,6 +102,7 @@ export async function mount(root) {
       );
     }
     setPage(result.nextCursor);
+    }
   }
   async function switchTab(value) {
     tab = value;

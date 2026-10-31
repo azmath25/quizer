@@ -1,3 +1,4 @@
+import { go } from "../core/router.js";
 import { api, waitForJob } from "../services/api.js";
 import {
   pageHead,
@@ -111,7 +112,7 @@ export async function mount(root) {
         expectedVersion: quiz.version,
       });
       await progress(job.jobId);
-      location.href = `upload.html?id=${job.quizId}`;
+      go(`upload.html?id=${job.quizId}`);
     });
     action(panel, "#unpublish", async () => {
       if (

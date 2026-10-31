@@ -1,3 +1,4 @@
+import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
 import { readLegacyDeviceQuizzes } from "../migration/legacy-device.js";
 import { api, waitForJob } from "../services/api.js";
@@ -60,7 +61,7 @@ async function importPage(root) {
     status = root.querySelector("#import-status");
   bindForm(root.querySelector("#blank-form"), async (values) => {
     const q = await api("createQuiz", { title: values.get("title") });
-    location.href = `upload.html?id=${q.quizId}`;
+    go(`upload.html?id=${q.quizId}`);
   });
   root.querySelectorAll("[data-create]").forEach(
     (b) =>
@@ -348,7 +349,7 @@ async function importPage(root) {
         order: parsed.questions.map((_, i) => "problem_" + i),
       });
       progress("Saved to Firebase");
-      location.href = `upload.html?id=${q.quizId}`;
+      go(`upload.html?id=${q.quizId}`);
     } catch (error) {
       progress("Import paused — retry to continue from the last saved problem");
       throw error;
@@ -410,6 +411,8 @@ async function edit(root, quizId) {
     }
   };
   window.addEventListener("beforeunload", unload);
+  onLeaveGuard(() => dirty);
+  onLeave(() => window.removeEventListener("beforeunload", unload));
   function rows() {
     root.querySelector("#slots").innerHTML = order.length
       ? order
@@ -647,7 +650,7 @@ async function edit(root, quizId) {
         (saveState.textContent = `${j.progress.stage} ${j.progress.processed}/${j.progress.total}`),
     );
     dirty = false;
-    location.href = `quiz-manage.html?id=${quizId}`;
+    go(`quiz-manage.html?id=${quizId}`);
   });
   action(root, "#refresh-preview", () => previewPage());
   action(root, "#more-preview", () => previewPage(false));

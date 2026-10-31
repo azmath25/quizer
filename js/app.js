@@ -13,6 +13,8 @@ import {
   notice,
 } from "./components/ui.js";
 import { loginURL } from "./core/navigation.js";
+import { startRouter, go, isStale, loadModule, setWarmer } from "./core/router.js";
+import { warm } from "./services/api.js";
 const pages = {
   home: "guest",
   catalog: "guest",
@@ -30,56 +32,81 @@ const pages = {
   admin: "admin",
   guide: "teacher",
 };
-const page = document.body.dataset.page,
-  permission = pages[page],
-  main = document.querySelector("main");
+const main = document.querySelector("main");
 mountShell();
 main.innerHTML = loading("Opening your workspace…");
 await initFirebase();
-let session = getSession();
-let mounted = false, waitingForPermissions = false;
-if (["unconfigured", "error"].includes(session.status)) {
-  main.innerHTML =
-    pageHead(page === "home" ? "Home" : "Quiz service unavailable") +
-    `<section class="panel">${empty(session.status === "unconfigured" ? "The quiz service is not connected yet" : "Could not load your account", session.error, `<button class="button secondary" id="reload">Try again</button>${session.user ? '<button class="button secondary" id="sign-out">Sign out</button>' : ""}`)}</section>`;
-  document.querySelector("#reload").onclick = () => location.reload();
-  if (main.querySelector("#sign-out"))
-    main.querySelector("#sign-out").onclick = logout;
-} else if (permission !== "guest" && !session.user)
-  location.replace(loginURL());
-else if (session.accountStatus === "disabled") {
-  main.innerHTML =
-    notice("This account has been disabled. Contact the site owner.", "error") +
-    `<button class="button secondary" id="sign-out">Sign out</button>`;
-  main.querySelector("#sign-out").onclick = logout;
-} else if (
-  (permission === "teacher" && !session.capabilities.teach) ||
-  (permission === "admin" && !session.capabilities.admin)
-)
-  main.innerHTML =
-    pageHead("Access restricted") +
-    empty(
-      "This page is for " +
-        (permission === "admin" ? "administrators" : "teachers"),
-      session.user?.emailVerified
-        ? "Ask an administrator to grant the required role."
-        : "Verify your email address from your profile.",
-      linkButton("Open profile", "profile.html"),
-    );
-else {
-  try {
-    const controller = await import(`./pages/${page}.js`);
-    await controller.mount(main, session);
-    mounted = true;
-  } catch (error) {
-    main.innerHTML =
-      pageHead("Could not open this page") +
-      notice(error.message, "error") +
-      linkButton("Go home", "index.html", "secondary");
+let page = "",
+  session = getSession(),
+  mounted = false,
+  waitingForPermissions = false;
+function roleSettled() {
+  const s = getSession();
+  if (!s.user || s.roleResolved || s.status === "error") return Promise.resolve();
+  return new Promise((done) => {
+    const stop = watchSession((n) => {
+      if (!n.user || n.roleResolved || n.status === "error") {
+        queueMicrotask(() => stop?.());
+        done();
+      }
+    });
+  });
+}
+async function renderPage(name, file, token) {
+  page = name;
+  mounted = false;
+  const root = document.createElement("div");
+  main.replaceChildren(root);
+  root.innerHTML = loading("Opening your workspace…");
+  await roleSettled();
+  if (isStale(token)) return;
+  session = getSession();
+  const permission = pages[page];
+  if (["unconfigured", "error"].includes(session.status)) {
+    root.innerHTML =
+      pageHead(page === "home" ? "Home" : "Quiz service unavailable") +
+      `<section class="panel">${empty(session.status === "unconfigured" ? "The quiz service is not connected yet" : "Could not load your account", session.error, `<button class="button secondary" id="reload">Try again</button>${session.user ? '<button class="button secondary" id="sign-out">Sign out</button>' : ""}`)}</section>`;
+    document.querySelector("#reload").onclick = () => location.reload();
+    if (root.querySelector("#sign-out"))
+      root.querySelector("#sign-out").onclick = logout;
+  } else if (permission !== "guest" && !session.user)
+    go(loginURL(), { replace: true });
+  else if (session.accountStatus === "disabled") {
+    root.innerHTML =
+      notice("This account has been disabled. Contact the site owner.", "error") +
+      `<button class="button secondary" id="sign-out">Sign out</button>`;
+    root.querySelector("#sign-out").onclick = logout;
+  } else if (
+    (permission === "teacher" && !session.capabilities.teach) ||
+    (permission === "admin" && !session.capabilities.admin)
+  )
+    root.innerHTML =
+      pageHead("Access restricted") +
+      empty(
+        "This page is for " +
+          (permission === "admin" ? "administrators" : "teachers"),
+        session.user?.emailVerified
+          ? "Ask an administrator to grant the required role."
+          : "Verify your email address from your profile.",
+        linkButton("Open profile", "profile.html"),
+      );
+  else {
+    try {
+      const controller = await loadModule(file);
+      if (isStale(token)) return;
+      await controller.mount(root, session, token);
+      if (!isStale(token)) mounted = true;
+    } catch (error) {
+      if (isStale(token)) return;
+      root.innerHTML =
+        pageHead("Could not open this page") +
+        notice(error.message, "error") +
+        linkButton("Go home", "index.html", "secondary");
+    }
   }
 }
 watchSession((next) => {
-  if (page === "login") return;
+  if (page === "login" || !page) return;
   if (waitingForPermissions && next.status === "ready" && next.roleResolved) {
     location.reload();
     return;
@@ -101,7 +128,26 @@ watchSession((next) => {
     location.reload();
   }
 });
+const warmers = {
+  "index.html": () => warm("getDashboard"),
+  "quizzes.html": () => warm("listPublicQuizzes", { limit: 12 }),
+  "activity.html": () => getSession().user && warm("listMyAttempts", { limit: 20 }),
+  "teaching.html": () =>
+    getSession().capabilities.teach &&
+    warm("listMyQuizzes", { limit: 20, lifecycle: "active" }),
+};
+setWarmer((file) => warmers[file]?.());
+await startRouter(renderPage);
+// Warm the main menu destinations once the current page is up.
+setTimeout(() => {
+  for (const file of Object.keys(warmers)) warmers[file]();
+}, 1500);
 document.addEventListener("click", (event) => {
+  const back = event.target.closest(".qc-back");
+  if (back) {
+    go(back.closest(".quiz-card").querySelector("a[href]").getAttribute("href"));
+    return;
+  }
   const image = event.target.closest(".math-content img");
   if (!image) return;
   const d = document.createElement("dialog");

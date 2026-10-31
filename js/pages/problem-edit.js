@@ -1,3 +1,4 @@
+import { go } from "../core/router.js";
 import { api } from "../services/api.js";
 import {
   pageHead,
@@ -34,7 +35,7 @@ export async function mount(root, session) {
       problemId,
       revisionId: data.revisionId,
     });
-    location.href = `problem-edit.html?id=${copy.problemId}`;
+    go(`problem-edit.html?id=${copy.problemId}`);
   });
   const initial = data
     ? {

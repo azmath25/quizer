@@ -25,9 +25,20 @@ function update(patch) {
   state = { ...state, ...patch };
   for (const fn of listeners) fn(getSession());
 }
+const CACHE_KEY = "mathquiz.session.";
+const CACHE_TTL = 5 * 60 * 1000;
+function readCache(uid) {
+  try {
+    const hit = JSON.parse(sessionStorage.getItem(CACHE_KEY + uid));
+    return hit && Date.now() - hit.at < CACHE_TTL ? hit.data : null;
+  } catch {
+    return null;
+  }
+}
 function clearPrivate() {
   for (const key of Object.keys(sessionStorage))
-    if (key.startsWith("mathquiz.recovery.")) sessionStorage.removeItem(key);
+    if (key.startsWith("mathquiz.recovery.") || key.startsWith(CACHE_KEY))
+      sessionStorage.removeItem(key);
   document.dispatchEvent(new Event("session-cleared"));
 }
 export function errorMessage(error) {
@@ -63,6 +74,12 @@ export async function refreshSession() {
     )({ apiVersion: 2, action: "getSessionInfo" });
     if (epoch !== state.epoch || services.auth.currentUser?.uid !== uid) return;
     const data = reply.data.data;
+    try {
+      sessionStorage.setItem(
+        CACHE_KEY + uid,
+        JSON.stringify({ at: Date.now(), data }),
+      );
+    } catch {}
     update({
       status: "ready",
       roleResolved: true,
@@ -186,7 +203,24 @@ export function initFirebase() {
               error: "",
             });
             if (user) {
-              await refreshSession();
+              const cached = readCache(user.uid);
+              if (cached)
+                update({
+                  status: "ready",
+                  roleResolved: true,
+                  profile: cached.profile,
+                  role: cached.role,
+                  accountStatus: cached.accountStatus,
+                  capabilities: cached.capabilities,
+                  user: {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: cached.profile.displayName,
+                    emailVerified: user.emailVerified,
+                  },
+                });
+              const refreshed = refreshSession();
+              if (!cached) await refreshed;
               if (auth.currentUser?.uid === user.uid) {
                 unsubscribeRole = firestoreSDK.onSnapshot(
                   firestoreSDK.doc(db, "roles", user.uid),

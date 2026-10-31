@@ -1,3 +1,4 @@
+import { onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
 import { uploadAsset, resolveImages } from "../services/assets.js";
 import { validateProblem, validateMetadata } from "../../shared/schema.js";
@@ -291,6 +292,8 @@ export async function problemForm(
     }
   };
   window.addEventListener("beforeunload", beforeUnload);
+  onLeaveGuard(() => dirty);
+  onLeave(() => window.removeEventListener("beforeunload", beforeUnload));
   bindForm(form, async () => {
     const data = collect();
     validateMetadata(data.metadata);

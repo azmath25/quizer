@@ -1,3 +1,4 @@
+import { go } from "../core/router.js";
 import { api } from "../services/api.js";
 import {
   pageHead,
@@ -243,7 +244,7 @@ export async function mount(root, session) {
         "info",
       );
     }
-    location.href = `upload.html?id=${quizId}`;
+    go(`upload.html?id=${quizId}`);
   });
   await load();
 }
