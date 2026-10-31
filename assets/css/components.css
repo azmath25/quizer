@@ -843,3 +843,36 @@ html[data-input="touch"] select,
 html[data-input="touch"] textarea {
   font-size: 16px;
 }
+
+.tour {
+  position: fixed;
+  z-index: 110;
+  padding: 16px 18px;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+.tour h2 {
+  margin: 2px 0 6px;
+  font-size: 1.05rem;
+}
+.tour p {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+.tour .tour-count {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tour .actions {
+  justify-content: flex-end;
+}
+.tour-target {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}

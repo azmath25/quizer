@@ -192,3 +192,24 @@ p + p {
     transition: none !important;
   }
 }
+
+[tabindex]:not([tabindex="-1"]):focus-visible,
+[role="tab"]:focus-visible,
+.tag-chip:focus-visible,
+.action-btn:focus-visible,
+.icon-button:focus-visible,
+dialog:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+label:has(input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+@media (forced-colors: active) {
+  .tour-target,
+  .tag-chip.is-active {
+    outline: 3px solid Highlight;
+  }
+}

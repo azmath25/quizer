@@ -1,5 +1,5 @@
 import { loadStars, starList, removeStar } from "../services/stars.js";
-import { e, icon, empty, message } from "./ui.js";
+import { e, icon, empty, message, linkButton } from "./ui.js";
 
 // Fills `host` with the user's starred problems and keeps it current until the host leaves the page.
 export function mountStarred(host, { limit = Infinity } = {}) {
@@ -13,7 +13,7 @@ export function mountStarred(host, { limit = Infinity } = {}) {
               `<div class="list-row"><span class="number-tile">${icon("star")}</span><div class="row-main"><h3><a href="${e(s.href)}">${e(s.title)}</a></h3>${s.subject ? `<p>${e(s.subject)}</p>` : ""}</div><button type="button" class="icon-button" data-unstar="${e(s.ref)}" aria-label="Remove star" title="Remove star">${icon("close")}</button></div>`,
           )
           .join("") + (all.length > items.length ? `<p class="muted small">${all.length - items.length} more on your profile.</p>` : "")
-      : empty("No starred problems", "Star problems in the bank or during a quiz to keep them here.");
+      : empty("No starred problems", "Star problems in the bank or during a quiz to keep them here.", linkButton("Open problem bank", "problems.html", "secondary"));
   };
   host.onclick = (ev) => {
     const b = ev.target.closest("[data-unstar]");

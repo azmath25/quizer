@@ -10,9 +10,8 @@ import {
   field,
   bindForm,
   action,
-  notice,
   message,
-  e,
+  e
 } from "../components/ui.js";
 export async function mount(root, session) {
   const destination = safeReturnURL(

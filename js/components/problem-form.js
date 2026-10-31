@@ -7,13 +7,12 @@ import {
   field,
   textarea,
   select,
-  checkbox,
   e,
   bindForm,
-  action,
   message,
   points,
-  icon,
+  icon
+
 } from "./ui.js";
 import { problemPreview, typeset, clearMath } from "./math-content.js";
 export function blankProblem() {

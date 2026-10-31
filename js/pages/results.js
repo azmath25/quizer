@@ -1,11 +1,9 @@
 import { go, onLeave } from "../core/router.js";
 import { api } from "../services/api.js";
 import { resolveImages } from "../services/assets.js";
-import { getSession } from "../firebase-client.js";
 import {
   pageHead,
   linkButton,
-  loading,
   empty,
   e,
   badge,
@@ -15,12 +13,8 @@ import {
   textarea,
   bindForm,
   action,
-  busy,
   message,
-  dialog,
-  confirmDialog,
-  pagination,
-  icon,
+  dialog
 } from "../components/ui.js";
 import { latexHTML, typeset } from "../components/math-content.js";
 export async function mount(root, session) {

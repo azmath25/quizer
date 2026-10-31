@@ -283,6 +283,13 @@ export async function mount(root, session) {
     const t = ev.target.closest("button");
     if (!t || !list.contains(t)) return closePopovers();
     if (t.dataset.tag) return setTag(t.dataset.tag);
+    if (t.dataset.resetFilters !== undefined) {
+      q = "";
+      starOnly = false;
+      filter = {};
+      root.querySelector("form").reset();
+      return load();
+    }
     const card = t.closest("[data-card]");
     const id = card?.dataset.card,
       row = rows.find((r) => r.id === id);
@@ -437,6 +444,11 @@ export async function mount(root, session) {
             : view === "shared"
               ? "Problems shared by teachers will appear here."
               : "Create a problem or import a LaTeX quiz.",
+          rows.length
+            ? '<button type="button" class="button secondary" data-reset-filters>Clear filters</button>'
+            : view === "mine"
+              ? linkButton("New problem", "problem-edit.html", "primary", "plus")
+              : "",
         );
     paintFilters();
     bindCards(list);

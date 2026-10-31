@@ -3,11 +3,10 @@ import {
   pageHead,
   quizCard,
   empty,
-  e,
   bindForm,
   loading,
   pagination,
-  message,
+  message
 } from "../components/ui.js";
 export async function mount(root, session) {
   let view = "public";

@@ -21,8 +21,7 @@ import {
   toast,
   dialog,
   pagination,
-  timezone,
-  icon,
+  timezone
 } from "../components/ui.js";
 import {
   attemptRows,

@@ -1,12 +1,11 @@
 import { api } from "../services/api.js";
 import {
   pageHead,
-  empty,
   linkButton,
   e,
   textarea,
   bindForm,
-  notice,
+  notice
 } from "../components/ui.js";
 import { loginURL } from "../core/navigation.js";
 export async function mount(root, session) {

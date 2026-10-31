@@ -4,8 +4,7 @@ import {
   pageHead,
   linkButton,
   action,
-  message,
-  notice,
+  notice
 } from "../components/ui.js";
 import { problemForm, blankProblem } from "../components/problem-form.js";
 export async function mount(root, session) {

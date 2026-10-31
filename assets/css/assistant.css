@@ -65,7 +65,7 @@
 .ai-head .icon-button:hover { background: var(--glass); }
 
 .ai-grip { position: absolute; z-index: 2; touch-action: none; background: transparent; }
-.ai-grip:hover, .ai-grip:focus-visible { background: var(--brand-tint); outline: none; }
+.ai-grip:hover, .ai-grip:focus-visible { background: var(--brand-tint); }
 .ai-grip--w { left: 0; top: 14px; bottom: 0; width: 8px; cursor: ew-resize; }
 .ai-grip--n { top: 0; left: 14px; right: 0; height: 8px; cursor: ns-resize; }
 .ai-grip--nw { top: 0; left: 0; width: 16px; height: 16px; cursor: nwse-resize; }
