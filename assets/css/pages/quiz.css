@@ -230,12 +230,23 @@
   width: 168px;
   height: 168px;
   flex-shrink: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(closest-side, var(--surface) 80%, transparent 81%),
-    conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--border) 0);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 2px solid var(--brand);
+  box-shadow: var(--shadow);
   animation: ring-in 0.9s ease-out;
 }
+.score-ring::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: calc(var(--pct) * 1%);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  border-top: 2px solid var(--primary);
+}
+.score-ring > * { position: relative; }
 .score-ring .score-number {
   font-size: 1.9rem;
   text-align: center;
@@ -265,7 +276,7 @@
 }
 .choice {
   padding: 16px 18px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   border-width: 2px;
   transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
@@ -280,7 +291,7 @@
 }
 .choice:has(input:checked) .choice-letter {
   background: var(--grad);
-  color: #fff;
+  color: var(--on-primary);
 }
 .choice .choice-letter {
   width: 30px;
@@ -298,7 +309,7 @@
 }
 .question-grid button.current {
   background: var(--grad);
-  color: #fff;
+  color: var(--on-primary);
 }
 .question-grid button.answered:not(.current) {
   background: color-mix(in srgb, var(--primary) 14%, var(--surface));

@@ -41,6 +41,7 @@ export async function mount(root) {
   return importPage(root);
 }
 async function importPage(root) {
+  const bankOnly = new URLSearchParams(location.search).has("bank");
   let backupManifest = null;
   let parsed = null,
     warnings = [],
@@ -51,14 +52,20 @@ async function importPage(root) {
     importState = null;
   root.innerHTML =
     pageHead(
-      "Create a quiz",
-      "Import your problems, start with an empty draft, or choose from the bank.",
+      bankOnly ? "Import problems to your bank" : "Create a quiz",
+      bankOnly
+        ? "Add problems to the bank without creating a quiz. Choose who can see them below."
+        : "Import your problems, start with an empty draft, or choose from the bank.",
       linkButton("Problem bank", "problems.html", "secondary", "book"),
     ) +
-    `<div class="tabs" role="tablist" aria-label="Creation method"><button aria-selected="true" role="tab" data-create="import">Import LaTeX / JSON</button><button aria-selected="false" role="tab" data-create="blank">Empty quiz</button></div><div data-message></div><div id="blank-panel" class="panel narrow" hidden><h2>Start a new quiz</h2><form id="blank-form" class="stack">${field("Quiz title", "title", "text", "", 'required maxlength="200"')}<p class="muted small">The quiz starts as a private draft. Add problems, set the time limit and publish when ready.</p><button class="button primary">Create private draft</button></form></div><div id="import-panel"><div class="tabs mobile-editor-tabs" role="tablist" aria-label="Import preview"><button aria-selected="true" data-import-tab="edit" role="tab">Import</button><button aria-selected="false" data-import-tab="preview" role="tab">Preview</button></div><div class="editor-grid" data-tab="edit"><div class="editor-panel"><section class="panel stack"><div class="drop-area">${icon("upload")}<h2>Upload your problem file</h2><p>Select a .tex, .quiz.json or backup .zip file and its images.</p><label class="field"><span class="sr-only">LaTeX, JSON and image files</span><input id="import-files" type="file" multiple accept=".tex,.json,.zip,image/png,image/jpeg,image/webp,image/gif"></label></div><div class="section-head"><h2>Or paste LaTeX</h2><a href="guide.html">Syntax guide ${icon("arrow")}</a></div><label class="field"><span>Source</span><textarea id="latex-source" class="source-input" spellcheck="false" placeholder="\\begin{problem}[points=2]&#10;What is $2+2$?&#10;\\answer{4}&#10;\\end{problem}"></textarea></label><div class="actions"><button class="button secondary" id="preview-source">Preview problems</button><button class="button ghost" id="load-example">Load example</button></div><div class="image-list" id="import-images"></div></section><section class="panel"><h2>Import details</h2><p class="muted small">Preview first. Importing creates separate problems and image files in your Firebase workspace, plus a private quiz draft.</p><p class="muted small">Written answers without a key are marked by the teacher. LaTeX is parsed as text; external files and TeX commands are never executed.</p></section></div><aside class="panel editor-preview"><div class="section-head"><h2>Problem preview</h2><span class="muted small" id="preview-count"></span></div><div id="import-warnings"></div><div id="import-preview">${empty("Preview your problems", "Choose a file or paste LaTeX, then select Preview problems.")}</div></aside></div><div class="editor-actions"><span class="save-state" id="import-status">Nothing imported yet</span><button class="button primary" id="import-save" disabled>Import to Firebase</button></div></div>`;
+    `<div class="tabs" role="tablist" aria-label="Creation method"><button aria-selected="true" role="tab" data-create="import">Import LaTeX / JSON</button><button aria-selected="false" role="tab" data-create="blank">Empty quiz</button></div><div data-message></div><div id="blank-panel" class="panel narrow" hidden><h2>Start a new quiz</h2><form id="blank-form" class="stack">${field("Quiz title", "title", "text", "", 'required maxlength="200"')}<p class="muted small">The quiz starts as a private draft. Add problems, set the time limit and publish when ready.</p><button class="button primary">Create private draft</button></form></div><div id="import-panel"><div class="tabs mobile-editor-tabs" role="tablist" aria-label="Import preview"><button aria-selected="true" data-import-tab="edit" role="tab">Import</button><button aria-selected="false" data-import-tab="preview" role="tab">Preview</button></div><div class="editor-grid" data-tab="edit"><div class="editor-panel"><section class="panel stack"><div class="drop-area">${icon("upload")}<h2>Upload your problem file</h2><p>Select a .tex, .quiz.json or backup .zip file and its images.</p><label class="field"><span class="sr-only">LaTeX, JSON and image files</span><input id="import-files" type="file" multiple accept=".tex,.json,.zip,image/png,image/jpeg,image/webp,image/gif"></label></div><div class="section-head"><h2>Or paste LaTeX</h2><a href="guide.html">Syntax guide ${icon("arrow")}</a></div><label class="field"><span>Source</span><textarea id="latex-source" class="source-input" spellcheck="false" placeholder="\\begin{problem}[points=2]&#10;What is $2+2$?&#10;\\answer{4}&#10;\\end{problem}"></textarea></label><div class="actions"><button class="button secondary" id="preview-source">Preview problems</button><button class="button ghost" id="load-example">Load example</button></div><div class="image-list" id="import-images"></div></section><section class="panel"><h2>Import details</h2>${bankOnly ? `<label class="field"><span>Bank visibility</span><select id="bank-visibility"><option value="private">Private (only me)</option><option value="teachers">Shared with teachers</option></select></label>` : ""}<p class="muted small">Preview first. Importing creates separate problems and image files in your Firebase workspace, plus a private quiz draft.</p><p class="muted small">Written answers without a key are marked by the teacher. LaTeX is parsed as text; external files and TeX commands are never executed.</p></section></div><aside class="panel editor-preview"><div class="section-head"><h2>Problem preview</h2><span class="muted small" id="preview-count"></span></div><div id="import-warnings"></div><div id="import-preview">${empty("Preview your problems", "Choose a file or paste LaTeX, then select Preview problems.")}</div></aside></div><div class="editor-actions"><span class="save-state" id="import-status">Nothing imported yet</span><button class="button primary" id="import-save" disabled>${bankOnly ? "Import to bank" : "Import to Firebase"}</button></div></div>`;
   const input = root.querySelector("#latex-source"),
     preview = root.querySelector("#import-preview"),
     status = root.querySelector("#import-status");
+  if (bankOnly) {
+    root.querySelector(".tabs[aria-label='Creation method']").hidden = true;
+    root.querySelector("#blank-panel").hidden = true;
+  }
   bindForm(root.querySelector("#blank-form"), async (values) => {
     const q = await api("createQuiz", { title: values.get("title") });
     go(`upload.html?id=${q.quizId}`);
@@ -244,6 +251,15 @@ async function importPage(root) {
       root,
     );
   action(root, "#preview-source", parse);
+  const aiHandoff = sessionStorage.getItem("mathquiz.aiImport");
+  if (aiHandoff) {
+    sessionStorage.removeItem("mathquiz.aiImport");
+    const h = JSON.parse(aiHandoff);
+    input.value = h.source;
+    fileName = h.title;
+    sourceFile = null;
+    busy(root.querySelector("#preview-source"), parse, root);
+  }
   action(root, "#load-example", async () => {
     const response = await fetch("examples/algebra.tex");
     if (!response.ok) throw new Error("Could not load the example.");
@@ -304,6 +320,7 @@ async function importPage(root) {
             name: parsed.title,
             sourceAssetId: importState.sourceAssetId,
             itemCount: parsed.questions.length,
+            bankOnly,
           })
         ).jobId;
       // One bounded problem at a time makes partial imports recoverable and large math safe.
@@ -317,7 +334,9 @@ async function importPage(root) {
           subject: parsed.subject,
           difficulty: parsed.difficulty,
           tags: [],
-          bankVisibility: "private",
+          bankVisibility: bankOnly
+            ? root.querySelector("#bank-visibility").value
+            : "private",
         };
         await api("importProblemBatch", {
           jobId: importState.jobId,
@@ -349,7 +368,7 @@ async function importPage(root) {
         order: parsed.questions.map((_, i) => "problem_" + i),
       });
       progress("Saved to Firebase");
-      go(`upload.html?id=${q.quizId}`);
+      go(bankOnly ? "problems.html" : `upload.html?id=${q.quizId}`);
     } catch (error) {
       progress("Import paused — retry to continue from the last saved problem");
       throw error;

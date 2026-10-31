@@ -87,12 +87,14 @@ export async function busy(
   fn,
   errorRoot = button?.closest("form") || document.querySelector("main"),
 ) {
-  if (button?.disabled) return;
+  if (button?.getAttribute("aria-busy") === "true" || button?.disabled) return;
   const original = button?.innerHTML;
   if (button) {
-    button.disabled = true;
+    button.setAttribute("aria-disabled", "true");
     button.setAttribute("aria-busy", "true");
+    button.classList.add("is-busy");
   }
+  busyBar(1);
   try {
     return await fn();
   } catch (error) {
@@ -106,12 +108,19 @@ export async function busy(
     }
     return null;
   } finally {
+    busyBar(-1);
     if (button) {
-      button.disabled = false;
+      button.removeAttribute("aria-disabled");
       button.removeAttribute("aria-busy");
+      button.classList.remove("is-busy");
       if (original !== undefined) button.innerHTML = original;
     }
   }
+}
+let busyCount = 0;
+export function busyBar(delta) {
+  busyCount = Math.max(0, busyCount + delta);
+  document.documentElement.toggleAttribute("data-busy", busyCount > 0);
 }
 export function action(root, selector, fn) {
   root

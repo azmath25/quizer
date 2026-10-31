@@ -80,10 +80,10 @@ body[data-page="home"] .page-heading {
   position: relative;
   overflow: hidden;
   padding: 32px 30px;
-  border-radius: 18px;
-  background: var(--grad);
-  color: #fff;
-  box-shadow: var(--shadow-lift);
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--on-brand);
+  box-shadow: var(--shadow);
 }
 body[data-page="home"] .page-heading::after {
   content: "∑ π ∫ √ ∞";
@@ -93,21 +93,22 @@ body[data-page="home"] .page-heading::after {
   font-size: 4.2rem;
   font-weight: 800;
   letter-spacing: 0.2em;
-  opacity: 0.12;
+  opacity: 0.18;
+  color: var(--on-brand);
   pointer-events: none;
   white-space: nowrap;
 }
 body[data-page="home"] .page-heading h1,
 body[data-page="home"] .page-heading p,
 body[data-page="home"] .page-heading .date-label {
-  color: #fff;
+  color: var(--on-brand);
 }
 body[data-page="home"] .page-heading p {
   opacity: 0.88;
 }
 .welcome-strip {
-  background: var(--grad-soft);
-  border-radius: 14px;
+  background: var(--brand-tint);
+  border-radius: var(--radius);
   border-left-color: var(--accent);
 }
 .quick-link {

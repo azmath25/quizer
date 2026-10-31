@@ -1,25 +1,62 @@
+/* Single source of truth for every color, shadow and shape. No color values live anywhere else. */
 :root {
   color-scheme: light;
-  --bg: #f4f8ff;
-  --surface: #fff;
-  --surface-blue: #eaf2ff;
-  --text: #172b4d;
-  --muted: #50627a;
-  --primary: #2459d3;
-  --primary-hover: #1e47a8;
-  --border: #cedbea;
-  --focus: #174fc4;
-  --danger: #b42318;
-  --success: #146c43;
-  --amber: #855300;
-  --shadow: 0 1px 2px #1737770d, 0 4px 14px #17377710;
-  --shadow-lift: 0 10px 28px #2459d322;
-  --accent: #7c4dff;
-  --grad: linear-gradient(135deg, #2459d3 0%, #6a4df0 100%);
-  --grad-soft: linear-gradient(135deg, #eaf2ff 0%, #f1ecff 100%);
-  --radius: 10px;
+
+  /* Brand */
+  --brand: #0281af;
+  --brand-hover: #016285;
+  --brand-tint: #e3f3f9;
+  --accent: #ffa500;
+  --accent-tint: #fff3d6;
+
+  /* Surfaces and text */
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-alt: #f9fafb;
+  --border: #e5e7eb;
+  --border-strong: #cbd2db;
+  --text: #111827;
+  --muted: #6b7280;
+  --on-brand: #ffffff;
+  --on-accent: #111827;
+
+  /* Status */
+  --success: #059669;
+  --warning: #b45309;
+  --danger: #e11d1d;
+
+  /* Overlays and elevation */
+  --overlay: rgb(8 23 34 / 55%);
+  --shadow-color: rgb(8 23 34 / 10%);
+  --shadow: 0 1px 2px var(--shadow-color), 0 2px 6px var(--shadow-color);
+  --shadow-lift: 0 8px 24px var(--shadow-color);
+  --glass: rgb(255 255 255 / 20%);
+
+  /* Quiz card tones */
+  --tone-0: #0281af;
+  --tone-1: #6d5bd0;
+  --tone-2: #059669;
+  --tone-3: #d9480f;
+  --tone-4: #b0207e;
+
+  /* Shape and type */
+  --radius: 8px;
+  --radius-sm: 6px;
   --content-max: 1200px;
   --text-scale: 1;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Legacy aliases used across existing stylesheets */
+  --primary: var(--brand);
+  --primary-hover: var(--brand-hover);
+  --surface-blue: var(--brand-tint);
+  --focus: var(--brand);
+  --amber: var(--warning);
+  --on-primary: var(--on-brand);
+  --mono: var(--font-mono);
+  --grad: var(--brand);
+  --grad-soft: var(--brand-tint);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -29,47 +66,54 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #101d31;
-  --surface: #172940;
-  --surface-blue: #1b3558;
-  --text: #edf4ff;
-  --muted: #b1c5df;
-  --primary: #91b6ff;
-  --primary-hover: #b2cbff;
-  --border: #354c69;
-  --focus: #b2cbff;
-  --danger: #ffada6;
-  --success: #87dbb0;
-  --amber: #f1c77d;
-  --shadow: none;
-  --shadow-lift: 0 10px 28px #0006;
-  --accent: #b39dff;
-  --grad: linear-gradient(135deg, #3b6fe0 0%, #7a5cf0 100%);
-  --grad-soft: linear-gradient(135deg, #1b3558 0%, #2a2a5e 100%);
+  --brand: #38b6e0;
+  --brand-hover: #7fd0ee;
+  --brand-tint: #12354a;
+  --accent: #ffb629;
+  --accent-tint: #3a2c0c;
+  --bg: #081722;
+  --surface: #0f2433;
+  --surface-alt: #12293b;
+  --border: #1f3a50;
+  --border-strong: #2c4c66;
+  --text: #e8f0f6;
+  --muted: #93a8b8;
+  --on-brand: #04202e;
+  --on-accent: #111827;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #ff7a7a;
+  --overlay: rgb(0 0 0 / 65%);
+  --shadow-color: rgb(0 0 0 / 40%);
+  --glass: rgb(255 255 255 / 12%);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     color-scheme: dark;
-    --bg: #101d31;
-    --surface: #172940;
-    --surface-blue: #1b3558;
-    --text: #edf4ff;
-    --muted: #b1c5df;
-    --primary: #91b6ff;
-    --primary-hover: #b2cbff;
-    --border: #354c69;
-    --focus: #b2cbff;
-    --danger: #ffada6;
-    --success: #87dbb0;
-    --amber: #f1c77d;
-    --shadow: none;
-    --shadow-lift: 0 10px 28px #0006;
-    --accent: #b39dff;
-    --grad: linear-gradient(135deg, #3b6fe0 0%, #7a5cf0 100%);
-    --grad-soft: linear-gradient(135deg, #1b3558 0%, #2a2a5e 100%);
-  --shadow-lift: 0 10px 28px #0006;
-  --accent: #b39dff;
-  --grad: linear-gradient(135deg, #3b6fe0 0%, #7a5cf0 100%);
-  --grad-soft: linear-gradient(135deg, #1b3558 0%, #2a2a5e 100%);
+    --brand: #38b6e0;
+    --brand-hover: #7fd0ee;
+    --brand-tint: #12354a;
+    --accent: #ffb629;
+    --accent-tint: #3a2c0c;
+    --bg: #081722;
+    --surface: #0f2433;
+    --surface-alt: #12293b;
+    --border: #1f3a50;
+    --border-strong: #2c4c66;
+    --text: #e8f0f6;
+    --muted: #93a8b8;
+    --on-brand: #04202e;
+    --on-accent: #111827;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --danger: #ff7a7a;
+    --overlay: rgb(0 0 0 / 65%);
+    --shadow-color: rgb(0 0 0 / 40%);
+    --glass: rgb(255 255 255 / 12%);
   }
+}
+.icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
 }
