@@ -13,7 +13,10 @@ function mountBackdrop() {
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = "assets/css/math.css?v=5";
-  document.head.append(link);
+  const polish = document.createElement("link");
+  polish.rel = "stylesheet";
+  polish.href = "assets/css/polish.css?v=1";
+  document.head.append(link, polish);
   const bg = document.createElement("div");
   bg.id = "math-bg";
   bg.setAttribute("aria-hidden", "true");
