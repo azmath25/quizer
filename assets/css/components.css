@@ -690,3 +690,23 @@ main > div {
     transition: none;
   }
 }
+
+/* Busy feedback without a spinning cursor */
+html[data-busy]::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 40%;
+  z-index: 1000;
+  background: var(--grad);
+  animation: busy-bar 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes busy-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(260%); }
+}
+.button.is-busy, button.is-busy { opacity: 0.7; pointer-events: none; cursor: default; }
+@media (prefers-reduced-motion: reduce) { html[data-busy]::before { animation: none; width: 100%; opacity: 0.6; } }

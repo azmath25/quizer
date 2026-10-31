@@ -719,7 +719,7 @@ define(
 define(
   "createImportJob",
   "teacher",
-  ["name", "sourceAssetId", "itemCount"],
+  ["name", "sourceAssetId", "itemCount", "bankOnly"],
   async (c, r) => {
     const count = number(r.itemCount, "Problem count", 1, 500, true);
     if (r.sourceAssetId) {
@@ -736,6 +736,7 @@ define(
       name: text(r.name, "Import name", 200, true),
       sourceAssetId: r.sourceAssetId ?? null,
       itemCount: count,
+      bankOnly: r.bankOnly === true,
     });
     const j = await c.get(`jobs/${jobId}`);
     c.set(`jobs/${jobId}`, {
@@ -813,13 +814,14 @@ define(
         hash: checksum,
       };
       c.set(mappingPath, mapping);
-      c.set(`quizzes/${job.targetId}/draftItems/${mapping.itemId}`, {
-        itemId: mapping.itemId,
-        problemId: mapping.problemId,
-        problemRevisionId: mapping.revisionId,
-        points: mapping.points,
-        reuseFromQuizRevisionId: null,
-      });
+      if (!job.input.bankOnly)
+        c.set(`quizzes/${job.targetId}/draftItems/${mapping.itemId}`, {
+          itemId: mapping.itemId,
+          problemId: mapping.problemId,
+          problemRevisionId: mapping.revisionId,
+          points: mapping.points,
+          reuseFromQuizRevisionId: null,
+        });
       mappings.push(mapping);
       added++;
     }
@@ -854,6 +856,18 @@ define(
       "FAILED_PRECONDITION",
       "Some problems have not been imported yet.",
     );
+    if (job.input.bankOnly) {
+      const result = { bankOnly: true, imported: job.input.itemCount };
+      c.set(`jobs/${r.jobId}`, {
+        ...job,
+        status: "succeeded",
+        result,
+        completedAt: c.now,
+        updatedAt: c.now,
+        progress: { ...job.progress, stage: "Complete" },
+      });
+      return result;
+    }
     assert(
       Array.isArray(r.order) &&
         r.order.length === job.input.itemCount &&
