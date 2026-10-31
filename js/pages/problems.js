@@ -1,4 +1,4 @@
-import { go } from "../core/router.js";
+import { go, onLeave } from "../core/router.js";
 import { api } from "../services/api.js";
 import {
   pageHead,
@@ -18,8 +18,11 @@ import {
   dialog,
   confirmDialog,
   icon,
+  date,
 } from "../components/ui.js";
-import { displayProblem } from "../components/math-content.js";
+import { displayProblem, latexHTML, typeset } from "../components/math-content.js";
+import { resolveImages } from "../services/assets.js";
+import { loadStars, isStarred, toggleStar, problemRef } from "../services/stars.js";
 import { toLatex } from "../services/ai.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
@@ -148,42 +151,68 @@ export async function mount(root, session) {
     action(panel, "#build-quiz", buildQuiz);
   }
 
-  const STAR_KEY = "mathquiz.starred";
-  const starred = new Set(JSON.parse(localStorage.getItem(STAR_KEY) || "[]"));
-  const isOwner = (p) => p.ownerId === session.user.uid;
-  const GLYPH = {
-    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
-    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-    star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
-    download: '<path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>',
-    solution: '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
-    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>',
-    share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
-    trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/>',
-    restore: '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>',
-  };
-  const glyph = (name) =>
-    `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPH[name]}</svg>`;
+    const isOwner = (p) => p.ownerId === session.user.uid;
+  const visLabel = (shared) => (shared ? "Shared with teachers" : "Only me");
+  const tip = (label) => `data-tooltip="${label}" aria-label="${label}"`;
   function cardHtml(p) {
     const own = isOwner(p),
       id = e(p.id),
       shared = p.bankVisibility === "teachers",
-      star = starred.has(p.id);
-    const tool = (attr, name, label, extra = "") =>
-      `<button type="button" class="tool" ${attr}="${id}" title="${label}" aria-label="${label}" ${extra}>${glyph(name)}</button>`;
-    const tools =
-      view === "trash"
-        ? tool("data-restore", "restore", "Restore") + tool("data-copy-latex", "copy", "Copy LaTeX")
-        : tool("data-copy-latex", "copy", "Copy LaTeX") +
-          tool("data-copy-link", "link", "Copy link") +
-          tool("data-star", "star", star ? "Remove star" : "Star", `aria-pressed="${star}"`) +
-          tool("data-download", "download", "Download .tex") +
-          tool("data-preview", "solution", "Answer and solution") +
-          `<a class="tool" href="problem-edit.html?id=${id}" title="${own || session.capabilities.admin ? "Edit" : "View / copy"}" aria-label="${own || session.capabilities.admin ? "Edit" : "View / copy"}">${glyph("edit")}</a>` +
-          (own && view === "mine" ? tool("data-share", "share", shared ? "Unshare" : "Share", `aria-pressed="${shared}"`) : "") +
-          (own ? tool("data-trash", "trash", "Move to Trash") : "");
-    return `<article class="problem-wrapper" data-card="${id}"><header class="prob-tabs"><div class="tab-meta"><span class="meta-id">#${id.slice(0, 6)}</span><span class="meta-tag">${e(p.subject || "Mathematics")}</span></div>${view !== "trash" ? `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span>Select</span></label>` : badge("Trash")}<div class="tab-actions" role="toolbar" aria-label="Actions for ${e(p.title)}">${tools}</div></header><div class="prob-card-box"><h3>${e(p.title)}</h3><div class="bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div><div class="prob-foot"><span data-vis>${view === "mine" ? badge(shared ? "Shared" : "Private", shared ? "blue" : "") : ""}</span><span class="muted small">Rev ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</span>${p.tags.map((t) => badge(t)).join("")}</div></div></article>`;
+      link = new URL(`problem-edit.html?id=${p.id}`, location.href).href,
+      trash = view === "trash";
+    const btn = (kind, symbol, label, extra = "") =>
+      `<button type="button" class="action-btn action-btn--${kind}" ${extra} ${tip(label)}>${icon(symbol)}</button>`;
+    const star = isStarred(problemRef(p.id));
+    const actions = trash
+      ? btn("restore", "restore", "Restore", `data-restore="${id}"`) + btn("copy", "copy", "Copy LaTeX", "data-copy-latex")
+      : btn("copy", "copy", "Copy LaTeX", "data-copy-latex") +
+        btn("star" + (star ? " is-active" : ""), "star", star ? "Remove star" : "Star", "data-star") +
+        `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
+        btn("download", "download", "Download .tex", "data-download") +
+        btn("solve", "bulb", "Answer and solution", "data-solve") +
+        `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>`;
+    const chips = [
+      ["Owner", e(p.ownerDisplayName || "Teacher")],
+      ["Revision", p.revisionNumber],
+      ["Updated", p.updatedAt ? e(date(p.updatedAt)) : "—"],
+      ...(trash ? [] : [["Visible to", `<span data-vis>${e(visLabel(shared))}</span>`]]),
+      ...(p.tags?.length ? [["Tags", e(p.tags.join(", "))]] : []),
+    ]
+      .map(([k, v]) => `<div class="meta-chip"><span class="meta-chip-label">${k}</span><span class="meta-chip-value">${v}</span></div>`)
+      .join("");
+    const backActions = own
+      ? trash
+        ? ""
+        : `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>`
+      : "";
+    return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button></div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3><div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
   }
+  async function paintSolution(row, node) {
+    const d = await fetchDetail(row),
+      c = d.content,
+      g = d.grading || {},
+      images = await resolveImages(
+        { ...c.questionAssetBindings, ...g.solutionAssetBindings },
+        { kind: "problem", id: d.problemId, revisionId: d.revisionId },
+      ),
+      correct = (c.options || []).find((o) => o.id === g.correctOptionId),
+      answer = correct
+        ? latexHTML(correct.textLatex, images)
+        : e((g.acceptedAnswers || []).join(", "));
+    node.innerHTML = `<div class="solution-content"><div class="solution-header-group"><h4 class="solution-title">Answer</h4></div>${answer ? `<div class="math-content">${answer}</div>` : '<p class="muted">No answer recorded.</p>'}</div>${g.explanationLatex ? `<div class="solution-content"><div class="solution-header-group"><h4 class="solution-title">Solution</h4></div><div class="math-content">${latexHTML(g.explanationLatex, images)}</div></div>` : ""}`;
+    await typeset(node);
+  }
+  const closePopovers = (except) =>
+    list.querySelectorAll(".action-popover.is-open").forEach((n) => n !== except && n.classList.remove("is-open"));
+  const onStars = () =>
+    list.querySelectorAll(".action-btn--star").forEach((b) => {
+      const on = isStarred(problemRef(b.closest("[data-card]").dataset.card));
+      b.classList.toggle("is-active", on);
+      b.dataset.tooltip = b.ariaLabel = on ? "Remove star" : "Star";
+    });
+  document.addEventListener("stars-changed", onStars);
+  onLeave(() => document.removeEventListener("stars-changed", onStars));
+  loadStars().catch(() => {});
   async function copyText(text, ok) {
     try {
       await navigator.clipboard.writeText(text);
@@ -217,18 +246,37 @@ export async function mount(root, session) {
   }
   list.addEventListener("click", (ev) => {
     const t = ev.target.closest("button");
-    if (!t || !list.contains(t)) return;
+    if (!t || !list.contains(t)) return closePopovers();
     const card = t.closest("[data-card]");
     const id = card?.dataset.card,
       row = rows.find((r) => r.id === id);
     if (!row) return;
-    if (t.hasAttribute("data-star")) {
-      starred.has(id) ? starred.delete(id) : starred.add(id);
-      localStorage.setItem(STAR_KEY, JSON.stringify([...starred]));
-      t.setAttribute("aria-pressed", starred.has(id));
-      t.title = t.ariaLabel = starred.has(id) ? "Remove star" : "Star";
-    } else if (t.hasAttribute("data-copy-link"))
-      copyText(new URL(`problem-edit.html?id=${id}`, location.href).href, "Link copied.");
+    if (t.hasAttribute("data-pop")) {
+      const pop = t.parentElement.querySelector(".action-popover"),
+        open = !pop.classList.contains("is-open");
+      closePopovers();
+      pop.classList.toggle("is-open", open);
+      return;
+    }
+    if (!t.closest(".popover-wrapper")) closePopovers();
+    if (t.hasAttribute("data-flip")) {
+      const flipped = card.querySelector(".flip-card").classList.toggle("is-flipped");
+      t.classList.toggle("is-active", flipped);
+      t.dataset.tooltip = t.ariaLabel = flipped ? "Back" : "Details";
+      card.querySelector(".flip-face--front").inert = flipped;
+      card.querySelector(".flip-face--back").inert = !flipped;
+    } else if (t.hasAttribute("data-solve")) {
+      const open = card.classList.toggle("is-expanded");
+      t.classList.toggle("is-active", open);
+      const node = card.querySelector("[data-solution]");
+      if (open && !node.children.length)
+        paintSolution(row, node).catch(() => (node.textContent = "Solution unavailable."));
+    } else if (t.hasAttribute("data-star"))
+      toggleStar({ kind: "problem", problemId: id, title: row.title }).catch((error) =>
+        message(root, error.message || "Could not update star."),
+      );
+    else if (t.hasAttribute("data-copy-link"))
+      copyText(t.previousElementSibling.value, "Link copied.");
     else if (t.hasAttribute("data-copy-latex"))
       busy(t, async () => copyText(await latexOf(row), "LaTeX copied."), root);
     else if (t.hasAttribute("data-download"))
@@ -249,13 +297,11 @@ export async function mount(root, session) {
     const card = list.querySelector(`[data-card="${CSS.escape(id)}"]`);
     if (!row || !card) return;
     const shared = row.bankVisibility === "teachers";
-    card.querySelector("[data-vis]").innerHTML = badge(
-      shared ? "Shared" : "Private",
-      shared ? "blue" : "",
-    );
+    const chip = card.querySelector("[data-vis]");
+    if (chip) chip.textContent = visLabel(shared);
     const t = card.querySelector("[data-share]");
     if (t) {
-      t.title = t.ariaLabel = shared ? "Unshare" : "Share";
+      t.textContent = visLabel(shared);
       t.setAttribute("aria-pressed", shared);
     }
   }
@@ -355,30 +401,6 @@ export async function mount(root, session) {
             message(root, error.message || "Could not change visibility.");
           }
         }),
-    );
-    list.querySelectorAll("[data-preview]").forEach(
-      (b) =>
-        (b.onclick = () =>
-          busy(
-            b,
-            async () => {
-              const d = await api("getProblem", {
-                problemId: b.dataset.preview,
-              });
-              const node = document.createElement("div");
-              await displayProblem(node, d.content, d.grading, {
-                kind: "problem",
-                id: d.problemId,
-                revisionId: d.revisionId,
-              });
-              await dialog({
-                title: d.problem.title,
-                body: node.innerHTML,
-                confirm: "Close preview",
-              });
-            },
-            root,
-          )),
     );
     for (const kind of ["trash", "restore"])
       list.querySelectorAll("[data-" + kind + "]").forEach(

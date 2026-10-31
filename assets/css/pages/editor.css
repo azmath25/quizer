@@ -179,18 +179,6 @@
   margin-top: 20px;
   z-index: 20;
 }
-.bank-card .bank-select {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.bank-card .math-content {
-  font-size: 0.9rem;
-  max-height: 180px;
-  overflow: auto;
-}
 .choice-editor {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 44px;
@@ -275,27 +263,4 @@
   .selection-panel { position: fixed; left: 8px; right: 8px; bottom: calc(76px + env(safe-area-inset-bottom)); top: auto; max-height: 55vh; z-index: 30; }
 }
 
-/* Problem card (single rectangle, slanted ID tab, icon action bar) */
-.problem-wrapper { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-.prob-tabs { display: flex; align-items: stretch; justify-content: space-between; gap: 8px; min-height: 44px; background: var(--surface-alt); border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; }
-.tab-meta { display: inline-flex; align-items: center; gap: 8px; padding: 0 36px 0 14px; background: var(--brand); color: var(--on-brand); border-top-left-radius: var(--radius); clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%); }
-.meta-id { font-weight: 700; font-size: 0.8rem; }
-.meta-tag { padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; background: var(--glass); }
-.prob-select { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font-size: 0.8rem; font-weight: 600; color: var(--muted); cursor: pointer; }
-.tab-actions { display: inline-flex; align-items: center; gap: 2px; padding: 0 8px; flex-wrap: wrap; }
-.tool { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--muted); cursor: pointer; }
-.tool:hover { background: var(--brand-tint); color: var(--brand); text-decoration: none; }
-.tool .icon { width: 18px; height: 18px; }
-.tool[data-star][aria-pressed="true"] { color: var(--accent); }
-.tool[data-star][aria-pressed="true"] svg { fill: var(--accent); }
-.tool[data-share][aria-pressed="true"] { color: var(--brand); }
-.tool[data-trash]:hover { color: var(--danger); background: var(--surface-alt); }
-.prob-card-box { display: grid; gap: 12px; padding: 16px 18px 18px; }
-.prob-card-box h3 { margin: 0; font-size: 1.05rem; }
-.prob-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 #bank-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 820px; }
-.bank-body { max-height: 18rem; overflow: auto; padding: 0; background: none; border: 0; font-size: 1rem; }
-.bank-body .preview-question { padding: 0; border: 0; background: none; box-shadow: none; }
-.bank-body .preview-meta { display: none; }
-.bank-body .preview-options { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
-.bank-body .preview-options li { display: flex; gap: 6px; }

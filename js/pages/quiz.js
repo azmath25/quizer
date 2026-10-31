@@ -1,5 +1,6 @@
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
+import { loadStars, isStarred, toggleStar, itemRef } from "../services/stars.js";
 import { resolveImages } from "../services/assets.js";
 import {
   saveRecovery,
@@ -106,10 +107,12 @@ async function runner(root, initial, session) {
     stopped = false,
     conflict = false,
     lastSend = 0;
+  const flagged = new Set(a.uiState.flaggedItemIds);
+  let flagChain = Promise.resolve();
   let serverBase = Date.parse(a._serverTime),
     basePerf = performance.now(),
     lastWarning = 0;
-  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><span class="save-indicator" id="save-status" role="status">Restoring answers…</span><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div><div class="actions" id="save-actions" hidden><button class="button secondary" id="retry-save">Retry saving</button><button class="button secondary" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · underline: flagged</p><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
+  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><span class="save-indicator" id="save-status" role="status">Restoring answers…</span><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div><div class="actions" id="save-actions" hidden><button class="button secondary" id="retry-save">Retry saving</button><button class="button secondary" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
   const question = root.querySelector("#question-panel"),
     saveStatus = root.querySelector("#save-status");
   function saveLabel(text, failed = false) {
@@ -135,9 +138,14 @@ async function runner(root, initial, session) {
     root.querySelector("#question-grid").innerHTML = a.order
       .map(
         (itemId, i) =>
-          `<button type="button" data-index="${i}" class="${i === index ? "current " : ""}${answers.get(itemId)?.value?.trim() || a.answeredItemIds?.includes(itemId) ? "answered " : ""}${a.uiState.flaggedItemIds.includes(itemId) ? "flagged" : ""}" aria-label="Problem ${i + 1}${a.uiState.flaggedItemIds.includes(itemId) ? ", flagged" : ""}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${i + 1}</button>`,
+          `<button type="button" data-index="${i}" class="${i === index ? "current " : ""}${answers.get(itemId)?.value?.trim() || a.answeredItemIds?.includes(itemId) ? "answered " : ""}${flagged.has(itemId) ? "flagged" : ""}" aria-label="Problem ${i + 1}${flagged.has(itemId) ? ", flagged" : ""}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${i + 1}</button>`,
       )
       .join("");
+    const flagList = root.querySelector("#flag-list");
+    flagList.hidden = !flagged.size;
+    flagList.innerHTML = flagged.size
+      ? `<strong>Flagged</strong>${a.order.map((id, i) => (flagged.has(id) ? `<button type="button" class="button ghost small" data-index="${i}">${icon("flag")}Problem ${i + 1}</button>` : "")).join("")}`
+      : "";
     root
       .querySelectorAll("[data-index]")
       .forEach(
@@ -215,7 +223,7 @@ async function runner(root, initial, session) {
     );
     if (view !== viewSequence || stopped) return;
     clearMath(question);
-    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="flag" type="button" aria-pressed="${a.uiState.flaggedItemIds.includes(itemId)}">${icon("flag")}${a.uiState.flaggedItemIds.includes(itemId) ? "Flagged" : "Flag"}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
+    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-pressed="${flagged.has(itemId)}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
     function change(value) {
       const base = answers.get(itemId) ?? { revision: 0, value: "" };
       if (
@@ -257,23 +265,20 @@ async function runner(root, initial, session) {
       input.onblur = () => flush().catch(() => {});
       preview();
     }
-    action(question, "#flag", async () => {
-      const flags = a.uiState.flaggedItemIds.includes(itemId)
-        ? a.uiState.flaggedItemIds.filter((id) => id !== itemId)
-        : [...a.uiState.flaggedItemIds, itemId];
-      const state = await api("saveAttemptUiState", {
-        attemptId,
-        index,
-        flags,
-        expectedUiVersion: a.uiState.version,
-      });
-      a.uiState = state;
-      const b = question.querySelector("#flag");
-      b.setAttribute("aria-pressed", String(flags.includes(itemId)));
-      b.innerHTML =
-        icon("flag") + (flags.includes(itemId) ? "Flagged" : "Flag");
+    const flagBtn = question.querySelector("#flag");
+    flagBtn.onclick = () => {
+      const on = !flagged.has(itemId);
+      on ? flagged.add(itemId) : flagged.delete(itemId);
+      flagBtn.setAttribute("aria-pressed", String(on));
+      flagBtn.innerHTML = flagLabel(on);
       grid();
-    });
+      queueFlags();
+    };
+    const starBtn = question.querySelector("#star");
+    starBtn.onclick = () =>
+      toggleStar({ kind: "quizItem", attemptId, quizId: a.quizId, itemId, title: `Problem ${index + 1} · ${a.quizTitle}` }).catch((error) =>
+        saveLabel(error.message || "Could not update star.", true),
+      );
     await typeset(question);
     grid();
     if (!pending.size)
@@ -362,6 +367,26 @@ async function runner(root, initial, session) {
     }
     if (pending.size) return flush();
   }
+  const flagLabel = (on) => icon("flag") + (on ? "Flagged" : "Flag");
+  const starLabel = (on) => icon("star") + (on ? "Starred" : "Star");
+  function queueFlags() {
+    flagChain = flagChain
+      .catch(() => {})
+      .then(() => api("saveAttemptUiState", { attemptId, flags: [...flagged] }))
+      .then((state) => {
+        a.uiState = { ...a.uiState, version: state.version };
+      })
+      .catch((error) => saveLabel(error.message || "Could not save the flag. Try again.", true));
+  }
+  document.addEventListener("stars-changed", syncStar);
+  function syncStar() {
+    const b = question.querySelector("#star");
+    if (!b || !a.order[index]) return;
+    const on = isStarred(itemRef(a.quizId, a.order[index]));
+    b.setAttribute("aria-pressed", String(on));
+    b.innerHTML = starLabel(on);
+  }
+  loadStars().catch(() => {});
   let syncChain = Promise.resolve();
   function syncNavigation(target) {
     const run = async () => {
@@ -370,7 +395,7 @@ async function runner(root, initial, session) {
         api("navigateAttempt", { attemptId, targetIndex: target }),
       ]);
       a.currentFrontier = state.currentFrontier;
-      a.uiState = state.uiState;
+      a.uiState = { ...state.uiState, flaggedItemIds: [...flagged] };
       if (state.item) seedItem(state.item);
     };
     const result = syncChain.catch(() => {}).then(run);
@@ -501,6 +526,7 @@ async function runner(root, initial, session) {
     window.removeEventListener("beforeunload", unload);
     document.removeEventListener("visibilitychange", visibility);
     document.removeEventListener("session-cleared", sessionCleared);
+    document.removeEventListener("stars-changed", syncStar);
   });
   action(root, "#previous", () => navigate(index - 1));
   action(root, "#next", () =>
