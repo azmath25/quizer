@@ -45,12 +45,46 @@ export async function mount(root, session) {
     const node = panel.querySelector("#sel-total");
     if (node) node.textContent = points(total()) + " points";
   }
+  const details = new Map();
+  function fetchDetail(row) {
+    const key = row.id + ":" + row.latestRevisionId;
+    if (!details.has(key))
+      details.set(
+        key,
+        api("getProblem", {
+          problemId: row.id,
+          revisionId: row.latestRevisionId,
+        }).catch((error) => {
+          details.delete(key);
+          throw error;
+        }),
+      );
+    return details.get(key);
+  }
+  const seen = new IntersectionObserver(
+    (entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        seen.unobserve(en.target);
+        const row = rows.find((r) => r.id === en.target.dataset.body);
+        if (!row) continue;
+        fetchDetail(row)
+          .then((d) =>
+            displayProblem(en.target, { ...d.content, defaultPoints: null, points: null }, null, {
+              kind: "problem",
+              id: d.problemId,
+              revisionId: d.revisionId,
+            }),
+          )
+          .then(() => en.target.classList.add("ready"))
+          .catch(() => (en.target.textContent = "Preview unavailable."));
+      }
+    },
+    { rootMargin: "200px" },
+  );
   function ensureLoaded(p) {
     if (p.loaded || p.loading) return p.loading;
-    p.loading = api("getProblem", {
-      problemId: p.id,
-      revisionId: p.row.latestRevisionId,
-    })
+    p.loading = fetchDetail(p.row)
       .then((data) => {
         p.points = data.content.defaultPoints ?? 1;
         p.loaded = true;
@@ -180,7 +214,7 @@ export async function mount(root, session) {
       result.items
         .map(
           (p) =>
-            `<article class="panel bank-card" data-card="${e(p.id)}"><div class="bank-select"><span class="subject">${e(p.subject || "Mathematics")}</span><span data-vis>${view === "mine" ? badge(p.bankVisibility === "teachers" ? "Shared" : "Private", p.bankVisibility === "teachers" ? "blue" : "") : ""}</span>${view !== "trash" ? `<label class="check"><input type="checkbox" data-select="${e(p.id)}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>` : badge("Trash")}</div><h3>${e(p.title)}</h3><p class="muted small">Revision ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</p><div class="actions">${p.tags.map((t) => badge(t)).join("")}</div><div class="card-foot"><button class="button ghost small" data-preview="${e(p.id)}">Preview</button><div class="actions">${view === "trash" ? `<button class="button secondary small" data-restore="${e(p.id)}">Restore</button>` : linkButton(p.ownerId === session.user.uid || session.capabilities.admin ? "Edit" : "View / copy", `problem-edit.html?id=${p.id}`, "secondary small")}${p.ownerId === session.user.uid && view === "mine" ? `<button class="button ghost small" data-share="${e(p.id)}">${p.bankVisibility === "teachers" ? "Unshare" : "Share"}</button>` : ""}${p.ownerId === session.user.uid && view !== "trash" ? `<button class="icon-button" data-trash="${e(p.id)}" aria-label="Move ${e(p.title)} to Trash">${icon("close")}</button>` : ""}</div></div></article>`,
+            `<article class="panel bank-card" data-card="${e(p.id)}"><div class="bank-select"><span class="subject">${e(p.subject || "Mathematics")}</span><span data-vis>${view === "mine" ? badge(p.bankVisibility === "teachers" ? "Shared" : "Private", p.bankVisibility === "teachers" ? "blue" : "") : ""}</span>${view !== "trash" ? `<label class="check"><input type="checkbox" data-select="${e(p.id)}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>` : badge("Trash")}</div><h3>${e(p.title)}</h3><div class="bank-body math-content" data-body="${e(p.id)}"><div class="skeleton" style="height:56px"></div></div><p class="muted small">Revision ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</p><div class="actions">${p.tags.map((t) => badge(t)).join("")}</div><div class="card-foot"><button class="button ghost small" data-preview="${e(p.id)}">Preview</button><div class="actions">${view === "trash" ? `<button class="button secondary small" data-restore="${e(p.id)}">Restore</button>` : linkButton(p.ownerId === session.user.uid || session.capabilities.admin ? "Edit" : "View / copy", `problem-edit.html?id=${p.id}`, "secondary small")}${p.ownerId === session.user.uid && view === "mine" ? `<button class="button ghost small" data-share="${e(p.id)}">${p.bankVisibility === "teachers" ? "Unshare" : "Share"}</button>` : ""}${p.ownerId === session.user.uid && view !== "trash" ? `<button class="icon-button" data-trash="${e(p.id)}" aria-label="Move ${e(p.title)} to Trash">${icon("close")}</button>` : ""}</div></div></article>`,
         )
         .join(""),
     );
@@ -204,6 +238,7 @@ export async function mount(root, session) {
           tray();
         }),
     );
+    list.querySelectorAll("[data-body]:not(.ready)").forEach((n) => seen.observe(n));
     list.querySelectorAll("[data-share]").forEach(
       (b) =>
         (b.onclick = async () => {
