@@ -6,7 +6,7 @@
   padding: 14px 18px;
   background: var(--surface-blue);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 0.85rem;
   color: var(--muted);
 }

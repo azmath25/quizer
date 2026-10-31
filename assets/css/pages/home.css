@@ -7,7 +7,7 @@
   background: var(--surface-blue);
   border: 1px solid var(--border);
   border-left: 4px solid var(--primary);
-  border-radius: 9px;
+  border-radius: var(--radius);
   margin-bottom: 28px;
 }
 .welcome-strip h2 {
@@ -31,7 +31,7 @@
   padding: 18px;
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 9px;
+  border-radius: var(--radius);
   color: var(--text);
   font-size: 0.85rem;
   font-weight: 650;

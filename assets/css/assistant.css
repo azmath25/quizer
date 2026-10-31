@@ -1,7 +1,7 @@
 #ai-assistant { position: fixed; right: 0; bottom: 0; z-index: 60; }
 .ai-fab {
   position: fixed; right: 20px; bottom: 20px; display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 18px; border: 0; border-radius: 999px; color: var(--on-primary); font: 700 0.9rem inherit;
+  padding: 12px 18px; border: 0; border-radius: var(--radius); color: var(--on-primary); font: 700 0.9rem inherit;
   background: var(--grad); box-shadow: var(--shadow);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -18,7 +18,7 @@
 .ai-panel[hidden] { display: none; }
 @keyframes ai-in { from { opacity: 0; transform: translateX(24px); } }
 .ai-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; color: var(--on-primary); background: var(--grad); }
-.ai-tag { margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 0.68rem; background: var(--glass); }
+.ai-tag { margin-left: 8px; padding: 2px 8px; border-radius: var(--radius); font-size: 0.68rem; background: var(--glass); }
 .ai-head-actions { display: flex; gap: 4px; }
 .ai-head .icon-button { color: var(--on-primary); background: transparent; }
 .ai-log { flex: 1; overflow: auto; padding: 14px; display: grid; gap: 10px; align-content: start; }
@@ -29,7 +29,7 @@
 .ai-msg.error { border: 1px solid var(--danger); }
 .ai-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ai-suggest button, .ai-result-more button {
-  padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+  padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
   color: var(--text); font: inherit; font-size: 0.78rem;
 }
 .ai-suggest button:hover, .ai-result-more button:hover { border-color: var(--accent); color: var(--accent); }
@@ -46,10 +46,10 @@
 .ai-composer { padding: 10px 12px 12px; border-top: 1px solid var(--border); }
 .ai-row { display: flex; gap: 8px; align-items: flex-end; }
 .ai-row textarea { flex: 1; resize: none; max-height: 120px; padding: 9px 12px; font: inherit; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); }
-.ai-attach { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; cursor: pointer; background: var(--brand-tint); }
+.ai-attach { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius); cursor: pointer; background: var(--brand-tint); }
 .ai-files { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .ai-files:empty { display: none; }
-.ai-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 8px; border-radius: 999px; font-size: 0.75rem; background: var(--brand-tint); border: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 8px; border-radius: var(--radius); font-size: 0.75rem; background: var(--brand-tint); border: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-msg.assistant .ai-chip, .ai-composer .ai-chip { background: var(--brand-tint); }
 .ai-chip button { border: 0; background: none; color: inherit; padding: 0; }
 .ai-review { display: grid; gap: 10px; max-height: 60vh; overflow: auto; }

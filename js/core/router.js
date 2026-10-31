@@ -47,7 +47,7 @@ export const loadModule = (file) => {
   if (!modules.has(file))
     modules.set(
       file,
-      import(`../pages/${routes[file][0]}.js?v=9`).catch((error) => {
+      import(`../pages/${routes[file][0]}.js?v=10`).catch((error) => {
         modules.delete(file);
         throw error;
       }),

@@ -313,6 +313,74 @@ for (const [name, event] of [
     { mutation: true },
   );
 define(
+  "bulkUpdateProblems",
+  "teacher",
+  ["problemIds", "subject", "difficulty", "addTags", "removeTags", "visibility"],
+  async (c, r) => {
+    assert(
+      Array.isArray(r.problemIds) &&
+        r.problemIds.length >= 1 &&
+        r.problemIds.length <= 50,
+      "INVALID_FIELDS",
+      "Select between 1 and 50 problems.",
+    );
+    const ids = [...new Set(r.problemIds.map((v) => id(v, "problem ID")))],
+      list = (v, label) => {
+        assert(
+          v === undefined || (Array.isArray(v) && v.length <= 12),
+          "INVALID_FIELDS",
+          "Use at most 12 tags.",
+        );
+        return (v ?? []).map((t) => text(t, label, 60, true).trim());
+      },
+      add = list(r.addTags, "Tag"),
+      remove = new Set(list(r.removeTags, "Tag")),
+      patch = {};
+    if (r.subject !== undefined) patch.subject = text(r.subject, "Subject", 80);
+    if (r.difficulty !== undefined)
+      patch.difficulty = text(r.difficulty, "Difficulty", 40);
+    if (r.visibility !== undefined)
+      patch.bankVisibility = enumeration(
+        r.visibility,
+        ["private", "teachers"],
+        "bank visibility",
+      );
+    assert(
+      Object.keys(patch).length || add.length || remove.size,
+      "INVALID_FIELDS",
+      "Choose at least one change.",
+    );
+    const olds = await Promise.all(ids.map((i) => c.get(path("problems", i))));
+    olds.forEach((old) => {
+      manage(c.actor, old);
+      assert(
+        old.lifecycle === "active",
+        "RESOURCE_UNAVAILABLE",
+        "Restore trashed problems before editing.",
+      );
+    });
+    const out = {};
+    olds.forEach((old, i) => {
+      const tags = [
+        ...new Set([...(old.tags ?? []).filter((t) => !remove.has(t)), ...add]),
+      ];
+      assert(tags.length <= 12, "INVALID_FIELDS", "Use at most 12 tags.");
+      const next = {
+        ...old,
+        ...patch,
+        tags,
+        version: old.version + 1,
+        updatedAt: c.now,
+      };
+      c.set(path("problems", ids[i]), next);
+      out[ids[i]] = next.version;
+    });
+    c.audit("problem.bulk_updated", "problem", ids[0]);
+    return { versions: out };
+  },
+  { mutation: true },
+);
+define(
   "listProblemRevisions",
   "teacher",
   ["problemId", "limit", "cursor"],

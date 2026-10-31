@@ -62,7 +62,7 @@
   margin-top: 12px;
   background: var(--bg);
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .editor-actions {
   position: sticky;
@@ -71,7 +71,7 @@
   padding: 14px 18px;
   margin-top: 24px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
   display: flex;
@@ -88,7 +88,7 @@
 }
 .drop-area {
   border: 1px dashed var(--primary);
-  border-radius: 9px;
+  border-radius: var(--radius);
   padding: 26px 18px;
   background: var(--surface-blue);
   text-align: center;
@@ -121,14 +121,14 @@
   font-size: 0.8rem;
   padding: 8px 10px;
   background: var(--bg);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .image-row img {
   width: 40px;
   height: 40px;
   object-fit: contain;
   background: var(--surface);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .image-row code {
   overflow-wrap: anywhere;
@@ -136,7 +136,8 @@
 }
 .slot-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 72px auto;
+  grid-template-columns: 16px 34px minmax(0, 1fr) 72px auto;
+  cursor: grab;
   gap: 12px;
   align-items: center;
   padding: 14px 0;
@@ -170,7 +171,7 @@
   bottom: 16px;
   padding: 14px 18px;
   border: 1px solid var(--primary);
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--surface-blue);
   display: flex;
   justify-content: space-between;
@@ -247,7 +248,7 @@
 .sel-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 64px auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-alt); border: 1px solid var(--border); }
 .sel-num { font-weight: 700; font-size: 0.8rem; color: var(--muted); text-align: center; }
 .sel-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; font-weight: 600; }
-.sel-points input { width: 100%; padding: 4px 6px; font: inherit; font-size: 0.85rem; border-radius: 3px; }
+.sel-points input { width: 100%; padding: 4px 6px; font: inherit; font-size: 0.85rem; border-radius: var(--radius-sm); }
 .sel-ctl { display: inline-flex; gap: 2px; }
 .sel-ctl .icon-button { width: 26px; height: 26px; min-width: 0; font-size: 0.85rem; }
 .sel-ctl .icon-button:disabled { opacity: 0.3; }
@@ -264,3 +265,96 @@
 }
 
 #bank-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 820px; }
+
+.slot-row.is-dragging {
+  opacity: 0.4;
+}
+.slot-row[draggable="true"]:hover {
+  background: var(--surface-alt);
+}
+.drag-handle {
+  color: var(--muted);
+  letter-spacing: -2px;
+  user-select: none;
+}
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.bulk-bar input {
+  width: 84px;
+  padding: 6px 8px;
+}
+.draft-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet--wide {
+  max-width: 980px;
+}
+.quick-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.quick-edit__preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: var(--surface-alt);
+  overflow: auto;
+  max-height: 60dvh;
+}
+.history {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 20px;
+}
+.history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.history__item {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.history__item.is-active {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+}
+.history__view {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+@media (max-width: 720px) {
+  .quick-edit,
+  .history {
+    grid-template-columns: 1fr;
+  }
+}
+.quick-edit fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}

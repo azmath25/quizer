@@ -11,7 +11,7 @@
   min-height: 44px;
   padding: 10px 16px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
   font-weight: 650;
   line-height: 1.4;
@@ -57,7 +57,7 @@
   background: var(--surface);
   width: 44px;
   height: 44px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 .text-link {
@@ -97,7 +97,7 @@
   padding: 4px 8px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 0.65rem;
   font-weight: 650;
@@ -162,7 +162,7 @@
   gap: 4px;
   padding: 4px;
   background: var(--surface-blue);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-bottom: 24px;
   overflow-x: auto;
   width: fit-content;
@@ -174,7 +174,7 @@
   padding: 8px 16px;
   border: 0;
   background: transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   font-size: 0.84rem;
   font-weight: 600;
   color: var(--muted);
@@ -196,7 +196,7 @@
   margin: 0 auto 14px;
   background: var(--surface-blue);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   display: grid;
   place-items: center;
   color: var(--primary);
@@ -232,7 +232,7 @@
 .notice {
   border: 1px solid var(--border);
   border-left: 3px solid var(--primary);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface-blue);
   padding: 13px 16px;
   font-size: 0.88rem;
@@ -257,7 +257,7 @@
 .quiz-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 20px;
   min-width: 0;
   display: flex;
@@ -352,7 +352,7 @@
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface-blue);
   color: var(--primary);
   font-size: 0.8rem;
@@ -437,7 +437,7 @@ tr:last-child td {
   max-height: 95dvh;
   border: 0;
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 14px;
 }
 .image-dialog button {
@@ -458,7 +458,7 @@ tr:last-child td {
 .stat {
   padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 .stat strong {
@@ -502,7 +502,7 @@ tr:last-child td {
   max-width: 100%;
   object-fit: contain;
   cursor: zoom-in;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .missing-image {
   display: inline-block;
@@ -535,7 +535,7 @@ tr:last-child td {
 .progress-track {
   height: 8px;
   background: var(--surface-blue);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .progress-track span {
@@ -656,7 +656,7 @@ tr:last-child td {
 .quiz-card[data-tone="4"] { --tone: var(--tone-4); }
 .card-meta span {
   background: var(--surface-blue);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 3px 9px;
 }
 .skeleton {
@@ -667,7 +667,7 @@ tr:last-child td {
 .skeleton i {
   display: block;
   height: 14px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface-blue);
   animation: pulse-soft 1.2s ease-in-out infinite;
 }

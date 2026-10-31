@@ -168,6 +168,21 @@ export async function dialog({
     ),
   );
 }
+export function sheet({ title, body, footer = "", wide = false }) {
+  const previous = document.activeElement,
+    node = document.createElement("dialog");
+  node.className = "dialog sheet" + (wide ? " sheet--wide" : "");
+  node.innerHTML = `<div class="dialog-head"><h2>${e(title)}</h2><button type="button" class="icon-button" data-close aria-label="Close">${icon("close")}</button></div><div class="dialog-body" data-message-root>${body}</div>${footer ? `<div class="dialog-footer">${footer}</div>` : ""}`;
+  document.body.append(node);
+  const close = () => node.open && node.close();
+  node.querySelector("[data-close]").onclick = close;
+  node.addEventListener("close", () => {
+    node.remove();
+    previous?.focus();
+  });
+  node.showModal();
+  return { node, close };
+}
 export const confirmDialog = (title, body, confirm = "Confirm") =>
   dialog({ title, body: `<p>${e(body)}</p>`, confirm, danger: true });
 export function quizCard(q, { management = false } = {}) {
