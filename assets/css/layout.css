@@ -33,7 +33,7 @@
   place-items: center;
   width: 34px;
   height: 36px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--on-primary);
   font-size: 1.7rem;
@@ -242,17 +242,17 @@ main {
     color: var(--muted);
     font-size: 0.65rem;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: var(--radius);
   }
   #mobile-nav {
     margin: 0 10px 10px;
     border: 1px solid var(--border);
-    border-radius: 22px;
+    border-radius: var(--radius);
     box-shadow: var(--shadow-lift);
     backdrop-filter: blur(10px);
   }
   #mobile-nav a {
-    border-radius: 16px;
+    border-radius: var(--radius);
     transition: background 0.15s, color 0.15s;
   }
   #mobile-nav a[aria-current] {

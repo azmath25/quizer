@@ -1,6 +1,7 @@
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
 import { readLegacyDeviceQuizzes } from "../migration/legacy-device.js";
+import { drafts, draftBanner } from "../services/drafts.js";
 import { api, waitForJob } from "../services/api.js";
 import { uploadAsset, resolveImages } from "../services/assets.js";
 import { parseLatex } from "../../shared/latex-parser.js";
@@ -417,10 +418,40 @@ async function edit(root, quizId) {
     saveState = root.querySelector("#save-state"),
     preview = root.querySelector("#editor-preview");
   let previewOffset = 0;
-  const markDirty = () => {
-    dirty = true;
-    saveState.textContent = "Unsaved changes";
-  };
+  const store = drafts(`quiz.${quizId}`),
+    snapshot = () => ({
+      fields: Object.fromEntries(
+        [...form.elements]
+          .filter((n) => n.name)
+          .map((n) => [n.name, n.type === "checkbox" ? n.checked : n.value]),
+      ),
+      order,
+      slots,
+      removed: [...removed],
+    }),
+    markDirty = () => {
+      dirty = true;
+      saveState.textContent = "Unsaved changes (draft kept on this device)";
+      store.save(snapshot);
+    };
+  const saved = store.read();
+  if (saved)
+    draftBanner(root.querySelector("[data-message]") ?? root, saved, {
+      onDiscard: () => store.clear(),
+      onRestore: (v) => {
+        for (const [name, value] of Object.entries(v.fields)) {
+          const n = form.elements[name];
+          if (!n) continue;
+          if (n.type === "checkbox") n.checked = value;
+          else n.value = value;
+        }
+        order = v.order.filter((id) => v.slots.some((x) => x.itemId === id));
+        slots = v.slots;
+        removed = new Set(v.removed);
+        markDirty();
+        rows();
+      },
+    });
   form.addEventListener("input", markDirty);
   form.addEventListener("change", markDirty);
   const unload = (event) => {
@@ -434,13 +465,55 @@ async function edit(root, quizId) {
   onLeave(() => window.removeEventListener("beforeunload", unload));
   function rows() {
     root.querySelector("#slots").innerHTML = order.length
-      ? order
+      ? `<div class="bulk-bar" role="group" aria-label="Bulk points"><span class="muted small">All problems</span><input type="number" min="0.00000001" max="1000" step="any" value="1" id="bulk-points" aria-label="Points value"><button type="button" class="button secondary small" id="bulk-set">Set points</button><button type="button" class="button ghost small" id="bulk-scale">Multiply</button></div>` +
+        order
           .map((itemId, index) => {
             const slot = slots.find((i) => i.itemId === itemId);
-            return `<div class="slot-row"><span class="number-tile">${index + 1}</span><div><a class="slot-title" href="problem-edit.html?id=${e(slot.problemId)}">Open problem</a><p class="slot-subtitle">${e(slot.problemId.slice(-8))} · saved revision</p></div><label class="field"><span class="sr-only">Points for problem ${index + 1}</span><input type="number" min="0.00000001" max="1000" step="any" value="${slot.points}" data-points="${e(itemId)}"></label><div class="slot-actions"><button type="button" class="icon-button" data-up="${e(itemId)}" aria-label="Move problem ${index + 1} up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-down="${e(itemId)}" aria-label="Move problem ${index + 1} down" ${index === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-latest="${e(itemId)}" aria-label="Use latest problem revision">↻</button><button type="button" class="icon-button" data-duplicate-slot="${e(itemId)}" aria-label="Duplicate this slot">+</button><button type="button" class="icon-button" data-remove="${e(itemId)}" aria-label="Remove problem ${index + 1}">×</button></div></div>`;
+            return `<div class="slot-row" draggable="true" data-slot="${e(itemId)}"><span class="drag-handle" aria-hidden="true" title="Drag to reorder">⋮⋮</span><span class="number-tile">${index + 1}</span><div><a class="slot-title" href="problem-edit.html?id=${e(slot.problemId)}">Open problem</a><p class="slot-subtitle">${e(slot.problemId.slice(-8))} · saved revision</p></div><label class="field"><span class="sr-only">Points for problem ${index + 1}</span><input type="number" min="0.00000001" max="1000" step="any" value="${slot.points}" data-points="${e(itemId)}"></label><div class="slot-actions"><button type="button" class="icon-button" data-up="${e(itemId)}" aria-label="Move problem ${index + 1} up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-down="${e(itemId)}" aria-label="Move problem ${index + 1} down" ${index === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-latest="${e(itemId)}" aria-label="Use latest problem revision">↻</button><button type="button" class="icon-button" data-duplicate-slot="${e(itemId)}" aria-label="Duplicate this slot">+</button><button type="button" class="icon-button" data-remove="${e(itemId)}" aria-label="Remove problem ${index + 1}">×</button></div></div>`;
           })
           .join("")
       : empty("No problems added", "Select problems from your bank.");
+    const bulk = (fn) => {
+      const v = Number(root.querySelector("#bulk-points")?.value);
+      if (!(v > 0)) return;
+      slots.forEach((slot) => {
+        if (order.includes(slot.itemId))
+          slot.points = Math.min(1000, Math.round(fn(slot.points, v) * 1e6) / 1e6);
+      });
+      markDirty();
+      rows();
+    };
+    root
+      .querySelector("#bulk-points")
+      ?.addEventListener("input", (ev) => ev.stopPropagation());
+    const setAll = root.querySelector("#bulk-set"),
+      scaleAll = root.querySelector("#bulk-scale");
+    if (setAll) setAll.onclick = () => bulk((_, v) => v);
+    if (scaleAll) scaleAll.onclick = () => bulk((p, v) => p * v);
+    const list = root.querySelector("#slots");
+    let dragId = null;
+    list.querySelectorAll("[data-slot]").forEach((row) => {
+      row.ondragstart = (ev) => {
+        if (ev.target.closest("input,button,a")) return ev.preventDefault();
+        dragId = row.dataset.slot;
+        row.classList.add("is-dragging");
+        ev.dataTransfer.effectAllowed = "move";
+      };
+      row.ondragend = () => row.classList.remove("is-dragging");
+      row.ondragover = (ev) => {
+        if (dragId) ev.preventDefault();
+      };
+      row.ondrop = (ev) => {
+        ev.preventDefault();
+        const to = order.indexOf(row.dataset.slot),
+          from = order.indexOf(dragId);
+        if (from < 0 || to < 0 || from === to) return;
+        order.splice(to, 0, order.splice(from, 1)[0]);
+        dragId = null;
+        markDirty();
+        rows();
+      };
+    });
     root.querySelectorAll("[data-points]").forEach(
       (input) =>
         (input.oninput = () => {
@@ -601,6 +674,7 @@ async function edit(root, quizId) {
       slots = data.items.map((i) => ({ ...i }));
       order = [...draft.itemOrder];
       dirty = false;
+      store.clear();
       saveState.textContent = `Saved to Firebase · version ${draft.version}`;
       rows();
       return true;

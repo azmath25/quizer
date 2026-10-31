@@ -60,7 +60,7 @@
   background: var(--bg);
   border: 1px solid var(--border);
   padding: 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
   font-size: 0.8rem;
 }

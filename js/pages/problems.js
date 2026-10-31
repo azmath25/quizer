@@ -24,6 +24,7 @@ import { displayProblem, latexHTML, typeset } from "../components/math-content.j
 import { resolveImages } from "../services/assets.js";
 import { loadStars, isStarred, toggleStar, problemRef } from "../services/stars.js";
 import { toLatex } from "../services/ai.js";
+import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -109,7 +110,7 @@ export async function mount(root, session) {
         (p, i) =>
           `<li class="sel-row" data-row="${e(p.id)}"><span class="sel-num">${i + 1}</span><span class="sel-title" title="${e(p.title)}">${e(p.title)}</span><label class="sel-points"><span class="sr-only">Points for ${e(p.title)}</span><input type="number" min="0.00000001" max="1000" step="any" value="${e(p.points)}" data-points="${e(p.id)}"></label><span class="sel-ctl"><button type="button" class="icon-button" data-move="up" data-id="${e(p.id)}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-move="down" data-id="${e(p.id)}" aria-label="Move down" ${i === values.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-remove="${e(p.id)}" aria-label="Remove ${e(p.title)}">${icon("close")}</button></span></li>`,
       )
-      .join("")}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
+      .join("")}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
     updateTotal();
     panel.querySelectorAll("[data-points]").forEach((n) =>
       n.addEventListener("input", () => {
@@ -148,6 +149,16 @@ export async function mount(root, session) {
       tray();
     });
     action(panel, "#bulk-visibility", bulkVisibility);
+    action(panel, "#bulk-edit-open", async () => {
+      const owned = [...selected.values()].filter(mine);
+      if (!owned.length) throw new Error("You can only edit your own problems.");
+      bulkEdit(owned.map((p) => p.row), {
+        onSaved: (done) => {
+          done.forEach((r) => redraw(r.id));
+          message(root, `${done.length} problem${done.length === 1 ? "" : "s"} updated.`, "success");
+        },
+      });
+    });
     action(panel, "#build-quiz", buildQuiz);
   }
 
@@ -180,11 +191,11 @@ export async function mount(root, session) {
     ]
       .map(([k, v]) => `<div class="meta-chip"><span class="meta-chip-label">${k}</span><span class="meta-chip-value">${v}</span></div>`)
       .join("");
-    const backActions = own
-      ? trash
-        ? ""
-        : `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>`
-      : "";
+    const backActions = trash
+      ? ""
+      : (own ? `<button type="button" class="button secondary small" data-edit>${icon("edit")}Quick edit</button>` : "") +
+        `<button type="button" class="button secondary small" data-history>${icon("restore")}Versions</button><button type="button" class="button secondary small" data-fork>${icon("copy")}Copy as new</button>` +
+        (own ? `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>` : "");
     return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button></div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3><div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
   }
   async function paintSolution(row, node) {
@@ -265,7 +276,22 @@ export async function mount(root, session) {
       t.dataset.tooltip = t.ariaLabel = flipped ? "Back" : "Details";
       card.querySelector(".flip-face--front").inert = flipped;
       card.querySelector(".flip-face--back").inert = !flipped;
-    } else if (t.hasAttribute("data-solve")) {
+    } else if (t.hasAttribute("data-edit"))
+      busy(t, () => quickEdit(row, { onSaved: () => { redraw(row.id); message(root, "Saved as a new revision.", "success"); } }), root);
+    else if (t.hasAttribute("data-history"))
+      busy(t, () => history(row, { canRestore: mine({ row }), onSaved: () => { redraw(row.id); message(root, "Version restored.", "success"); } }), root);
+    else if (t.hasAttribute("data-fork"))
+      busy(
+        t,
+        async () => {
+          const copy = await api("forkProblem", { problemId: row.id, revisionId: row.latestRevisionId });
+          message(root, "Copy created in your bank.", "success");
+          if (view === "mine") await load();
+          else go(`problem-edit.html?id=${copy.problemId}`);
+        },
+        root,
+      );
+    else if (t.hasAttribute("data-solve")) {
       const open = card.classList.toggle("is-expanded");
       t.classList.toggle("is-active", open);
       const node = card.querySelector("[data-solution]");
@@ -367,7 +393,10 @@ export async function mount(root, session) {
           : "Create a problem or import a LaTeX quiz.",
       );
     setPage(result.nextCursor);
-    list.querySelectorAll("[data-select]").forEach(
+    bindCards(list);
+  }
+  function bindCards(scope) {
+    scope.querySelectorAll("[data-select]").forEach(
       (n) =>
         (n.onchange = () => {
           const row = rows.find((p) => p.id === n.dataset.select);
@@ -379,8 +408,8 @@ export async function mount(root, session) {
           tray();
         }),
     );
-    list.querySelectorAll("[data-body]:not(.ready)").forEach((n) => seen.observe(n));
-    list.querySelectorAll("[data-share]").forEach(
+    scope.querySelectorAll("[data-body]:not(.ready)").forEach((n) => seen.observe(n));
+    scope.querySelectorAll("[data-share]").forEach(
       (b) =>
         (b.onclick = async () => {
           const row = rows.find((p) => p.id === b.dataset.share),
@@ -403,7 +432,7 @@ export async function mount(root, session) {
         }),
     );
     for (const kind of ["trash", "restore"])
-      list.querySelectorAll("[data-" + kind + "]").forEach(
+      scope.querySelectorAll("[data-" + kind + "]").forEach(
         (b) =>
           (b.onclick = () =>
             busy(
@@ -430,6 +459,18 @@ export async function mount(root, session) {
               root,
             )),
       );
+  }
+  function redraw(id) {
+    const row = rows.find((p) => p.id === id),
+      card = list.querySelector(`[data-card="${CSS.escape(id)}"]`);
+    if (!row || !card) return;
+    const flipped = card.querySelector(".flip-card")?.classList.contains("is-flipped");
+    card.insertAdjacentHTML("afterend", cardHtml(row));
+    card.remove();
+    const next = list.querySelector(`[data-card="${CSS.escape(id)}"]`);
+    if (flipped) next.querySelector("[data-flip]").click();
+    bindCards(next);
+    if (selected.has(id)) selected.get(id).title = row.title;
   }
   bindForm(root.querySelector("form"), async (form) => {
     filter = Object.fromEntries(

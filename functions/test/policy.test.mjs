@@ -106,3 +106,12 @@ test("Canonical hashes are key-order independent and binary hashes use bytes", (
     "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
   );
 });
+test("Star and bulk problem actions are registered with the right roles", async () => {
+  const { handlers } = await import("../src/router.js");
+  for (const [name, role] of [
+    ["setStar", "user"],
+    ["listStars", "user"],
+    ["bulkUpdateProblems", "teacher"],
+  ])
+    assert.equal(handlers.get(name)?.permission, role);
+});

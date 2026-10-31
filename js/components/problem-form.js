@@ -1,4 +1,5 @@
 import { onLeave, onLeaveGuard } from "../core/router.js";
+import { drafts, draftBanner } from "../services/drafts.js";
 import { api } from "../services/api.js";
 import { uploadAsset, resolveImages } from "../services/assets.js";
 import { validateProblem, validateMetadata } from "../../shared/schema.js";
@@ -144,9 +145,24 @@ export async function problemForm(
     node.innerHTML = problemPreview(data.content, data.grading, images);
     typeset(node);
   }
+  const store = drafts(`problem.${initial.problemId ?? "new"}`);
   function changed() {
     dirty = true;
-    root.querySelector("#save-state").textContent = "Unsaved changes";
+    root.querySelector("#save-state").textContent =
+      "Unsaved changes (draft kept on this device)";
+    if (!readOnly)
+      store.save(() => ({
+        mode,
+        choices,
+        correct,
+        fields: Object.fromEntries(
+          [...form.elements]
+            .filter(
+              (n) => n.name && !["file", "radio"].includes(n.type) && n.name !== "imageTarget",
+            )
+            .map((n) => [n.name, n.value]),
+        ),
+      }));
     preview();
   }
   function choiceRows() {
@@ -302,6 +318,7 @@ export async function problemForm(
     try {
       await onSave(data);
       dirty = false;
+      store.clear();
       root.querySelector("#save-state").textContent = "Saved to Firebase";
       message(form, "Problem saved.", "success");
     } catch (error) {
@@ -312,6 +329,20 @@ export async function problemForm(
   choiceRows();
   imageRows();
   modeChanged();
+  const saved = readOnly ? null : store.read();
+  if (saved)
+    draftBanner(root, saved, {
+      onDiscard: () => store.clear(),
+      onRestore: (v) => {
+        for (const [name, value] of Object.entries(v.fields))
+          if (form.elements[name]) form.elements[name].value = value;
+        choices = v.choices;
+        correct = v.correct;
+        choiceRows();
+        modeChanged();
+        changed();
+      },
+    });
   if (readOnly)
     form
       .querySelectorAll("input,select,textarea,button")
