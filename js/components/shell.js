@@ -12,10 +12,10 @@ function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "assets/css/math.css?v=6";
+  link.href = "assets/css/math.css?v=8";
   const polish = document.createElement("link");
   polish.rel = "stylesheet";
-  polish.href = "assets/css/polish.css?v=2";
+  polish.href = "assets/css/polish.css?v=8";
   document.head.append(link, polish);
   const bg = document.createElement("div");
   bg.id = "math-bg";
@@ -60,7 +60,7 @@ export function mountShell() {
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Appearance</a></span>`;
     if (s.profile?.preferences) applyAppearance(s.profile.preferences);
     if (s.authResolved)
-      import("./assistant.js?v=2").then((m) => m.mountAssistant(s)).catch(() => {});
+      import("./assistant.js?v=8").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   watchSession(draw);
   document.addEventListener("route-changed", () => {
@@ -70,7 +70,7 @@ export function mountShell() {
 }
 export function applyAppearance(preferences) {
   localStorage.setItem("mathquiz.appearance", JSON.stringify(preferences));
-  document.documentElement.dataset.theme = preferences.theme || "dark";
+  document.documentElement.dataset.theme = preferences.theme || "light";
   document.documentElement.style.setProperty(
     "--text-scale",
     preferences.textScale || 1,

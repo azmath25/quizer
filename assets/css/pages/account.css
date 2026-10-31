@@ -37,7 +37,7 @@
 .google-letter {
   font-weight: 750;
   font-size: 1.1rem;
-  color: #2459d3;
+  color: var(--brand);
 }
 .profile-summary {
   display: flex;

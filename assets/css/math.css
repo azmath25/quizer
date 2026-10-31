@@ -40,7 +40,7 @@
 .qc-face {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
@@ -57,11 +57,11 @@
   gap: 8px;
   padding: 20px;
   text-align: center;
-  color: #fff;
+  color: var(--on-brand);
   background: var(--tone);
 }
 .qc-symbol { font: italic 700 3rem ui-serif, Georgia, serif; opacity: 0.85; line-height: 1; }
-.qc-go { margin-top: 6px; padding: 6px 14px; border-radius: 3px; background: #0006; font-weight: 700; font-size: 0.85rem; }
+.qc-go { margin-top: 6px; padding: 6px 14px; border-radius: 3px; background: var(--glass); font-weight: 700; font-size: 0.85rem; }
 .qc-go .icon { width: 14px; height: 14px; }
 @media (hover: hover) {
   .quiz-card:hover .qc-inner { transform: rotateY(180deg); }
@@ -99,11 +99,11 @@
   justify-content: center;
   gap: 14px;
   padding: 28px;
-  border-radius: 4px;
-  background: var(--surface);
-  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--brand-tint);
+  border: 1px solid var(--border);
   color: var(--text);
-  box-shadow: var(--shadow-lift);
+  box-shadow: var(--shadow);
 }
 .auth-scene svg { width: 100%; }
 .auth-scene .ax { stroke: var(--border); stroke-width: 1; }
@@ -126,8 +126,6 @@ body[data-page="quiz"] main::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect x='11' y='11' width='2' height='2' fill='%2339ff88' fill-opacity='.18'/%3E%3C/svg%3E");
-  background-size: 24px 24px;
 }
 body[data-page="quiz"] #math-bg { display: none; }
 body[data-page="quiz"] .runner-question { position: relative; }

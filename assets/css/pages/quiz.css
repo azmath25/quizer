@@ -232,10 +232,10 @@
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--surface);
-  border: 2px solid var(--primary);
-  box-shadow: var(--shadow-lift);
+  border: 2px solid var(--brand);
+  box-shadow: var(--shadow);
   animation: ring-in 0.9s ease-out;
 }
 .score-ring::before {
@@ -276,7 +276,7 @@
 }
 .choice {
   padding: 16px 18px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   border-width: 2px;
   transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }

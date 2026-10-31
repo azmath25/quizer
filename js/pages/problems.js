@@ -151,28 +151,38 @@ export async function mount(root, session) {
   const STAR_KEY = "mathquiz.starred";
   const starred = new Set(JSON.parse(localStorage.getItem(STAR_KEY) || "[]"));
   const isOwner = (p) => p.ownerId === session.user.uid;
+  const GLYPH = {
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+    download: '<path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/>',
+    solution: '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+    share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
+    trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/>',
+    restore: '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>',
+  };
+  const glyph = (name) =>
+    `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPH[name]}</svg>`;
   function cardHtml(p) {
     const own = isOwner(p),
       id = e(p.id),
       shared = p.bankVisibility === "teachers",
-      flipBtn = (label, text) =>
-        `<button type="button" class="button secondary small" data-flip-btn aria-label="${label}">${text}</button>`;
-    const front = `<div class="bank-select"><span class="subject">${e(p.subject || "Mathematics")}</span><span data-vis>${view === "mine" ? badge(shared ? "Shared" : "Private", shared ? "blue" : "") : ""}</span>${view !== "trash" ? `<label class="check"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>` : badge("Trash")}</div><h3>${e(p.title)}</h3><div class="bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div><p class="muted small">Revision ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</p><div class="actions">${p.tags.map((t) => badge(t)).join("")}</div><div class="card-foot"><span class="muted small">#${id.slice(0, 6)}</span>${flipBtn("Show actions for " + e(p.title), "Actions ⟲")}</div>`;
-    const act = (attr, label, extra = "") =>
-      `<button type="button" class="button secondary small" ${attr}="${id}" ${extra}>${label}</button>`;
-    const back = `<div class="bank-select"><strong class="sel-title" title="${e(p.title)}">${e(p.title)}</strong>${flipBtn("Back to problem", "Back ⟲")}</div><div class="bank-actions">${
+      star = starred.has(p.id);
+    const tool = (attr, name, label, extra = "") =>
+      `<button type="button" class="tool" ${attr}="${id}" title="${label}" aria-label="${label}" ${extra}>${glyph(name)}</button>`;
+    const tools =
       view === "trash"
-        ? act("data-restore", "Restore") + act("data-copy-latex", "Copy LaTeX")
-        : act("data-copy-latex", "Copy LaTeX") +
-          act("data-copy-link", "Copy link") +
-          act("data-star", starred.has(p.id) ? "★ Starred" : "☆ Star", `aria-pressed="${starred.has(p.id)}"`) +
-          act("data-download", "Download .tex") +
-          act("data-preview", "Answer & solution") +
-          linkButton(own || session.capabilities.admin ? "Edit" : "View / copy", `problem-edit.html?id=${p.id}`, "secondary small") +
-          (own && view === "mine" ? `<button type="button" class="button secondary small" data-share="${id}">${shared ? "Unshare" : "Share"}</button>` : "") +
-          (own ? `<button type="button" class="button danger small" data-trash="${id}" aria-label="Move ${e(p.title)} to Trash">Trash</button>` : "")
-    }</div>`;
-    return `<article class="bank-card flip-container" data-card="${id}"><div class="flip-card bank-flip"><div class="flip-face flip-face--front panel bank-face">${front}</div><div class="flip-face flip-face--back panel bank-face" inert>${back}</div></div></article>`;
+        ? tool("data-restore", "restore", "Restore") + tool("data-copy-latex", "copy", "Copy LaTeX")
+        : tool("data-copy-latex", "copy", "Copy LaTeX") +
+          tool("data-copy-link", "link", "Copy link") +
+          tool("data-star", "star", star ? "Remove star" : "Star", `aria-pressed="${star}"`) +
+          tool("data-download", "download", "Download .tex") +
+          tool("data-preview", "solution", "Answer and solution") +
+          `<a class="tool" href="problem-edit.html?id=${id}" title="${own || session.capabilities.admin ? "Edit" : "View / copy"}" aria-label="${own || session.capabilities.admin ? "Edit" : "View / copy"}">${glyph("edit")}</a>` +
+          (own && view === "mine" ? tool("data-share", "share", shared ? "Unshare" : "Share", `aria-pressed="${shared}"`) : "") +
+          (own ? tool("data-trash", "trash", "Move to Trash") : "");
+    return `<article class="problem-wrapper" data-card="${id}"><header class="prob-tabs"><div class="tab-meta"><span class="meta-id">#${id.slice(0, 6)}</span><span class="meta-tag">${e(p.subject || "Mathematics")}</span></div>${view !== "trash" ? `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span>Select</span></label>` : badge("Trash")}<div class="tab-actions" role="toolbar" aria-label="Actions for ${e(p.title)}">${tools}</div></header><div class="prob-card-box"><h3>${e(p.title)}</h3><div class="bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div><div class="prob-foot"><span data-vis>${view === "mine" ? badge(shared ? "Shared" : "Private", shared ? "blue" : "") : ""}</span><span class="muted small">Rev ${p.revisionNumber} · ${e(p.ownerDisplayName || "Teacher")}${p.difficulty ? " · " + e(p.difficulty) : ""}</span>${p.tags.map((t) => badge(t)).join("")}</div></div></article>`;
   }
   async function copyText(text, ok) {
     try {
@@ -209,22 +219,14 @@ export async function mount(root, session) {
     const t = ev.target.closest("button");
     if (!t || !list.contains(t)) return;
     const card = t.closest("[data-card]");
-    if (t.hasAttribute("data-flip-btn")) {
-      const flip = card.querySelector(".flip-card"),
-        on = flip.classList.toggle("is-flipped");
-      card.querySelector(".flip-face--front").inert = on;
-      card.querySelector(".flip-face--back").inert = !on;
-      (on ? card.querySelector(".flip-face--back") : card.querySelector(".flip-face--front")).querySelector("[data-flip-btn]").focus({ preventScroll: true });
-      return;
-    }
     const id = card?.dataset.card,
       row = rows.find((r) => r.id === id);
     if (!row) return;
     if (t.hasAttribute("data-star")) {
       starred.has(id) ? starred.delete(id) : starred.add(id);
       localStorage.setItem(STAR_KEY, JSON.stringify([...starred]));
-      t.textContent = starred.has(id) ? "★ Starred" : "☆ Star";
       t.setAttribute("aria-pressed", starred.has(id));
+      t.title = t.ariaLabel = starred.has(id) ? "Remove star" : "Star";
     } else if (t.hasAttribute("data-copy-link"))
       copyText(new URL(`problem-edit.html?id=${id}`, location.href).href, "Link copied.");
     else if (t.hasAttribute("data-copy-latex"))
@@ -252,7 +254,10 @@ export async function mount(root, session) {
       shared ? "blue" : "",
     );
     const t = card.querySelector("[data-share]");
-    if (t) t.textContent = shared ? "Unshare" : "Share";
+    if (t) {
+      t.title = t.ariaLabel = shared ? "Unshare" : "Share";
+      t.setAttribute("aria-pressed", shared);
+    }
   }
   async function setVisibility(row, visibility) {
     const result = await api("setProblemSharing", {
