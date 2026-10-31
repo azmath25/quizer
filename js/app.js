@@ -143,6 +143,11 @@ setTimeout(() => {
   for (const file of Object.keys(warmers)) warmers[file]();
 }, 1500);
 document.addEventListener("click", (event) => {
+  const back = event.target.closest(".qc-back");
+  if (back) {
+    go(back.closest(".quiz-card").querySelector("a[href]").getAttribute("href"));
+    return;
+  }
   const image = event.target.closest(".math-content img");
   if (!image) return;
   const d = document.createElement("dialog");
