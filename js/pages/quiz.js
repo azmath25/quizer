@@ -417,6 +417,10 @@ async function runner(root, initial, session) {
             .toString()
             .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
     timerNode.classList.toggle("urgent", seconds !== null && seconds <= 60);
+    timerNode.classList.toggle(
+      "warn",
+      seconds !== null && seconds > 60 && seconds <= 300,
+    );
     if (seconds !== null && seconds <= 60 && lastWarning !== 1) {
       root.querySelector("#timer-announcement").textContent =
         "Less than one minute remains.";
