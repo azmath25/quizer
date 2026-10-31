@@ -28,7 +28,7 @@ import {
   points,
   icon,
   dialog,
-  confirmDialog,
+  toast,
 } from "../components/ui.js";
 import {
   problemPreview,
@@ -537,12 +537,26 @@ async function edit(root, quizId) {
     root.querySelectorAll("[data-remove]").forEach(
       (b) =>
         (b.onclick = () => {
-          order = order.filter((i) => i !== b.dataset.remove);
-          if (!b.dataset.remove.startsWith("new_"))
-            removed.add(b.dataset.remove);
-          slots = slots.filter((i) => i.itemId !== b.dataset.remove);
+          const id = b.dataset.remove,
+            at = order.indexOf(id),
+            slot = slots.find((i) => i.itemId === id),
+            wasRemoved = removed.has(id);
+          order = order.filter((i) => i !== id);
+          if (!id.startsWith("new_")) removed.add(id);
+          slots = slots.filter((i) => i.itemId !== id);
           markDirty();
           rows();
+          toast("Problem removed", {
+            label: "Undo",
+            onAction: () => {
+              if (order.includes(id)) return;
+              order.splice(Math.min(at, order.length), 0, id);
+              slots.push(slot);
+              if (!wasRemoved) removed.delete(id);
+              markDirty();
+              rows();
+            },
+          });
         }),
     );
     root.querySelectorAll("[data-duplicate-slot]").forEach(

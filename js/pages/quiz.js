@@ -112,7 +112,7 @@ async function runner(root, initial, session) {
   let serverBase = Date.parse(a._serverTime),
     basePerf = performance.now(),
     lastWarning = 0;
-  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><span class="save-indicator" id="save-status" role="status">Restoring answers…</span><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div><div class="actions" id="save-actions" hidden><button class="button secondary" id="retry-save">Retry saving</button><button class="button secondary" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
+  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><span class="save-indicator" id="save-status" role="status">Restoring answers…</span><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div><div class="actions" id="save-actions" hidden><button class="button secondary" id="retry-save">Retry saving</button><button class="button secondary" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
   const question = root.querySelector("#question-panel"),
     saveStatus = root.querySelector("#save-status");
   function saveLabel(text, failed = false) {
@@ -519,7 +519,43 @@ async function runner(root, initial, session) {
   document.addEventListener("visibilitychange", visibility);
   document.addEventListener("session-cleared", sessionCleared, { once: true });
   onLeaveGuard(() => !stopped && (pending.size > 0 || !!inflight));
+  const press = (sel) => {
+    const b = root.querySelector(sel);
+    if (b && !b.disabled) b.click();
+  };
+  const keys = (event) => {
+    if (stopped || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (document.querySelector("dialog[open]")) return;
+    if (event.target.closest?.("input:not([type=radio]), textarea, select")) return;
+    const k = event.key.toLowerCase();
+    if (k === "arrowright") press("#next");
+    else if (k === "arrowleft") press("#previous");
+    else if (k === "f") press("#flag");
+    else if (k === "s") press("#star");
+    else if (/^[1-9]$/.test(k)) {
+      const radio = root.querySelectorAll("input[name=answer]")[Number(k) - 1];
+      if (radio) radio.click();
+    } else return;
+    event.preventDefault();
+  };
+  document.addEventListener("keydown", keys);
+  let touch;
+  const swipeStart = (event) => {
+    touch = event.target.closest("input, textarea, .math-content img") ? null : event.changedTouches[0];
+  };
+  const swipeEnd = (event) => {
+    if (!touch || document.documentElement.dataset.input !== "touch") return;
+    const dx = event.changedTouches[0].clientX - touch.clientX,
+      dy = event.changedTouches[0].clientY - touch.clientY;
+    touch = null;
+    if (Math.abs(dx) > 90 && Math.abs(dx) > Math.abs(dy) * 2)
+      press(dx < 0 ? "#next" : "#previous");
+  };
+  const panel = root.querySelector("#question-panel");
+  panel.addEventListener("touchstart", swipeStart, { passive: true });
+  panel.addEventListener("touchend", swipeEnd, { passive: true });
   onLeave(() => {
+    document.removeEventListener("keydown", keys);
     stopped = true;
     clearInterval(timer);
     clearTimeout(debounce);

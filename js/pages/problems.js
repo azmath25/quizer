@@ -1,5 +1,5 @@
 import { go, onLeave } from "../core/router.js";
-import { api } from "../services/api.js";
+import { api, apiSWR } from "../services/api.js";
 import {
   pageHead,
   linkButton,
@@ -16,7 +16,7 @@ import {
   message,
   pagination,
   dialog,
-  confirmDialog,
+  toast,
   icon,
   date,
 } from "../components/ui.js";
@@ -31,6 +31,10 @@ export async function mount(root, session) {
   let view = "mine",
     lifecycle = "active",
     filter = {},
+    q = "",
+    starOnly = false,
+    sort = "new",
+    all = [],
     selected = new Map(),
     rows = [];
   root.innerHTML =
@@ -39,7 +43,7 @@ export async function mount(root, session) {
       "Build quizzes from saved problems. Each selection keeps its chosen revision.",
       `<div class="actions">${linkButton("Import problems", "upload.html?bank=1", "secondary", "upload")}${linkButton("New problem", "problem-edit.html", "primary", "plus")}</div>`,
     ) +
-    `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Title starts with", "search", "search", "", 'placeholder="Search problem titles…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<button class="button primary">Search</button></form><div data-message></div><div class="bank-layout"><div class="grid" id="bank-list"></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
+    `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="grid" id="bank-list"></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
   const list = root.querySelector("#bank-list"),
     setPage = pagination(list, load);
   const panel = root.querySelector("#selection-panel"),
@@ -50,16 +54,36 @@ export async function mount(root, session) {
     const node = panel.querySelector("#sel-total");
     if (node) node.textContent = points(total()) + " points";
   }
-  const details = new Map();
+  const details = new Map(),
+    resolved = new Map();
+  let slots = 0;
+  const waiting = [];
+  const throttled = (fn) =>
+    new Promise((resolve, reject) => {
+      const run = () => {
+        slots++;
+        fn()
+          .then(resolve, reject)
+          .finally(() => {
+            slots--;
+            waiting.shift()?.();
+          });
+      };
+      slots < 4 ? run() : waiting.push(run);
+    });
   function fetchDetail(row) {
     const key = row.id + ":" + row.latestRevisionId;
     if (!details.has(key))
       details.set(
         key,
-        api("getProblem", {
-          problemId: row.id,
-          revisionId: row.latestRevisionId,
-        }).catch((error) => {
+        throttled(() =>
+          api("getProblem", {
+            problemId: row.id,
+            revisionId: row.latestRevisionId,
+          }),
+        )
+          .then((d) => (resolved.set(key, d), d))
+          .catch((error) => {
           details.delete(key);
           throw error;
         }),
@@ -196,7 +220,7 @@ export async function mount(root, session) {
       : (own ? `<button type="button" class="button secondary small" data-edit>${icon("edit")}Quick edit</button>` : "") +
         `<button type="button" class="button secondary small" data-history>${icon("restore")}Versions</button><button type="button" class="button secondary small" data-fork>${icon("copy")}Copy as new</button>` +
         (own ? `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>` : "");
-    return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button></div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3><div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
+    return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button></div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3>${p.tags?.length ? `<div class="tag-row">${p.tags.map((t) => `<button type="button" class="tag-chip" data-tag="${e(t)}">${e(t)}</button>`).join("")}</div>` : ""}<div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
   }
   async function paintSolution(row, node) {
     const d = await fetchDetail(row),
@@ -258,6 +282,7 @@ export async function mount(root, session) {
   list.addEventListener("click", (ev) => {
     const t = ev.target.closest("button");
     if (!t || !list.contains(t)) return closePopovers();
+    if (t.dataset.tag) return setTag(t.dataset.tag);
     const card = t.closest("[data-card]");
     const id = card?.dataset.card,
       row = rows.find((r) => r.id === id);
@@ -362,38 +387,109 @@ export async function mount(root, session) {
       failed ? "error" : "success",
     );
   }
+  const difficultyRank = { easy: 0, medium: 1, hard: 2 };
+  function matches(p) {
+    if (starOnly && !isStarred(problemRef(p.id))) return false;
+    if (!q) return true;
+    const statement = resolved.get(p.id + ":" + p.latestRevisionId)?.content?.statementLatex;
+    const text = [p.title, p.subject, p.difficulty, ...(p.tags || []), p.excerpt, statement]
+      .join(" ")
+      .toLowerCase();
+    return q
+      .toLowerCase()
+      .split(/\s+/)
+      .every((w) => text.includes(w));
+  }
+  function ordered(items) {
+    const copy = items.filter(matches);
+    const time = (p) => Date.parse(p.updatedAt) || 0;
+    const by = {
+      new: (x, y) => time(y) - time(x),
+      old: (x, y) => time(x) - time(y),
+      title: (x, y) => String(x.title).localeCompare(String(y.title)),
+      difficulty: (x, y) =>
+        (difficultyRank[String(x.difficulty).toLowerCase()] ?? 9) -
+        (difficultyRank[String(y.difficulty).toLowerCase()] ?? 9),
+    };
+    return copy.sort(by[sort]);
+  }
+  function paintFilters() {
+    const bar = root.querySelector("#filter-bar"),
+      active = [
+        filter.tag && ["tag", "Tag: " + filter.tag],
+        filter.subject && ["subject", "Subject: " + filter.subject],
+        q && ["q", "Search: " + q],
+        starOnly && ["starred", "Starred only"],
+      ].filter(Boolean);
+    bar.hidden = !active.length;
+    bar.innerHTML = active
+      .map(([k, label]) => `<button type="button" class="tag-chip is-active" data-clear="${k}">${e(label)} ×</button>`)
+      .join("");
+  }
+  function render() {
+    const shown = ordered(rows);
+    list.innerHTML = shown.length
+      ? shown.map(cardHtml).join("")
+      : empty(
+          rows.length ? "No matches" : "No problems found",
+          rows.length
+            ? "Try a different search or clear a filter."
+            : view === "shared"
+              ? "Problems shared by teachers will appear here."
+              : "Create a problem or import a LaTeX quiz.",
+        );
+    paintFilters();
+    bindCards(list);
+  }
+  async function setTag(tag) {
+    filter = { tag };
+    root.querySelector('[name="subject"]').value = "";
+    await load();
+  }
+  const needAll = () => !!q || starOnly;
+  let loadToken = 0;
   async function load(cursor) {
-    if (!cursor) {
+    const first = !cursor;
+    if (first) {
+      loadToken++;
       rows = [];
       list.innerHTML = loading();
     }
-    const result = await api("listProblems", {
+    const base = {
       view: view === "trash" ? "mine" : view,
       lifecycle: view === "trash" ? "trashed" : "active",
       ...filter,
-      limit: 12,
-      ...(cursor ? { cursor } : {}),
-    });
-    if (!cursor) list.innerHTML = "";
-    rows.push(...result.items);
-    list.insertAdjacentHTML(
-      "beforeend",
-      result.items
-        .map(
-          (p) =>
-            cardHtml(p),
-        )
-        .join(""),
-    );
-    if (!rows.length)
-      list.innerHTML = empty(
-        "No problems found",
-        view === "shared"
-          ? "Problems shared by teachers will appear here."
-          : "Create a problem or import a LaTeX quiz.",
-      );
-    setPage(result.nextCursor);
-    bindCards(list);
+    };
+    let next = cursor,
+      fresh = [];
+    const stars = needAll() || view !== "trash" ? loadStars().catch(() => {}) : null;
+    if (needAll()) {
+      for (let page = 0; page < 5; page++) {
+        const result = await api("listProblems", { ...base, limit: 100, ...(next ? { cursor: next } : {}) });
+        fresh.push(...result.items);
+        next = result.nextCursor;
+        if (!next) break;
+      }
+    } else {
+      if (first) {
+        const token = ++loadToken;
+        await apiSWR("listProblems", { ...base, limit: 12 }, async (data, stale) => {
+          if (!stale) await stars;
+          if (token !== loadToken) return;
+          rows = [...data.items];
+          render();
+          setPage(data.nextCursor);
+        });
+        return;
+      }
+      const result = await api("listProblems", { ...base, limit: 12, cursor });
+      fresh = result.items;
+      next = result.nextCursor;
+    }
+    await stars;
+    rows.push(...fresh);
+    render();
+    setPage(next);
   }
   function bindCards(scope) {
     scope.querySelectorAll("[data-select]").forEach(
@@ -439,19 +535,21 @@ export async function mount(root, session) {
               b,
               async () => {
                 const row = rows.find((p) => p.id === b.dataset[kind]);
-                if (
-                  kind === "trash" &&
-                  !(await confirmDialog(
-                    "Move problem to Trash?",
-                    "Published quizzes keep their snapshots. This problem will leave your active bank.",
-                    "Move to Trash",
-                  ))
-                )
-                  return;
-                await api(
+                const result = await api(
                   kind === "trash" ? "trashProblem" : "restoreProblem",
                   { problemId: row.id, expectedVersion: row.version },
                 );
+                if (kind === "trash")
+                  toast("Moved to Trash", {
+                    label: "Undo",
+                    onAction: async () => {
+                      await api("restoreProblem", {
+                        problemId: row.id,
+                        expectedVersion: result.version,
+                      });
+                      await load();
+                    },
+                  });
                 selected.delete(row.id);
                 tray();
                 await load();
@@ -473,11 +571,27 @@ export async function mount(root, session) {
     if (selected.has(id)) selected.get(id).title = row.title;
   }
   bindForm(root.querySelector("form"), async (form) => {
-    filter = Object.fromEntries(
-      [...form.entries()].filter(([, v]) => v.trim()),
-    );
+    const subject = String(form.get("subject") || "").trim();
+    q = String(form.get("q") || "").trim();
+    sort = form.get("sort");
+    starOnly = form.get("starred") === "on";
+    filter = subject ? { subject } : {};
     await load();
   });
+  root.querySelector("#filter-bar").addEventListener("click", (ev) => {
+    const k = ev.target.closest("[data-clear]")?.dataset.clear,
+      form = root.querySelector("form");
+    if (!k) return;
+    if (k === "tag") filter = {};
+    if (k === "subject") (filter = {}), (form.subject.value = "");
+    if (k === "q") (q = ""), (form.q.value = "");
+    if (k === "starred") (starOnly = false), (form.starred.checked = false);
+    load();
+  });
+  root.querySelector('[name="sort"]').onchange = (ev) => {
+    sort = ev.target.value;
+    render();
+  };
   root.querySelectorAll("[data-view]").forEach(
     (b) =>
       (b.onclick = () =>

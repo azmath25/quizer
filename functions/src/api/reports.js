@@ -353,6 +353,96 @@ define(
   { mutation: true },
 );
 define(
+  "getQuizProblemStats",
+  "teacher",
+  ["quizId", "revisionId"],
+  async (c, r) => {
+    const quiz = await getOwnedQuiz(c, r.quizId),
+      revisionId = id(r.revisionId ?? quiz.publishedRevisionId),
+      base = `quizzes/${r.quizId}/revisions/${revisionId}`;
+    const [items, found] = await Promise.all([
+      c.all(`${base}/items`),
+      c.all(
+        "attempts",
+        [
+          ["quizId", "==", r.quizId],
+          ["quizRevisionId", "==", revisionId],
+        ],
+        "startedAt",
+        "desc",
+        150,
+      ),
+    ]);
+    const attempts = found
+      .filter(
+        (a) =>
+          a.attemptKind === "standard" &&
+          ["submitted", "timed_out"].includes(a.status),
+      )
+      .slice(0, 100);
+    const stats = new Map(
+      items.map((i) => [
+        i.id,
+        { item: i, answered: 0, correct: 0, incorrect: 0, wrong: new Map() },
+      ]),
+    );
+    for (let i = 0; i < attempts.length; i += 10) {
+      const batch = await Promise.all(
+        attempts.slice(i, i + 10).map(async (a) => ({
+          grades: await c.all(`attempts/${a.id}/grades`),
+          answers: new Map(
+            (await c.all(`attempts/${a.id}/answers`)).map((x) => [x.id, x]),
+          ),
+        })),
+      );
+      for (const { grades, answers } of batch)
+        for (const g of grades) {
+          const st = stats.get(g.id);
+          if (!st || !["correct", "incorrect"].includes(g.status)) continue;
+          st.answered++;
+          if (g.status === "correct") st.correct++;
+          else {
+            st.incorrect++;
+            const raw = String(answers.get(g.id)?.value ?? "").trim();
+            if (!raw) continue;
+            const opt = st.item.options?.find((o) => o.id === raw),
+              label = opt ? opt.textLatex : raw.slice(0, 80);
+            st.wrong.set(label, (st.wrong.get(label) ?? 0) + 1);
+          }
+        }
+    }
+    const order = (
+      await c.get(`quizzes/${r.quizId}/revisions/${revisionId}`, false)
+    )?.itemOrder;
+    const ids = Array.isArray(order) ? order : [...stats.keys()];
+    return {
+      revisionId,
+      attemptsConsidered: attempts.length,
+      problems: ids
+        .filter((k) => stats.has(k))
+        .map((k, index) => {
+          const st = stats.get(k);
+          return {
+            itemId: k,
+            index: index + 1,
+            statementLatex: String(st.item.statementLatex ?? "").slice(0, 200),
+            type: st.item.type,
+            points: st.item.points,
+            answered: st.answered,
+            correct: st.correct,
+            percentCorrect: st.answered
+              ? Math.round((st.correct / st.answered) * 1000) / 10
+              : null,
+            commonWrong: [...st.wrong]
+              .sort((x, y) => y[1] - x[1])
+              .slice(0, 3)
+              .map(([answer, count]) => ({ answer, count })),
+          };
+        }),
+    };
+  },
+);
+define(
   "getQuizStatistics",
   "teacher",
   ["quizId", "revisionId"],
