@@ -156,13 +156,21 @@ async function runner(root, initial, session) {
     root.querySelector("#next").textContent =
       index === a.order.length - 1 ? "Review & submit" : "Next problem";
   }
-  const itemCache = new Map();
+  const itemCache = new Map(),
+    ready = new Set();
+  function seedItem(item) {
+    itemCache.set(item.itemId, Promise.resolve(item));
+    ready.add(item.itemId);
+  }
   function fetchItem(itemId) {
     if (!itemCache.has(itemId))
       itemCache.set(
         itemId,
         api("getAttemptQuestions", { attemptId, itemIds: [itemId] }).then(
-          (r) => r.items[0],
+          (r) => {
+            ready.add(itemId);
+            return r.items[0];
+          },
           (err) => {
             itemCache.delete(itemId);
             throw err;
@@ -172,16 +180,28 @@ async function runner(root, initial, session) {
     return itemCache.get(itemId);
   }
   function prefetch(itemId) {
-    if (itemId) fetchItem(itemId).catch(() => {});
+    if (!itemId) return;
+    fetchItem(itemId)
+      .then((item) =>
+        resolveImages(item.questionAssetBindings, {
+          kind: "attempt",
+          id: attemptId,
+        }),
+      )
+      .catch(() => {});
   }
   async function showQuestion() {
     if (stopped) return;
     const view = ++viewSequence;
-    question.innerHTML = loading("Loading problem…");
-    const itemId = a.order[index],
-      item = await fetchItem(itemId);
+    const itemId = a.order[index];
+    if (!ready.has(itemId)) question.innerHTML = loading("Loading problem…");
+    const item = await fetchItem(itemId);
     if (getSession().epoch !== epoch) return;
-    prefetch(a.settings.allowBack ? a.order[index + 1] : undefined);
+    if (a.settings.allowBack) {
+      prefetch(a.order[index + 1]);
+      prefetch(a.order[index - 1]);
+      prefetch(a.order[index + 2]);
+    }
     if (!pending.has(itemId) && !answers.has(itemId))
       answers.set(itemId, item.answer);
     const current =
@@ -342,19 +362,42 @@ async function runner(root, initial, session) {
     }
     if (pending.size) return flush();
   }
+  let syncChain = Promise.resolve();
+  function syncNavigation(target) {
+    const run = async () => {
+      const [, state] = await Promise.all([
+        flush(),
+        api("navigateAttempt", { attemptId, targetIndex: target }),
+      ]);
+      a.currentFrontier = state.currentFrontier;
+      a.uiState = state.uiState;
+      if (state.item) seedItem(state.item);
+    };
+    const result = syncChain.catch(() => {}).then(run);
+    syncChain = result;
+    return result;
+  }
   async function navigate(target) {
     if (target === index || navigating) return;
     navigating = true;
     try {
-      await flush();
-      const state = await api("navigateAttempt", {
-        attemptId,
-        targetIndex: target,
-      });
-      a.currentFrontier = state.currentFrontier;
-      a.uiState = state.uiState;
-      index = target;
-      await showQuestion();
+      const sync = syncNavigation(target);
+      if (ready.has(a.order[target])) {
+        // Problem already loaded: show it now and let the server catch up.
+        const previous = index;
+        index = target;
+        showQuestion().catch(() => {});
+        sync.catch((error) => {
+          if (index !== target) return;
+          index = previous;
+          showQuestion().catch(() => {});
+          saveLabel(error.message || "Could not change problem.", true);
+        });
+      } else {
+        await sync;
+        index = target;
+        await showQuestion();
+      }
       question.scrollIntoView({ block: "start", behavior: "smooth" });
     } finally {
       navigating = false;

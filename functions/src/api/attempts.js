@@ -284,6 +284,22 @@ define("getAttempt", "user", ["attemptId"], async (c, r) => {
   a = await expire(c, r.attemptId, a);
   return attemptDTO(c, a, r.attemptId);
 });
+async function attemptItemRow(c, a, attemptId, itemId) {
+  const [item, answer] = await Promise.all([
+    c.get(`quizzes/${a.quizId}/revisions/${a.quizRevisionId}/items/${itemId}`),
+    c.get(`attempts/${attemptId}/answers/${itemId}`, false),
+  ]);
+  return {
+    ...studentItem(item),
+    answer: answer
+      ? {
+          value: answer.value,
+          revision: answer.revision,
+          updatedAt: answer.updatedAt,
+        }
+      : { value: "", revision: 0, updatedAt: null },
+  };
+}
 define(
   "getAttemptQuestions",
   "user",
@@ -317,25 +333,7 @@ define(
         "RESOURCE_UNAVAILABLE",
         "This problem is unavailable.",
       );
-      const item = studentItem(
-        await c.get(
-          `quizzes/${a.quizId}/revisions/${a.quizRevisionId}/items/${itemId}`,
-        ),
-      );
-      const answer = await c.get(
-        `attempts/${r.attemptId}/answers/${itemId}`,
-        false,
-      );
-      const row = {
-        ...item,
-        answer: answer
-          ? {
-              value: answer.value,
-              revision: answer.revision,
-              updatedAt: answer.updatedAt,
-            }
-          : { value: "", revision: 0, updatedAt: null },
-      };
+      const row = await attemptItemRow(c, a, r.attemptId, itemId);
       const size = byteSize(row);
       if (bytes + size > 1000000 && items.length) break;
       bytes += size;
@@ -497,8 +495,14 @@ define(
         currentIndex: r.targetIndex,
         version: a.uiState.version + 1,
       };
+    const item = await attemptItemRow(
+      c,
+      a,
+      r.attemptId,
+      a.order[r.targetIndex],
+    );
     c.set(p, { ...a, currentFrontier, uiState });
-    return { currentFrontier, uiState };
+    return { currentFrontier, uiState, item };
   },
   { mutation: true },
 );
