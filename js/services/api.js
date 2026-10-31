@@ -7,6 +7,14 @@ const cache = new Map();
 const TTL = 60000;
 document.addEventListener("session-cleared", () => cache.clear());
 const isRead = (action) => /^(get|list)/.test(action);
+export function warm(action, data = {}) {
+  const key = JSON.stringify([getSession().epoch, action, data]),
+    hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL) return;
+  api(action, data)
+    .then((value) => cache.set(key, { at: Date.now(), value }))
+    .catch(() => {});
+}
 export function apiSWR(action, data, onData) {
   const key = JSON.stringify([getSession().epoch, action, data]),
     hit = cache.get(key);

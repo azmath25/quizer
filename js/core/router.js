@@ -54,9 +54,14 @@ export const loadModule = (file) => {
     );
   return modules.get(file);
 };
+let warmer = () => {};
+export const setWarmer = (fn) => (warmer = fn);
 export function prefetch(href) {
   const url = resolve(href);
-  if (url) loadModule(fileOf(url)).catch(() => {});
+  if (!url) return;
+  const file = fileOf(url);
+  loadModule(file).catch(() => {});
+  warmer(file);
 }
 function leave() {
   const fns = cleanups;

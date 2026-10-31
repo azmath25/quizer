@@ -1,4 +1,4 @@
-import { api } from "../services/api.js";
+import { api, apiSWR } from "../services/api.js";
 import {
   pageHead,
   empty,
@@ -24,6 +24,7 @@ export async function mount(root) {
     `<div class="tabs" role="tablist" aria-label="Activity"><button role="tab" data-tab="attempts">Attempts</button><button role="tab" data-tab="requests">Access requests</button><button role="tab" data-tab="updates">Updates</button></div><div data-message></div><div class="panel" id="activity-list"></div>`;
   const list = root.querySelector("#activity-list");
   const page = pagination(list, load);
+  let loadId = 0;
   async function load(cursor) {
     if (!cursor) list.innerHTML = loading();
     const actionName = {
@@ -31,11 +32,17 @@ export async function mount(root) {
       requests: "listMyApplications",
       updates: "listMyNotifications",
     }[tab];
-    const result = await api(actionName, {
+    const params = {
       limit: 20,
       ...(cursor ? { cursor } : {}),
-    });
-    if (!cursor) list.innerHTML = "";
+    };
+    if (!cursor) {
+      const stamp = ++loadId;
+      await apiSWR(actionName, params, (r) => stamp === loadId && render(r, null));
+      return;
+    }
+    render(await api(actionName, params), cursor);
+    function render(result, cursor) {    if (!cursor) list.innerHTML = "";
     if (tab === "attempts")
       list.insertAdjacentHTML(
         "beforeend",
@@ -79,6 +86,7 @@ export async function mount(root) {
         tab === "attempts" ? linkButton("Browse quizzes", "quizzes.html") : "",
       );
     page(result.nextCursor);
+    }
     list.querySelectorAll("[data-read]").forEach(
       (b) =>
         (b.onclick = async () => {

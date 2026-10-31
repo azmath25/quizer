@@ -148,28 +148,58 @@ define(
   { mutation: true },
 );
 define("getDashboard", "guest", [], async (c) => {
-  const publicQuizzes = (await c.list("catalog", [], { limit: 5 })).items;
-  if (!c.actor) return { publicQuizzes };
+  const catalog = c.list("catalog", [], { limit: 5 });
+  if (!c.actor) return { publicQuizzes: (await catalog).items };
   requireRole(c.actor, "user");
-  const attempts = (
-    await c.list(
-      "attempts",
-      [["studentId", "==", c.actor.uid]],
-      { limit: 5 },
-      "startedAt",
-    )
-  ).items;
-  const requests = (
-    await c.list("@participants", [["uid", "==", c.actor.uid]], { limit: 5 })
-  ).items;
-  const notifications = (
-    await c.list(
-      `users/${c.actor.uid}/notifications`,
-      [],
-      { limit: 5 },
-      "createdAt",
-    )
-  ).items;
+  const uid = c.actor.uid,
+    teacher =
+      ["teacher", "admin"].includes(c.actor.role) && c.actor.emailVerified,
+    items = (q) => q.then((r) => r.items),
+    none = Promise.resolve([]);
+  const [publicQuizzes, attempts, requests, notifications, myQuizzes, incoming, marking] =
+    await Promise.all([
+      items(catalog),
+      items(c.list("attempts", [["studentId", "==", uid]], { limit: 5 }, "startedAt")),
+      items(c.list("@participants", [["uid", "==", uid]], { limit: 5 })),
+      items(c.list(`users/${uid}/notifications`, [], { limit: 5 }, "createdAt")),
+      teacher
+        ? items(
+            c.list(
+              "quizzes",
+              [
+                ["ownerId", "==", uid],
+                ["lifecycle", "==", "active"],
+              ],
+              { limit: 5 },
+            ),
+          )
+        : none,
+      teacher
+        ? items(
+            c.list(
+              "@participants",
+              [
+                ["quizOwnerId", "==", uid],
+                ["accessStatus", "==", "pending"],
+              ],
+              { limit: 5 },
+            ),
+          )
+        : none,
+      teacher
+        ? items(
+            c.list(
+              "attempts",
+              [
+                ["quizOwnerId", "==", uid],
+                ["gradeState", "==", "pending_manual"],
+              ],
+              { limit: 5 },
+              "startedAt",
+            ),
+          )
+        : none,
+    ]);
   const result = {
     publicQuizzes,
     attempts: attempts.map((a) => ({
@@ -188,38 +218,10 @@ define("getDashboard", "guest", [], async (c) => {
     })),
     notifications,
   };
-  if (["teacher", "admin"].includes(c.actor.role) && c.actor.emailVerified) {
-    result.myQuizzes = (
-      await c.list(
-        "quizzes",
-        [
-          ["ownerId", "==", c.actor.uid],
-          ["lifecycle", "==", "active"],
-        ],
-        { limit: 5 },
-      )
-    ).items;
-    result.incoming = (
-      await c.list(
-        "@participants",
-        [
-          ["quizOwnerId", "==", c.actor.uid],
-          ["accessStatus", "==", "pending"],
-        ],
-        { limit: 5 },
-      )
-    ).items;
-    result.marking = (
-      await c.list(
-        "attempts",
-        [
-          ["quizOwnerId", "==", c.actor.uid],
-          ["gradeState", "==", "pending_manual"],
-        ],
-        { limit: 5 },
-        "startedAt",
-      )
-    ).items.map((a) => ({
+  if (teacher) {
+    result.myQuizzes = myQuizzes;
+    result.incoming = incoming;
+    result.marking = marking.map((a) => ({
       id: a.id,
       quizTitle: a.quizTitle,
       studentDisplayName: a.studentDisplayName,

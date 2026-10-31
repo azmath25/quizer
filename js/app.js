@@ -13,7 +13,8 @@ import {
   notice,
 } from "./components/ui.js";
 import { loginURL } from "./core/navigation.js";
-import { startRouter, go, isStale, loadModule } from "./core/router.js";
+import { startRouter, go, isStale, loadModule, setWarmer } from "./core/router.js";
+import { warm } from "./services/api.js";
 const pages = {
   home: "guest",
   catalog: "guest",
@@ -127,7 +128,20 @@ watchSession((next) => {
     location.reload();
   }
 });
+const warmers = {
+  "index.html": () => warm("getDashboard"),
+  "quizzes.html": () => warm("listPublicQuizzes", { limit: 12 }),
+  "activity.html": () => getSession().user && warm("listMyAttempts", { limit: 20 }),
+  "teaching.html": () =>
+    getSession().capabilities.teach &&
+    warm("listMyQuizzes", { limit: 20, lifecycle: "active" }),
+};
+setWarmer((file) => warmers[file]?.());
 await startRouter(renderPage);
+// Warm the main menu destinations once the current page is up.
+setTimeout(() => {
+  for (const file of Object.keys(warmers)) warmers[file]();
+}, 1500);
 document.addEventListener("click", (event) => {
   const image = event.target.closest(".math-content img");
   if (!image) return;
