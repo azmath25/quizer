@@ -523,13 +523,8 @@ define(
       "ATTEMPT_EXPIRED",
       "Time has ended.",
     );
-    version(a.uiState.version, r.expectedUiVersion);
-    number(r.index, "Problem number", 0, a.order.length - 1, true);
-    assert(
-      a.settingsSnapshot.allowBack || r.index === a.currentFrontier,
-      "INVALID_FIELDS",
-      "You cannot return to that problem.",
-    );
+    // Flags are last-write-wins and never move the current problem, so they cannot
+    // conflict with navigation that is still being saved.
     assert(
       Array.isArray(r.flags) &&
         r.flags.length <= a.order.length &&
@@ -538,7 +533,7 @@ define(
       "Invalid flags.",
     );
     const uiState = {
-      currentIndex: r.index,
+      ...a.uiState,
       flaggedItemIds: [...new Set(r.flags)],
       version: a.uiState.version + 1,
     };

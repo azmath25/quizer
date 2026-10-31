@@ -27,7 +27,7 @@ export function mountAssistant(session) {
   if (!document.querySelector("link[data-ai-css]")) {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "assets/css/assistant.css?v=3";
+    link.href = "assets/css/assistant.css?v=4";
     link.dataset.aiCss = "";
     document.head.append(link);
   }
@@ -35,7 +35,7 @@ export function mountAssistant(session) {
   pendingFiles = [];
   root = document.createElement("div");
   root.id = "ai-assistant";
-  root.innerHTML = `<button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Problem assistant</strong><span class="ai-tag">${AI_CONNECTED ? "Beta" : "Preview"}</span></div><div class="ai-head-actions"><button class="icon-button" type="button" data-ai="reset" aria-label="Clear conversation" title="Clear conversation">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Attach a PDF, image or .tex file"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask, or attach a PDF of problems…" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div></form></aside>`;
+  root.innerHTML = `<button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Problem assistant</strong><span class="ai-tag">${AI_CONNECTED ? "Beta" : "Preview"}</span></div><div class="ai-head-actions"><button class="icon-button" type="button" data-ai="reset" aria-label="Clear conversation" title="Clear conversation">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Attach a PDF, image or .tex file"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask, or attach a PDF of problems…" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div></form></aside>`;
   document.body.append(root);
   log = root.querySelector(".ai-log");
   form = root.querySelector("form");
@@ -51,6 +51,7 @@ export function mountAssistant(session) {
     save();
     if (open) input.focus({ preventScroll: true });
   };
+  initResize(panel);
   fab.onclick = () => setOpen(!state.open);
   root.querySelector("[data-ai=close]").onclick = () => setOpen(false);
   root.querySelector("[data-ai=reset]").onclick = async () => {
@@ -255,4 +256,72 @@ async function review(batch) {
   const picked = values.getAll("pick").map(Number);
   if (!picked.length) return;
   handoff(batch, picked.map((i) => batch.problems[i]), false);
+}
+
+const SIZE_KEY = "mathquiz.assistantSize";
+function initResize(panel) {
+  const limits = () => ({
+    minW: 320,
+    minH: 360,
+    maxW: innerWidth - 32,
+    maxH: innerHeight - 92,
+  });
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const apply = (w, h) => {
+    const l = limits();
+    if (w != null) panel.style.setProperty("--ai-w", clamp(w, l.minW, l.maxW) + "px");
+    if (h != null) panel.style.setProperty("--ai-h", clamp(h, l.minH, l.maxH) + "px");
+  };
+  const saveSize = () => {
+    const r = panel.getBoundingClientRect();
+    try {
+      localStorage.setItem(SIZE_KEY, JSON.stringify({ w: Math.round(r.width), h: Math.round(r.height) }));
+    } catch {}
+  };
+  try {
+    const s = JSON.parse(localStorage.getItem(SIZE_KEY) || "null");
+    if (s) apply(s.w, s.h);
+  } catch {}
+  const reset = () => {
+    panel.style.removeProperty("--ai-w");
+    panel.style.removeProperty("--ai-h");
+    try {
+      localStorage.removeItem(SIZE_KEY);
+    } catch {}
+  };
+  panel.querySelectorAll("[data-grip]").forEach((grip) => {
+    const mode = grip.dataset.grip;
+    grip.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      grip.setPointerCapture(ev.pointerId);
+      const start = panel.getBoundingClientRect(),
+        x0 = ev.clientX,
+        y0 = ev.clientY;
+      const move = (m) =>
+        apply(mode.includes("w") ? start.width + (x0 - m.clientX) : null, mode.includes("n") ? start.height + (y0 - m.clientY) : null);
+      const up = () => {
+        grip.removeEventListener("pointermove", move);
+        grip.removeEventListener("pointerup", up);
+        grip.removeEventListener("pointercancel", up);
+        saveSize();
+      };
+      grip.addEventListener("pointermove", move);
+      grip.addEventListener("pointerup", up);
+      grip.addEventListener("pointercancel", up);
+    });
+    grip.addEventListener("dblclick", reset);
+    grip.addEventListener("keydown", (ev) => {
+      const step = ev.shiftKey ? 80 : 24,
+        r = panel.getBoundingClientRect(),
+        dir = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[ev.key];
+      if (!dir || (mode === "w" && !dir[0]) || (mode === "n" && !dir[1])) return;
+      ev.preventDefault();
+      apply(dir[0] ? r.width + dir[0] : null, dir[1] ? r.height + dir[1] : null);
+      saveSize();
+    });
+  });
+  addEventListener("resize", () => {
+    const r = panel.getBoundingClientRect();
+    if (panel.style.getPropertyValue("--ai-w") || panel.style.getPropertyValue("--ai-h")) apply(r.width, r.height);
+  });
 }

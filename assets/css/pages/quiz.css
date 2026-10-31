@@ -172,9 +172,24 @@
   background: var(--primary);
   color: var(--surface);
 }
+.question-grid button { position: relative; }
 .question-grid button.flagged {
-  box-shadow: inset 0 -3px var(--amber);
+  box-shadow: inset 0 -3px var(--accent);
 }
+.question-grid button.flagged::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+.flag-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; }
+.flag-list[hidden] { display: none; }
+.flag-list strong { width: 100%; font-size: 0.78rem; color: var(--muted); }
+#star[aria-pressed="true"] .icon, #flag[aria-pressed="true"] .icon { fill: var(--accent); color: var(--accent); }
 .runner-sidebar {
   position: sticky;
   top: 98px;

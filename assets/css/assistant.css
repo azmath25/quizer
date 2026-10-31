@@ -10,7 +10,7 @@
 @keyframes ai-spark { 50% { transform: rotate(25deg) scale(1.2); } }
 #ai-assistant.is-open .ai-fab { display: none; }
 .ai-panel {
-  position: fixed; top: 76px; right: 16px; bottom: 16px; width: min(400px, calc(100vw - 32px));
+  position: fixed; right: 16px; bottom: 16px; width: min(var(--ai-w, 400px), calc(100vw - 32px)); height: min(var(--ai-h, calc(100vh - 92px)), calc(100vh - 92px));
   display: flex; flex-direction: column; border-radius: var(--radius); background: var(--surface);
   border: 1px solid var(--border); box-shadow: var(--shadow-lift); overflow: hidden;
   animation: ai-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -63,3 +63,10 @@
 .ai-row textarea { min-height: 38px; height: 38px; line-height: 1.3; }
 .ai-head .icon-button { border: 0; width: 32px; height: 32px; }
 .ai-head .icon-button:hover { background: var(--glass); }
+
+.ai-grip { position: absolute; z-index: 2; touch-action: none; background: transparent; }
+.ai-grip:hover, .ai-grip:focus-visible { background: var(--brand-tint); outline: none; }
+.ai-grip--w { left: 0; top: 14px; bottom: 0; width: 8px; cursor: ew-resize; }
+.ai-grip--n { top: 0; left: 14px; right: 0; height: 8px; cursor: ns-resize; }
+.ai-grip--nw { top: 0; left: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+@media (max-width: 640px) { .ai-grip--w, .ai-grip--nw { display: none; } .ai-panel { width: calc(100vw - 16px); right: 8px; } }

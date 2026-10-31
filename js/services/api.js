@@ -6,7 +6,7 @@ document.addEventListener("session-cleared", () => inflight.clear());
 const cache = new Map();
 const TTL = 60000;
 document.addEventListener("session-cleared", () => cache.clear());
-const isRead = (action) => /^(get|list)/.test(action);
+const isRead = (action) => /^(get|list|setStar)/.test(action);
 export function warm(action, data = {}) {
   const key = JSON.stringify([getSession().epoch, action, data]),
     hit = cache.get(key);
