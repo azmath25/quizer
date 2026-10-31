@@ -1,4 +1,4 @@
-import { api } from "../services/api.js";
+import { apiSWR } from "../services/api.js";
 import {
   pageHead,
   linkButton,
@@ -11,7 +11,9 @@ import {
   notice,
 } from "../components/ui.js";
 export async function mount(root, session) {
-  const data = await api("getDashboard");
+  await apiSWR("getDashboard", {}, (data) => draw(root, session, data));
+}
+function draw(root, session, data) {
   const name = session.profile?.displayName?.split(" ")[0];
   const active = (data.attempts ?? []).filter((a) => a.status === "active");
   const quick = session.capabilities.teach

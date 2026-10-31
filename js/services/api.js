@@ -3,7 +3,24 @@ const pendingRequests = new Map();
 document.addEventListener("session-cleared", () => pendingRequests.clear());
 const inflight = new Map();
 document.addEventListener("session-cleared", () => inflight.clear());
+const cache = new Map();
+const TTL = 60000;
+document.addEventListener("session-cleared", () => cache.clear());
+const isRead = (action) => /^(get|list)/.test(action);
+export function apiSWR(action, data, onData) {
+  const key = JSON.stringify([getSession().epoch, action, data]),
+    hit = cache.get(key);
+  if (hit) onData(hit.value, true);
+  if (hit && Date.now() - hit.at < TTL) return Promise.resolve(hit.value);
+  return api(action, data).then((value) => {
+    cache.set(key, { at: Date.now(), value });
+    if (!hit || JSON.stringify(hit.value) !== JSON.stringify(value))
+      onData(value, false);
+    return value;
+  });
+}
 export function api(action, data = {}, requestId) {
+  if (!isRead(action)) cache.clear();
   if (requestId) return call(action, data, requestId);
   const key = JSON.stringify([getSession().epoch, action, data]);
   if (inflight.has(key)) return inflight.get(key);
