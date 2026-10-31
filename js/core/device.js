@@ -2,6 +2,7 @@
 const root = document.documentElement,
   coarse = matchMedia("(pointer: coarse)"),
   noHover = matchMedia("(hover: none)");
+export const scrollBehavior = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
 export const isTouch = () => root.dataset.input === "touch";
 function sync(force) {
   root.dataset.input = force ?? (coarse.matches || noHover.matches ? "touch" : "mouse");

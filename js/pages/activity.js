@@ -8,9 +8,8 @@ import {
   e,
   date,
   points,
-  action,
   pagination,
-  message,
+  message
 } from "../components/ui.js";
 export async function mount(root) {
   let tab =

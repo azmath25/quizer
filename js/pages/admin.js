@@ -5,7 +5,6 @@ import {
   field,
   textarea,
   bindForm,
-  action,
   busy,
   message,
   dialog,
@@ -16,7 +15,7 @@ import {
   loading,
   pagination,
   linkButton,
-  icon,
+  icon
 } from "../components/ui.js";
 import { activityRows } from "../components/reports.js";
 export async function mount(root) {

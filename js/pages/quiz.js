@@ -1,3 +1,4 @@
+import { scrollBehavior } from "../core/device.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
 import { loadStars, isStarred, toggleStar, itemRef } from "../services/stars.js";
@@ -423,7 +424,7 @@ async function runner(root, initial, session) {
         index = target;
         await showQuestion();
       }
-      question.scrollIntoView({ block: "start", behavior: "smooth" });
+      question.scrollIntoView({ block: "start", behavior: scrollBehavior() });
     } finally {
       navigating = false;
     }

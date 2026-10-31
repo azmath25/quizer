@@ -1,6 +1,7 @@
 import { latexHTML, typeset, clearMath } from "../render.js";
 import { resolveImages } from "../services/assets.js";
-import { e, points, badge } from "./ui.js";
+import { e, points
+} from "./ui.js";
 export { latexHTML, typeset, clearMath };
 export function problemPreview(
   content,

@@ -1,3 +1,4 @@
+import { scrollBehavior } from "../core/device.js";
 import { escapeHTML as e } from "../common.js";
 import { errorMessage } from "../firebase-client.js";
 export { e };
@@ -84,7 +85,7 @@ export function message(root, text, tone = "error") {
   }
   node.innerHTML = text ? notice(text, tone) : "";
   if (tone === "error")
-    node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    node.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
 }
 export function bindForm(form, fn) {
   form.addEventListener("submit", async (event) => {

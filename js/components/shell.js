@@ -12,10 +12,10 @@ function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "assets/css/math.css?v=11";
+  link.href = "assets/css/math.css?v=12";
   const polish = document.createElement("link");
   polish.rel = "stylesheet";
-  polish.href = "assets/css/polish.css?v=11";
+  polish.href = "assets/css/polish.css?v=12";
   document.head.append(link, polish);
   const bg = document.createElement("div");
   bg.id = "math-bg";
@@ -60,7 +60,7 @@ export function mountShell() {
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Appearance</a></span>`;
     if (s.profile?.preferences) applyAppearance(s.profile.preferences);
     if (s.authResolved)
-      import("./assistant.js?v=11").then((m) => m.mountAssistant(s)).catch(() => {});
+      import("./assistant.js?v=12").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   watchSession(draw);
   document.addEventListener("route-changed", () => {

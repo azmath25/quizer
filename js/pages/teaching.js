@@ -6,12 +6,11 @@ import {
   empty,
   loading,
   select,
-  bindForm,
   e,
   badge,
   date,
   pagination,
-  message,
+  message
 } from "../components/ui.js";
 import { attemptRows, attemptTable } from "../components/reports.js";
 export async function mount(root) {
