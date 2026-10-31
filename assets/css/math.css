@@ -167,3 +167,73 @@
   #math-bg, .coin, .coin-orbit, .zeno-dot, .tortoise, .achilles, .brand-orbit { animation: none; }
   #math-bg { display: none; }
 }
+
+/* Per-subject ghost art */
+.qc-front { position: relative; overflow: hidden; }
+.qc-ghost {
+  position: absolute;
+  right: 10px;
+  bottom: -18px;
+  font: italic 700 5.5rem ui-serif, Georgia, serif;
+  color: var(--tone);
+  opacity: 0.08;
+  pointer-events: none;
+  transition: transform 0.4s, opacity 0.4s;
+}
+.quiz-card:hover .qc-ghost { opacity: 0.16; transform: rotate(-8deg) scale(1.1); }
+
+/* Login scene */
+.auth-layout:has(.auth-scene) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: stretch; max-width: 960px; margin: 20px auto 40px; }
+.auth-scene {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px;
+  border-radius: 18px;
+  background: var(--grad);
+  color: #fff;
+  box-shadow: var(--shadow-lift);
+}
+.auth-scene svg { width: 100%; }
+.auth-scene .ax { stroke: #fff5; stroke-width: 1; }
+.auth-scene .uc { fill: none; stroke: #fff9; stroke-width: 1.5; }
+.auth-scene .ray { stroke: #fff; stroke-width: 2; }
+.auth-scene .pt { fill: #ffd66b; }
+.auth-scene .rad { transform-origin: 70px 110px; animation: orbit 6s linear infinite reverse; }
+.auth-scene .wave { fill: none; stroke: #ffd66b; stroke-width: 2.5; stroke-dasharray: 700; stroke-dashoffset: 700; animation: draw 6s linear infinite; }
+.auth-scene .trace { offset-path: path("M70 110 Q 110 30 150 110 T 230 110 T 310 110 T 390 110"); animation: trace 6s linear infinite; }
+@keyframes draw { 0% { stroke-dashoffset: 700; } 85%, 100% { stroke-dashoffset: 0; } }
+@keyframes trace { from { offset-distance: 0; } to { offset-distance: 100%; } }
+.auth-scene p { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.scene-eq { font: italic 1rem ui-serif, Georgia, serif; opacity: 0.85; }
+@media (max-width: 800px) { .auth-layout:has(.auth-scene) { grid-template-columns: 1fr; max-width: 450px; } .auth-scene { display: none; } }
+
+/* Quiz runner: graph-paper */
+body[data-page="quiz"] main::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--primary) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 7%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 80%);
+}
+body[data-page="quiz"] #math-bg { display: none; }
+body[data-page="quiz"] .runner-question { position: relative; }
+body[data-page="quiz"] .runner-question::after {
+  content: "f(x)";
+  position: absolute;
+  right: 18px;
+  bottom: 8px;
+  font: italic 700 3rem ui-serif, Georgia, serif;
+  color: var(--accent);
+  opacity: 0.07;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-scene .rad, .auth-scene .wave, .auth-scene .trace { animation: none; stroke-dashoffset: 0; }
+}

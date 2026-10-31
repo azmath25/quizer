@@ -12,7 +12,7 @@ function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "assets/css/math.css";
+  link.href = "assets/css/math.css?v=2";
   document.head.append(link);
   const bg = document.createElement("div");
   bg.id = "math-bg";
