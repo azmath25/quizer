@@ -41,6 +41,7 @@ export const api = onCall(
       console.error("api_failed", {
         action: request.data?.action,
         code: error.code ?? "internal",
+        message: String(error.message).slice(0, 300),
       });
       throw new HttpsError(
         "internal",

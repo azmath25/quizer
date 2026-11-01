@@ -2,9 +2,11 @@ import { getFirebaseServices, getSession } from "../firebase-client.js";
 import { api, waitForJob } from "./api.js";
 const cache = new Map();
 const knownLinks = new Map();
+const inflight = new Map();
 document.addEventListener("session-cleared", () => {
   cache.clear();
   knownLinks.clear();
+  inflight.clear();
 });
 // Reauthorize an expired image link when an image is loaded later (including an enlarged image).
 document.addEventListener(
@@ -38,7 +40,27 @@ document.addEventListener(
   },
   true,
 );
-export async function uploadAsset(file, onProgress = () => {}, kind = "image") {
+const uploaded = new Map();
+export function uploadAsset(file, onProgress = () => {}, kind = "image") {
+  const key = [
+    getSession().epoch,
+    kind,
+    file.name,
+    file.size,
+    file.lastModified,
+    file.type,
+  ].join("|");
+  if (!uploaded.has(key))
+    uploaded.set(
+      key,
+      sendAsset(file, onProgress, kind).catch((error) => {
+        uploaded.delete(key);
+        throw error;
+      }),
+    );
+  return uploaded.get(key);
+}
+async function sendAsset(file, onProgress, kind) {
   const epoch = getSession().epoch,
     mime =
       kind === "source"
@@ -92,23 +114,35 @@ export async function resolveImages(bindings = {}, context) {
         !cache.has(scope + id) ||
         cache.get(scope + id).expires < Date.now() + 15000,
     );
-  for (let offset = 0; offset < needed.length; offset += 20) {
-    const result = await api("getAssetLinks", {
-      context,
-      assetIds: needed.slice(offset, offset + 20),
-    });
-    for (const link of result.links) {
-      knownLinks.set(link.url, {
-        assetId: link.assetId,
-        context,
-        epoch: getSession().epoch,
-      });
-      cache.set(scope + link.assetId, {
-        url: link.url,
-        expires: Date.parse(link.expiresAt),
-      });
-    }
-  }
+  await Promise.all(
+    Array.from({ length: Math.ceil(needed.length / 20) }, (_, n) => {
+      const batch = needed.slice(n * 20, n * 20 + 20),
+        key = scope + batch.join(",");
+      if (!inflight.has(key))
+        inflight.set(
+          key,
+          api("getAssetLinks", { context, assetIds: batch })
+            .then((result) => {
+              for (const link of result.links) {
+                knownLinks.set(link.url, {
+                  assetId: link.assetId,
+                  context,
+                  epoch: getSession().epoch,
+                });
+                cache.set(scope + link.assetId, {
+                  url: link.url,
+                  expires: Date.parse(link.expiresAt),
+                });
+                // Warm the browser cache so the image is ready when shown.
+                const warm = new Image();
+                warm.src = link.url;
+              }
+            })
+            .finally(() => inflight.delete(key)),
+        );
+      return inflight.get(key);
+    }),
+  );
   return Object.fromEntries(
     Object.entries(bindings).map(([alias, id]) => [
       alias,

@@ -33,15 +33,26 @@ export async function signObject(storagePath, generation) {
     });
     return `http://${process.env.FIREBASE_STORAGE_EMULATOR_HOST}/v0/b/${bucket().name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
   }
-  const [url] = await bucket()
-    .file(storagePath, { generation })
-    .getSignedUrl({
-      version: "v4",
-      action: "read",
-      expires: Date.now() + 120000,
-      queryParams: { generation: String(generation) },
+  try {
+    const [url] = await bucket()
+      .file(storagePath, { generation })
+      .getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: Date.now() + 120000,
+        queryParams: { generation: String(generation) },
+      });
+    return url;
+  } catch (error) {
+    console.error("sign_failed", {
+      message: String(error.message).slice(0, 300),
     });
-  return url;
+    assert(
+      false,
+      "SIGNING_UNAVAILABLE",
+      "Images cannot be signed. The functions service account needs the Service Account Token Creator role (see FIREBASE-SETUP.md).",
+    );
+  }
 }
 define(
   "createAssetUpload",
@@ -251,21 +262,24 @@ define("getAssetLinks", "user", ["context", "assetIds"], async (c, r) => {
       context.kind === "attempt" && !a.settingsSnapshot.allowBack && !staff
         ? [a.order[a.currentFrontier]]
         : a.order;
-    for (const itemId of ids) {
-      const item = await c.get(
-        `quizzes/${a.quizId}/revisions/${a.quizRevisionId}/items/${itemId}`,
-      );
-      Object.values(item.questionAssetBindings).forEach((x) => allowed.add(x));
-      if (
-        context.kind === "result" &&
-        (staff || released(a, "solutions", c.now))
-      ) {
-        const key = await c.get(
-          `quizzes/${a.quizId}/revisions/${a.quizRevisionId}/grading/${itemId}`,
+    const showKey =
+      context.kind === "result" && (staff || released(a, "solutions", c.now));
+    const base = `quizzes/${a.quizId}/revisions/${a.quizRevisionId}`;
+    await Promise.all(
+      ids.map(async (itemId) => {
+        const [item, key] = await Promise.all([
+          c.get(`${base}/items/${itemId}`),
+          showKey ? c.get(`${base}/grading/${itemId}`) : null,
+        ]);
+        Object.values(item.questionAssetBindings).forEach((x) =>
+          allowed.add(x),
         );
-        Object.values(key.solutionAssetBindings).forEach((x) => allowed.add(x));
-      }
-    }
+        if (key)
+          Object.values(key.solutionAssetBindings).forEach((x) =>
+            allowed.add(x),
+          );
+      }),
+    );
   } else if (context.kind === "source" || context.kind === "owned_upload") {
     requireRole(c.actor, "teacher");
     const a = await c.get(`assets/${context.id}`);
@@ -278,7 +292,6 @@ define("getAssetLinks", "user", ["context", "assetIds"], async (c, r) => {
       assert(a.kind === "source", "INVALID_FIELDS", "Source required.");
     allowed.add(context.id);
   } else assert(false, "INVALID_FIELDS", "Unknown asset context.");
-  const links = [];
   for (const assetId of r.assetIds) {
     id(assetId);
     assert(
@@ -286,19 +299,23 @@ define("getAssetLinks", "user", ["context", "assetIds"], async (c, r) => {
       "RESOURCE_UNAVAILABLE",
       "An image is not part of this content.",
     );
-    const asset = await c.get(`assets/${assetId}`);
-    assert(
-      asset.status === "ready",
-      "ASSET_NOT_READY",
-      "An image is not ready.",
-    );
-    links.push({
-      assetId,
-      url: await signObject(asset.storagePath, asset.generation),
-      expiresAt: Timestamp.fromMillis(Date.now() + 120000),
-      contentType: asset.contentType,
-    });
   }
+  const links = await Promise.all(
+    r.assetIds.map(async (assetId) => {
+      const asset = await c.get(`assets/${assetId}`);
+      assert(
+        asset.status === "ready",
+        "ASSET_NOT_READY",
+        "An image is not ready.",
+      );
+      return {
+        assetId,
+        url: await signObject(asset.storagePath, asset.generation),
+        expiresAt: Timestamp.fromMillis(Date.now() + 120000),
+        contentType: asset.contentType,
+      };
+    }),
+  );
   return { links };
 });
 define("getExportLink", "teacher", ["jobId"], async (c, r) => {
