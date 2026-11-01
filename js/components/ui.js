@@ -25,7 +25,8 @@ const paths = {
   bulb: "M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z",
   edit: "M4 20h4L19 9l-4-4L4 16z M13 7l4 4",
   trash: "M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13",
-  share: "M8.5 12a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0 M20.5 6a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0 M20.5 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0 M8.2 10.8l7.6-3.6 M8.2 13.2l7.6 3.6",
+  share:
+    "M8.5 12a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0 M20.5 6a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0 M20.5 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0 M8.2 10.8l7.6-3.6 M8.2 13.2l7.6 3.6",
   flip: "M4 12a8 8 0 0 1 14-5 M18 3v4h-4 M20 12a8 8 0 0 1-14 5 M6 21v-4h4",
   external: "M14 4h6v6 M20 4l-9 9 M18 14v6H4V6h6",
   restore: "M4 12a8 8 0 1 0 3-6.2 M4 4v5h5",
@@ -186,7 +187,10 @@ export function sheet({ title, body, footer = "", wide = false }) {
 }
 let toastHost;
 // Short-lived message with an optional action such as Undo.
-export function toast(text, { label, onAction, timeout = 7000, tone = "" } = {}) {
+export function toast(
+  text,
+  { label, onAction, timeout = 7000, tone = "" } = {},
+) {
   if (!toastHost) {
     toastHost = document.createElement("div");
     toastHost.className = "toast-host";
@@ -225,20 +229,53 @@ export function quizCard(q, { management = false } = {}) {
   const id = q.quizId ?? q.id;
   const subjectText = String(q.subject || "Mathematics"),
     tone = [...subjectText].reduce((n, ch) => n + ch.charCodeAt(0), 0) % 5,
-    art = [[/algebra/i, "x²"], [/geom/i, "△"], [/calc|deriv|integr/i, "∫"], [/trig/i, "sin"], [/stat|prob/i, "σ"], [/number|arith/i, "ℕ"], [/linear|matri/i, "⎡⎦"], [/logic|set/i, "∈"]].find(([re]) => re.test(subjectText))?.[1] ?? ["∑", "π", "∫", "√", "∞"][tone];
+    art =
+      [
+        [/algebra/i, "x²"],
+        [/geom/i, "△"],
+        [/calc|deriv|integr/i, "∫"],
+        [/trig/i, "sin"],
+        [/stat|prob/i, "σ"],
+        [/number|arith/i, "ℕ"],
+        [/linear|matri/i, "⎡⎦"],
+        [/logic|set/i, "∈"],
+      ].find(([re]) => re.test(subjectText))?.[1] ??
+      ["∑", "π", "∫", "√", "∞"][tone];
   return `<article class="quiz-card" data-tone="${tone}"><div class="qc-inner"><div class="qc-face qc-front"><span class="qc-ghost" aria-hidden="true">${e(art)}</span><div class="card-top"><span class="subject">${e(q.subject || "Mathematics")}</span>${badge(management ? (q.lifecycle === "trashed" ? "Trash" : q.publishedRevisionId ? "Published" : "Draft") : q.accessMode === "approval" ? "Approval required" : "Open", q.accessMode === "approval" ? "amber" : "blue")}</div><h3><a href="${management ? "quiz-manage" : "quiz"}.html?id=${e(id)}">${e(q.title)}</a></h3>${q.description ? `<p class="clamp">${e(q.description)}</p>` : ""}<div class="card-meta"><span>${icon("clock")}${duration(q.durationSeconds)}</span>${q.questionCount !== undefined ? `<span>${q.questionCount} problems</span>` : ""}${q.totalPoints !== undefined ? `<span>${points(q.totalPoints)} points</span>` : ""}</div><div class="card-foot"><span>${e(q.ownerDisplayName || "Teacher")}</span><a class="text-link" href="${management ? "quiz-manage" : "quiz"}.html?id=${e(id)}">${management ? "Manage" : "View quiz"} ${icon("arrow")}</a></div></div><div class="qc-face qc-back" aria-hidden="true"><span class="qc-symbol">${e(art)}</span><strong>${e(q.title)}</strong><span>${q.questionCount !== undefined ? q.questionCount + " problems · " : ""}${duration(q.durationSeconds)}</span><span class="qc-go">${management ? "Manage" : "Start"} ${icon("arrow")}</span></div></div></article>`;
 }
-export function pagination(container, load) {
+export function pagination(container, load, { auto = false } = {}) {
   let cursor = null;
   const button = document.createElement("button");
   button.className = "button secondary load-more";
   button.textContent = "Load more";
   button.hidden = true;
   container.after(button);
-  button.onclick = () => busy(button, () => load(cursor), container);
+  let loadingMore = false;
+  const more = async () => {
+    if (loadingMore || button.hidden) return;
+    loadingMore = true;
+    try {
+      await busy(button, () => load(cursor), container);
+    } finally {
+      loadingMore = false;
+    }
+  };
+  button.onclick = more;
+  const watcher =
+    auto && "IntersectionObserver" in window
+      ? new IntersectionObserver(
+          (entries) => entries.some((x) => x.isIntersecting) && more(),
+          { rootMargin: "600px" },
+        )
+      : null;
+  watcher?.observe(button);
   return (next) => {
     cursor = next;
     button.hidden = !cursor;
+    if (watcher && cursor) {
+      watcher.unobserve(button);
+      watcher.observe(button);
+    }
   };
 }
 export function downloadBlob(data, filename, type = "application/json") {
