@@ -14,7 +14,7 @@ import {
   bindForm,
   action,
   message,
-  dialog
+  dialog,
 } from "../components/ui.js";
 import { latexHTML, typeset } from "../components/math-content.js";
 export async function mount(root, session) {
@@ -50,12 +50,15 @@ export async function mount(root, session) {
             "secondary",
           ),
         ) +
-        `<div data-message></div><section class="result-summary">${a.status === "active" ? `<div class="notice">In progress · These are the student’s last server-saved responses. They may change before submission.</div>` : grading ? `<div class="notice">${a.gradeState === "failed" ? "Grading needs attention. The teacher can check the processing job." : "Your answers are submitted. Grading is in progress…"}</div>` : !a.scoreVisible ? '<div class="notice">Submitted · Your teacher has not released the score yet.</div>' : `<div class="score-line"><div class="score-ring" style="--pct:${Math.max(0, Math.min(100, Number(a.totals.percentage) || 0))}" role="img" aria-label="${points(a.totals.percentage)} percent"><div class="score-number">${points(a.totals.score)} <small>/ ${points(a.totals.possible)}</small></div></div><div class="score-description"><h2>${a.gradeState === "pending_manual" ? "Provisional result" : "Result"}</h2><p>${points(a.totals.percentage)}% · ${a.gradeState === "pending_manual" ? `${a.totals.pending} written responses waiting for marking` : "Marking complete"}</p>${badge(a.status, a.status === "submitted" ? "green" : "")}</div></div><div class="stat-grid">${[["correct", "Correct"], ["incorrect", "Incorrect"], ["skipped", "Unanswered"], ["partial", "Partial credit"], ...(a.totals.pending ? [["pending", "Pending"]] : [])].map(([key, label]) => `<div class="stat"><strong>${a.totals[key]}</strong><span>${label}</span></div>`).join("")}</div>`}<p class="muted small">Started ${date(a.startedAt)} · ${a.submittedAt ? "Submitted " + date(a.submittedAt) : "Last saved " + date(a.lastSavedAt)}${a.submittedAt ? " · " + Math.max(0, Math.round((Date.parse(a.submittedAt) - Date.parse(a.startedAt)) / 60000)) + " minutes" : ""}</p>${a.provenance === "legacy_client_v1" ? '<p class="notice warning">Imported legacy result. This score was reported by the previous browser-based app; historical changes were not recorded.</p>' : ""}${a.terminationReason ? `<p class="notice warning">Teacher’s reason: ${e(a.terminationReason)}</p>` : ""}</section><div class="actions" id="result-actions">${a.canGrade && a.status !== "active" ? '<button class="button secondary" id="release-score">Release score</button><button class="button secondary" id="release-solutions">Release solutions</button><button class="button ghost" id="grade-history">Marking history</button>' : ""}${a.canGrade && a.status === "active" ? '<button class="button danger" id="terminate">End active attempt</button>' : ""}${!a.canGrade && a.provenance !== "legacy_client_v1" && a.status !== "active" && a.gradeState === "final" && a.scoreVisible ? '<button class="button secondary" id="retry">Retry incorrect / skipped</button>' : ""}<button class="button ghost" id="refresh-result">Refresh</button></div><div class="section-head"><h2>Responses</h2><span class="muted small">${result.totalItems} problems</span></div><div id="review-list"></div><button class="button secondary load-more" id="more-results" hidden>Load more responses</button>`;
+        `<div data-message></div><section class="result-summary">${a.status === "active" ? `<div class="notice">In progress · These are the student’s last server-saved responses. They may change before submission.</div>` : grading ? `<div class="notice">${a.gradeState === "failed" ? "Grading needs attention. The teacher can check the processing job." : "Your answers are submitted. Grading is in progress…"}</div>` : !a.scoreVisible ? '<div class="notice">Submitted · Your teacher has not released the score yet.</div>' : `<div class="score-line"><div class="score-ring" style="--pct:${Math.max(0, Math.min(100, Number(a.totals.percentage) || 0))}" role="img" aria-label="${points(a.totals.percentage)} percent"><div class="score-number">${points(a.totals.score)} <small>/ ${points(a.totals.possible)}</small></div></div><div class="score-description"><h2>${a.gradeState === "pending_manual" ? "Provisional result" : "Result"}</h2><p>${points(a.totals.percentage)}% · ${a.gradeState === "pending_manual" ? `${a.totals.pending} written responses waiting for marking` : "Marking complete"}</p>${badge(a.status, a.status === "submitted" ? "green" : "")}</div></div><div class="stat-grid">${[["correct", "Correct"], ["incorrect", "Incorrect"], ["skipped", "Unanswered"], ["partial", "Partial credit"], ...(a.totals.pending ? [["pending", "Pending"]] : [])].map(([key, label]) => `<div class="stat"><strong>${a.totals[key]}</strong><span>${label}</span></div>`).join("")}</div>`}<p class="muted small">Started ${date(a.startedAt)} · ${a.submittedAt ? "Submitted " + date(a.submittedAt) : "Last saved " + date(a.lastSavedAt)}${a.submittedAt ? " · " + Math.max(0, Math.round((Date.parse(a.submittedAt) - Date.parse(a.startedAt)) / 60000)) + " minutes" : ""}</p>${a.provenance === "legacy_client_v1" ? '<p class="notice warning">Imported legacy result. This score was reported by the previous browser-based app; historical changes were not recorded.</p>' : ""}${a.terminationReason ? `<p class="notice warning">Teacher’s reason: ${e(a.terminationReason)}</p>` : ""}</section><div class="actions" id="result-actions">${a.canGrade && a.status !== "active" ? '<button class="button secondary" id="release-score">Release score</button><button class="button secondary" id="release-solutions">Release solutions</button><button class="button ghost" id="grade-history">Marking history</button>' : ""}${a.canGrade && a.status === "active" ? '<button class="button danger" id="terminate">End active attempt</button>' : ""}${!a.canGrade && a.provenance !== "legacy_client_v1" && a.status !== "active" && a.gradeState === "final" && a.scoreVisible ? '<button class="button secondary" id="retry">Retry incorrect / skipped</button>' : ""}<button class="button ghost" id="refresh-result">Refresh</button></div><div class="section-head"><h2>Responses</h2><span class="muted small">${result.totalItems} problems</span></div><div id="review-list"></div><nav class="pager" id="result-pager" aria-label="Responses pages" hidden><button class="button secondary" id="prev-results" type="button">Previous</button><span class="muted small" id="page-label"></span><button class="button secondary" id="next-results" type="button">Next</button></nav>`;
       action(root, "#refresh-result", () => load());
-      action(root, "#more-results", async () => {
-        offset = nextOffset;
+      const turn = async (to) => {
+        offset = to;
         await load(false);
-      });
+        root.querySelector("#review-list").scrollIntoView({ block: "start" });
+      };
+      action(root, "#prev-results", () => turn(Math.max(0, offset - 10)));
+      action(root, "#next-results", () => turn(nextOffset));
       action(root, "#retry", async () => {
         const next = await api("startAttempt", {
           quizId: a.quizId,
@@ -125,6 +128,7 @@ export async function mount(root, session) {
       } else clearTimeout(poll);
     }
     const list = root.querySelector("#review-list");
+    if (!reset) list.innerHTML = "";
     if (current.provenance === "legacy_client_v1" && reset) {
       list.innerHTML =
         '<p class="notice">The original problem version is unknown. These are the response values preserved by the previous app; no change history is available.</p>';
@@ -194,7 +198,12 @@ export async function mount(root, session) {
           await load();
         });
     }
-    root.querySelector("#more-results").hidden = nextOffset === null;
+    const pager = root.querySelector("#result-pager");
+    pager.hidden = nextOffset === null && offset === 0;
+    root.querySelector("#prev-results").disabled = offset === 0;
+    root.querySelector("#next-results").disabled = nextOffset === null;
+    root.querySelector("#page-label").textContent =
+      `Page ${Math.floor(offset / 10) + 1} of ${Math.max(1, Math.ceil(result.totalItems / 10))}`;
   }
   await load();
   const stopPoll = () => clearTimeout(poll);

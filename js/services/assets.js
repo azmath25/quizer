@@ -3,10 +3,17 @@ import { api, waitForJob } from "./api.js";
 const cache = new Map();
 const knownLinks = new Map();
 const inflight = new Map();
+const blobs = new Map();
 document.addEventListener("session-cleared", () => {
   cache.clear();
   knownLinks.clear();
   inflight.clear();
+  for (const p of blobs.values())
+    p.then(
+      (u) => u.startsWith("blob:") && URL.revokeObjectURL(u),
+      () => {},
+    );
+  blobs.clear();
 });
 // Reauthorize an expired image link when an image is loaded later (including an enlarged image).
 document.addEventListener(
@@ -149,4 +156,44 @@ export async function resolveImages(bindings = {}, context) {
       cache.get(scope + id)?.url,
     ]),
   );
+}
+
+const withTimeout = (promise, ms) =>
+  Promise.race([
+    promise,
+    new Promise((_, no) => setTimeout(() => no(new Error("timeout")), ms)),
+  ]);
+function warm(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = img.onerror = resolve;
+    img.src = url;
+  });
+}
+async function download(url) {
+  try {
+    const response = await withTimeout(
+      fetch(url, { referrerPolicy: "no-referrer" }),
+      20000,
+    );
+    if (!response.ok) throw new Error("status");
+    return URL.createObjectURL(await response.blob());
+  } catch {
+    // Without bucket CORS the bytes cannot be read; fall back to the signed URL.
+    await withTimeout(warm(url), 20000).catch(() => {});
+    return url;
+  }
+}
+// Resolves once every image is actually downloaded, returning stable (non-expiring) local URLs.
+export async function loadImages(bindings = {}, context) {
+  const urls = await resolveImages(bindings, context),
+    out = {};
+  await Promise.all(
+    Object.entries(bindings).map(async ([alias, assetId]) => {
+      if (!urls[alias]) return;
+      if (!blobs.has(assetId)) blobs.set(assetId, download(urls[alias]));
+      out[alias] = await blobs.get(assetId);
+    }),
+  );
+  return out;
 }

@@ -394,6 +394,13 @@ tr:last-child td {
   display: flex;
   margin: 20px auto 0;
 }
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 20px 0 0;
+}
 .dialog {
   max-width: 560px;
   width: calc(100% - 32px);

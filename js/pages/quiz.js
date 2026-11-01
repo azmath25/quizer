@@ -1,8 +1,13 @@
 import { scrollBehavior } from "../core/device.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
-import { loadStars, isStarred, toggleStar, itemRef } from "../services/stars.js";
-import { resolveImages } from "../services/assets.js";
+import {
+  loadStars,
+  isStarred,
+  toggleStar,
+  itemRef,
+} from "../services/stars.js";
+import { loadImages } from "../services/assets.js";
 import {
   saveRecovery,
   loadRecovery,
@@ -188,16 +193,51 @@ async function runner(root, initial, session) {
       );
     return itemCache.get(itemId);
   }
-  function prefetch(itemId) {
-    if (!itemId) return;
-    fetchItem(itemId)
-      .then((item) =>
-        resolveImages(item.questionAssetBindings, {
-          kind: "attempt",
-          id: attemptId,
-        }),
-      )
-      .catch(() => {});
+  const imagesReady = new Set();
+  const ctx = { kind: "attempt", id: attemptId };
+  function fetchBatch(ids) {
+    const batch = api("getAttemptQuestions", { attemptId, itemIds: ids });
+    batch.catch(() => {});
+    for (const id of ids) {
+      const p = batch.then((r) => {
+        const item = r.items.find((i) => i.itemId === id);
+        if (!item) throw new Error("Problem not returned.");
+        ready.add(id);
+        return item;
+      });
+      p.catch(() => itemCache.delete(id));
+      itemCache.set(id, p);
+    }
+  }
+  // Fetch every other problem in a few batched calls, then download their images in the background.
+  let warming = false;
+  async function warmAll() {
+    if (warming || !a.settings.allowBack) return;
+    warming = true;
+    const near = a.order
+      .map((id, i) => [id, Math.abs(i - index)])
+      .sort((x, y) => x[1] - y[1])
+      .map(([id]) => id);
+    const missing = near.filter((id) => !itemCache.has(id));
+    for (let i = 0; i < missing.length; i += 20)
+      fetchBatch(missing.slice(i, i + 20));
+    const queue = [...near];
+    const worker = async () => {
+      while (queue.length && !stopped) {
+        const id = queue.shift();
+        try {
+          const item = await fetchItem(id);
+          if (
+            Object.keys(item.questionAssetBindings).length &&
+            !imagesReady.has(id)
+          ) {
+            await loadImages(item.questionAssetBindings, ctx);
+            imagesReady.add(id);
+          }
+        } catch {}
+      }
+    };
+    await Promise.all([worker(), worker()]);
   }
   async function showQuestion() {
     if (stopped) return;
@@ -206,19 +246,19 @@ async function runner(root, initial, session) {
     if (!ready.has(itemId)) question.innerHTML = loading("Loading problem…");
     const item = await fetchItem(itemId);
     if (getSession().epoch !== epoch) return;
-    if (a.settings.allowBack) {
-      prefetch(a.order[index + 1]);
-      prefetch(a.order[index - 1]);
-      prefetch(a.order[index + 2]);
-    }
+    warmAll();
     if (!pending.has(itemId) && !answers.has(itemId))
       answers.set(itemId, item.answer);
     const current =
       pending.get(itemId)?.value ?? answers.get(itemId)?.value ?? "";
-    const images = await resolveImages(item.questionAssetBindings, {
-      kind: "attempt",
-      id: attemptId,
-    });
+    if (
+      view === viewSequence &&
+      Object.keys(item.questionAssetBindings).length &&
+      !imagesReady.has(itemId)
+    )
+      question.innerHTML = loading("Loading images…");
+    const images = await loadImages(item.questionAssetBindings, ctx);
+    imagesReady.add(itemId);
     const options = (a.optionOrder[itemId] ?? []).map((id) =>
       item.options.find((o) => o.id === id),
     );
@@ -277,7 +317,13 @@ async function runner(root, initial, session) {
     };
     const starBtn = question.querySelector("#star");
     starBtn.onclick = () =>
-      toggleStar({ kind: "quizItem", attemptId, quizId: a.quizId, itemId, title: `Problem ${index + 1} · ${a.quizTitle}` }).catch((error) =>
+      toggleStar({
+        kind: "quizItem",
+        attemptId,
+        quizId: a.quizId,
+        itemId,
+        title: `Problem ${index + 1} · ${a.quizTitle}`,
+      }).catch((error) =>
         saveLabel(error.message || "Could not update star.", true),
       );
     await typeset(question);
@@ -377,7 +423,9 @@ async function runner(root, initial, session) {
       .then((state) => {
         a.uiState = { ...a.uiState, version: state.version };
       })
-      .catch((error) => saveLabel(error.message || "Could not save the flag. Try again.", true));
+      .catch((error) =>
+        saveLabel(error.message || "Could not save the flag. Try again.", true),
+      );
   }
   document.addEventListener("stars-changed", syncStar);
   function syncStar() {
@@ -527,7 +575,8 @@ async function runner(root, initial, session) {
   const keys = (event) => {
     if (stopped || event.metaKey || event.ctrlKey || event.altKey) return;
     if (document.querySelector("dialog[open]")) return;
-    if (event.target.closest?.("input:not([type=radio]), textarea, select")) return;
+    if (event.target.closest?.("input:not([type=radio]), textarea, select"))
+      return;
     const k = event.key.toLowerCase();
     if (k === "arrowright") press("#next");
     else if (k === "arrowleft") press("#previous");
@@ -542,7 +591,9 @@ async function runner(root, initial, session) {
   document.addEventListener("keydown", keys);
   let touch;
   const swipeStart = (event) => {
-    touch = event.target.closest("input, textarea, .math-content img") ? null : event.changedTouches[0];
+    touch = event.target.closest("input, textarea, .math-content img")
+      ? null
+      : event.changedTouches[0];
   };
   const swipeEnd = (event) => {
     if (!touch || document.documentElement.dataset.input !== "touch") return;

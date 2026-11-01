@@ -14,15 +14,23 @@ import {
   points,
   busy,
   message,
-  pagination,
   dialog,
   toast,
   icon,
   date,
 } from "../components/ui.js";
-import { displayProblem, latexHTML, typeset } from "../components/math-content.js";
+import {
+  displayProblem,
+  latexHTML,
+  typeset,
+} from "../components/math-content.js";
 import { resolveImages } from "../services/assets.js";
-import { loadStars, isStarred, toggleStar, problemRef } from "../services/stars.js";
+import {
+  loadStars,
+  isStarred,
+  toggleStar,
+  problemRef,
+} from "../services/stars.js";
 import { toLatex } from "../services/ai.js";
 import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
 export async function mount(root, session) {
@@ -45,7 +53,39 @@ export async function mount(root, session) {
     ) +
     `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="grid" id="bank-list"></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
   const list = root.querySelector("#bank-list"),
-    setPage = pagination(list, load);
+    PAGE = 12,
+    pager = document.createElement("nav");
+  let page = 0,
+    nextCursor = null;
+  pager.className = "pager";
+  pager.setAttribute("aria-label", "Problem pages");
+  pager.hidden = true;
+  pager.innerHTML =
+    '<button class="button secondary" type="button" data-prev>Previous</button><span class="muted small" data-label></span><button class="button secondary" type="button" data-next>Next</button>';
+  list.after(pager);
+  const setPage = (cursor) => {
+    nextCursor = cursor;
+    render();
+  };
+  const turn = (to) => {
+    page = to;
+    render();
+    list.scrollIntoView({ block: "start" });
+  };
+  pager.querySelector("[data-prev]").onclick = () =>
+    turn(Math.max(0, page - 1));
+  pager.querySelector("[data-next]").onclick = (event) => {
+    if ((page + 1) * PAGE < ordered(rows).length) return turn(page + 1);
+    if (nextCursor)
+      busy(
+        event.currentTarget,
+        async () => {
+          await load(nextCursor);
+          turn(page + 1);
+        },
+        root,
+      );
+  };
   const panel = root.querySelector("#selection-panel"),
     mine = (p) => p.row.ownerId === session.user.uid;
   const total = () =>
@@ -84,9 +124,9 @@ export async function mount(root, session) {
         )
           .then((d) => (resolved.set(key, d), d))
           .catch((error) => {
-          details.delete(key);
-          throw error;
-        }),
+            details.delete(key);
+            throw error;
+          }),
       );
     return details.get(key);
   }
@@ -99,11 +139,16 @@ export async function mount(root, session) {
         if (!row) continue;
         fetchDetail(row)
           .then((d) =>
-            displayProblem(en.target, { ...d.content, defaultPoints: null, points: null }, null, {
-              kind: "problem",
-              id: d.problemId,
-              revisionId: d.revisionId,
-            }),
+            displayProblem(
+              en.target,
+              { ...d.content, defaultPoints: null, points: null },
+              null,
+              {
+                kind: "problem",
+                id: d.problemId,
+                revisionId: d.revisionId,
+              },
+            ),
           )
           .then(() => en.target.classList.add("ready"))
           .catch(() => (en.target.textContent = "Preview unavailable."));
@@ -117,7 +162,9 @@ export async function mount(root, session) {
       .then((data) => {
         p.points = data.content.defaultPoints ?? 1;
         p.loaded = true;
-        const input = panel.querySelector(`[data-points="${CSS.escape(p.id)}"]`);
+        const input = panel.querySelector(
+          `[data-points="${CSS.escape(p.id)}"]`,
+        );
         if (input) input.value = p.points;
         updateTotal();
       })
@@ -134,7 +181,9 @@ export async function mount(root, session) {
         (p, i) =>
           `<li class="sel-row" data-row="${e(p.id)}"><span class="sel-num">${i + 1}</span><span class="sel-title" title="${e(p.title)}">${e(p.title)}</span><label class="sel-points"><span class="sr-only">Points for ${e(p.title)}</span><input type="number" min="0.00000001" max="1000" step="any" value="${e(p.points)}" data-points="${e(p.id)}"></label><span class="sel-ctl"><button type="button" class="icon-button" data-move="up" data-id="${e(p.id)}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-move="down" data-id="${e(p.id)}" aria-label="Move down" ${i === values.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-remove="${e(p.id)}" aria-label="Remove ${e(p.title)}">${icon("close")}</button></span></li>`,
       )
-      .join("")}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
+      .join(
+        "",
+      )}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
     updateTotal();
     panel.querySelectorAll("[data-points]").forEach((n) =>
       n.addEventListener("input", () => {
@@ -169,24 +218,34 @@ export async function mount(root, session) {
     );
     action(panel, "#clear-selection", async () => {
       selected.clear();
-      list.querySelectorAll("[data-select]").forEach((n) => (n.checked = false));
+      list
+        .querySelectorAll("[data-select]")
+        .forEach((n) => (n.checked = false));
       tray();
     });
     action(panel, "#bulk-visibility", bulkVisibility);
     action(panel, "#bulk-edit-open", async () => {
       const owned = [...selected.values()].filter(mine);
-      if (!owned.length) throw new Error("You can only edit your own problems.");
-      bulkEdit(owned.map((p) => p.row), {
-        onSaved: (done) => {
-          done.forEach((r) => redraw(r.id));
-          message(root, `${done.length} problem${done.length === 1 ? "" : "s"} updated.`, "success");
+      if (!owned.length)
+        throw new Error("You can only edit your own problems.");
+      bulkEdit(
+        owned.map((p) => p.row),
+        {
+          onSaved: (done) => {
+            done.forEach((r) => redraw(r.id));
+            message(
+              root,
+              `${done.length} problem${done.length === 1 ? "" : "s"} updated.`,
+              "success",
+            );
+          },
         },
-      });
+      );
     });
     action(panel, "#build-quiz", buildQuiz);
   }
 
-    const isOwner = (p) => p.ownerId === session.user.uid;
+  const isOwner = (p) => p.ownerId === session.user.uid;
   const visLabel = (shared) => (shared ? "Shared with teachers" : "Only me");
   const tip = (label) => `data-tooltip="${label}" aria-label="${label}"`;
   function cardHtml(p) {
@@ -199,9 +258,15 @@ export async function mount(root, session) {
       `<button type="button" class="action-btn action-btn--${kind}" ${extra} ${tip(label)}>${icon(symbol)}</button>`;
     const star = isStarred(problemRef(p.id));
     const actions = trash
-      ? btn("restore", "restore", "Restore", `data-restore="${id}"`) + btn("copy", "copy", "Copy LaTeX", "data-copy-latex")
+      ? btn("restore", "restore", "Restore", `data-restore="${id}"`) +
+        btn("copy", "copy", "Copy LaTeX", "data-copy-latex")
       : btn("copy", "copy", "Copy LaTeX", "data-copy-latex") +
-        btn("star" + (star ? " is-active" : ""), "star", star ? "Remove star" : "Star", "data-star") +
+        btn(
+          "star" + (star ? " is-active" : ""),
+          "star",
+          star ? "Remove star" : "Star",
+          "data-star",
+        ) +
         `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
         btn("download", "download", "Download .tex", "data-download") +
         btn("solve", "bulb", "Answer and solution", "data-solve") +
@@ -210,16 +275,25 @@ export async function mount(root, session) {
       ["Owner", e(p.ownerDisplayName || "Teacher")],
       ["Revision", p.revisionNumber],
       ["Updated", p.updatedAt ? e(date(p.updatedAt)) : "—"],
-      ...(trash ? [] : [["Visible to", `<span data-vis>${e(visLabel(shared))}</span>`]]),
+      ...(trash
+        ? []
+        : [["Visible to", `<span data-vis>${e(visLabel(shared))}</span>`]]),
       ...(p.tags?.length ? [["Tags", e(p.tags.join(", "))]] : []),
     ]
-      .map(([k, v]) => `<div class="meta-chip"><span class="meta-chip-label">${k}</span><span class="meta-chip-value">${v}</span></div>`)
+      .map(
+        ([k, v]) =>
+          `<div class="meta-chip"><span class="meta-chip-label">${k}</span><span class="meta-chip-value">${v}</span></div>`,
+      )
       .join("");
     const backActions = trash
       ? ""
-      : (own ? `<button type="button" class="button secondary small" data-edit>${icon("edit")}Quick edit</button>` : "") +
+      : (own
+          ? `<button type="button" class="button secondary small" data-edit>${icon("edit")}Quick edit</button>`
+          : "") +
         `<button type="button" class="button secondary small" data-history>${icon("restore")}Versions</button><button type="button" class="button secondary small" data-fork>${icon("copy")}Copy as new</button>` +
-        (own ? `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>` : "");
+        (own
+          ? `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>`
+          : "");
     return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button></div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3>${p.tags?.length ? `<div class="tag-row">${p.tags.map((t) => `<button type="button" class="tag-chip" data-tag="${e(t)}">${e(t)}</button>`).join("")}</div>` : ""}<div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
   }
   async function paintSolution(row, node) {
@@ -238,7 +312,9 @@ export async function mount(root, session) {
     await typeset(node);
   }
   const closePopovers = (except) =>
-    list.querySelectorAll(".action-popover.is-open").forEach((n) => n !== except && n.classList.remove("is-open"));
+    list
+      .querySelectorAll(".action-popover.is-open")
+      .forEach((n) => n !== except && n.classList.remove("is-open"));
   const onStars = () =>
     list.querySelectorAll(".action-btn--star").forEach((b) => {
       const on = isStarred(problemRef(b.closest("[data-card]").dataset.card));
@@ -271,7 +347,10 @@ export async function mount(root, session) {
           points: c.defaultPoints ?? 1,
           statement: c.statementLatex,
           type: c.type,
-          options: (c.options || []).map((o) => ({ text: o.textLatex, correct: o.id === g.correctOptionId })),
+          options: (c.options || []).map((o) => ({
+            text: o.textLatex,
+            correct: o.id === g.correctOptionId,
+          })),
           answer: (g.acceptedAnswers || [])[0],
           solution: g.explanationLatex,
         },
@@ -303,20 +382,46 @@ export async function mount(root, session) {
     }
     if (!t.closest(".popover-wrapper")) closePopovers();
     if (t.hasAttribute("data-flip")) {
-      const flipped = card.querySelector(".flip-card").classList.toggle("is-flipped");
+      const flipped = card
+        .querySelector(".flip-card")
+        .classList.toggle("is-flipped");
       t.classList.toggle("is-active", flipped);
       t.dataset.tooltip = t.ariaLabel = flipped ? "Back" : "Details";
       card.querySelector(".flip-face--front").inert = flipped;
       card.querySelector(".flip-face--back").inert = !flipped;
     } else if (t.hasAttribute("data-edit"))
-      busy(t, () => quickEdit(row, { onSaved: () => { redraw(row.id); message(root, "Saved as a new revision.", "success"); } }), root);
+      busy(
+        t,
+        () =>
+          quickEdit(row, {
+            onSaved: () => {
+              redraw(row.id);
+              message(root, "Saved as a new revision.", "success");
+            },
+          }),
+        root,
+      );
     else if (t.hasAttribute("data-history"))
-      busy(t, () => history(row, { canRestore: mine({ row }), onSaved: () => { redraw(row.id); message(root, "Version restored.", "success"); } }), root);
+      busy(
+        t,
+        () =>
+          history(row, {
+            canRestore: mine({ row }),
+            onSaved: () => {
+              redraw(row.id);
+              message(root, "Version restored.", "success");
+            },
+          }),
+        root,
+      );
     else if (t.hasAttribute("data-fork"))
       busy(
         t,
         async () => {
-          const copy = await api("forkProblem", { problemId: row.id, revisionId: row.latestRevisionId });
+          const copy = await api("forkProblem", {
+            problemId: row.id,
+            revisionId: row.latestRevisionId,
+          });
           message(root, "Copy created in your bank.", "success");
           if (view === "mine") await load();
           else go(`problem-edit.html?id=${copy.problemId}`);
@@ -328,10 +433,12 @@ export async function mount(root, session) {
       t.classList.toggle("is-active", open);
       const node = card.querySelector("[data-solution]");
       if (open && !node.children.length)
-        paintSolution(row, node).catch(() => (node.textContent = "Solution unavailable."));
+        paintSolution(row, node).catch(
+          () => (node.textContent = "Solution unavailable."),
+        );
     } else if (t.hasAttribute("data-star"))
-      toggleStar({ kind: "problem", problemId: id, title: row.title }).catch((error) =>
-        message(root, error.message || "Could not update star."),
+      toggleStar({ kind: "problem", problemId: id, title: row.title }).catch(
+        (error) => message(root, error.message || "Could not update star."),
       );
     else if (t.hasAttribute("data-copy-link"))
       copyText(t.previousElementSibling.value, "Link copied.");
@@ -342,8 +449,11 @@ export async function mount(root, session) {
         t,
         async () => {
           const a = document.createElement("a");
-          a.href = URL.createObjectURL(new Blob([await latexOf(row)], { type: "text/x-tex" }));
-          a.download = (row.title || "problem").replace(/[^\w.-]+/g, "_") + ".tex";
+          a.href = URL.createObjectURL(
+            new Blob([await latexOf(row)], { type: "text/x-tex" }),
+          );
+          a.download =
+            (row.title || "problem").replace(/[^\w.-]+/g, "_") + ".tex";
           a.click();
           URL.revokeObjectURL(a.href);
         },
@@ -398,8 +508,16 @@ export async function mount(root, session) {
   function matches(p) {
     if (starOnly && !isStarred(problemRef(p.id))) return false;
     if (!q) return true;
-    const statement = resolved.get(p.id + ":" + p.latestRevisionId)?.content?.statementLatex;
-    const text = [p.title, p.subject, p.difficulty, ...(p.tags || []), p.excerpt, statement]
+    const statement = resolved.get(p.id + ":" + p.latestRevisionId)?.content
+      ?.statementLatex;
+    const text = [
+      p.title,
+      p.subject,
+      p.difficulty,
+      ...(p.tags || []),
+      p.excerpt,
+      statement,
+    ]
       .join(" ")
       .toLowerCase();
     return q
@@ -430,11 +548,24 @@ export async function mount(root, session) {
       ].filter(Boolean);
     bar.hidden = !active.length;
     bar.innerHTML = active
-      .map(([k, label]) => `<button type="button" class="tag-chip is-active" data-clear="${k}">${e(label)} ×</button>`)
+      .map(
+        ([k, label]) =>
+          `<button type="button" class="tag-chip is-active" data-clear="${k}">${e(label)} ×</button>`,
+      )
       .join("");
   }
   function render() {
-    const shown = ordered(rows);
+    const all = ordered(rows),
+      pages = Math.max(1, Math.ceil(all.length / PAGE));
+    page = Math.min(page, pages - 1);
+    const shown = all.slice(page * PAGE, (page + 1) * PAGE);
+    pager.hidden = pages === 1 && !nextCursor;
+    pager.querySelector("[data-prev]").disabled = page === 0;
+    pager.querySelector("[data-next]").disabled =
+      page >= pages - 1 && !nextCursor;
+    pager.querySelector("[data-label]").textContent = nextCursor
+      ? `Page ${page + 1} of ${pages}+`
+      : `Page ${page + 1} of ${pages}`;
     list.innerHTML = shown.length
       ? shown.map(cardHtml).join("")
       : empty(
@@ -447,7 +578,12 @@ export async function mount(root, session) {
           rows.length
             ? '<button type="button" class="button secondary" data-reset-filters>Clear filters</button>'
             : view === "mine"
-              ? linkButton("New problem", "problem-edit.html", "primary", "plus")
+              ? linkButton(
+                  "New problem",
+                  "problem-edit.html",
+                  "primary",
+                  "plus",
+                )
               : "",
         );
     paintFilters();
@@ -464,6 +600,7 @@ export async function mount(root, session) {
     const first = !cursor;
     if (first) {
       loadToken++;
+      page = 0;
       rows = [];
       list.innerHTML = loading();
     }
@@ -474,10 +611,15 @@ export async function mount(root, session) {
     };
     let next = cursor,
       fresh = [];
-    const stars = needAll() || view !== "trash" ? loadStars().catch(() => {}) : null;
+    const stars =
+      needAll() || view !== "trash" ? loadStars().catch(() => {}) : null;
     if (needAll()) {
       for (let page = 0; page < 5; page++) {
-        const result = await api("listProblems", { ...base, limit: 100, ...(next ? { cursor: next } : {}) });
+        const result = await api("listProblems", {
+          ...base,
+          limit: 100,
+          ...(next ? { cursor: next } : {}),
+        });
         fresh.push(...result.items);
         next = result.nextCursor;
         if (!next) break;
@@ -485,13 +627,17 @@ export async function mount(root, session) {
     } else {
       if (first) {
         const token = ++loadToken;
-        await apiSWR("listProblems", { ...base, limit: 12 }, async (data, stale) => {
-          if (!stale) await stars;
-          if (token !== loadToken) return;
-          rows = [...data.items];
-          render();
-          setPage(data.nextCursor);
-        });
+        await apiSWR(
+          "listProblems",
+          { ...base, limit: 12 },
+          async (data, stale) => {
+            if (!stale) await stars;
+            if (token !== loadToken) return;
+            rows = [...data.items];
+            render();
+            setPage(data.nextCursor);
+          },
+        );
         return;
       }
       const result = await api("listProblems", { ...base, limit: 12, cursor });
@@ -516,7 +662,9 @@ export async function mount(root, session) {
           tray();
         }),
     );
-    scope.querySelectorAll("[data-body]:not(.ready)").forEach((n) => seen.observe(n));
+    scope
+      .querySelectorAll("[data-body]:not(.ready)")
+      .forEach((n) => seen.observe(n));
     scope.querySelectorAll("[data-share]").forEach(
       (b) =>
         (b.onclick = async () => {
@@ -574,7 +722,9 @@ export async function mount(root, session) {
     const row = rows.find((p) => p.id === id),
       card = list.querySelector(`[data-card="${CSS.escape(id)}"]`);
     if (!row || !card) return;
-    const flipped = card.querySelector(".flip-card")?.classList.contains("is-flipped");
+    const flipped = card
+      .querySelector(".flip-card")
+      ?.classList.contains("is-flipped");
     card.insertAdjacentHTML("afterend", cardHtml(row));
     card.remove();
     const next = list.querySelector(`[data-card="${CSS.escape(id)}"]`);
@@ -595,13 +745,14 @@ export async function mount(root, session) {
       form = root.querySelector("form");
     if (!k) return;
     if (k === "tag") filter = {};
-    if (k === "subject") (filter = {}), (form.subject.value = "");
-    if (k === "q") (q = ""), (form.q.value = "");
-    if (k === "starred") (starOnly = false), (form.starred.checked = false);
+    if (k === "subject") ((filter = {}), (form.subject.value = ""));
+    if (k === "q") ((q = ""), (form.q.value = ""));
+    if (k === "starred") ((starOnly = false), (form.starred.checked = false));
     load();
   });
   root.querySelector('[name="sort"]').onchange = (ev) => {
     sort = ev.target.value;
+    page = 0;
     render();
   };
   root.querySelectorAll("[data-view]").forEach(
