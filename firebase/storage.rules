@@ -14,7 +14,7 @@ service firebase.storage {
         && request.resource.size == a.expectedBytes
         && request.resource.contentType == a.declaredContentType
         && request.resource.size <= 20 * 1024 * 1024
-        && request.resource.contentType in ['image/png','image/jpeg','image/webp','image/gif','text/plain','application/json','application/x-tex'];
+        && request.resource.contentType in ['image/png','image/jpeg','image/webp','image/gif','text/plain','application/json','application/x-tex','application/pdf'];
     }
     match /staging/{uid}/{assetId}/original { allow create: if request.auth != null && resource == null && permitted(uid, assetId); allow read, update, delete: if false; }
     match /{allPaths=**} { allow read, write: if false; }

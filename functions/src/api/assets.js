@@ -59,7 +59,11 @@ define(
   "teacher",
   ["kind", "name", "contentType", "expectedBytes"],
   async (c, r) => {
-    const kind = enumeration(r.kind, ["image", "source"], "asset kind"),
+    const kind = enumeration(
+        r.kind,
+        ["image", "source", "document"],
+        "asset kind",
+      ),
       size = number(
         r.expectedBytes,
         "File size",
@@ -71,7 +75,9 @@ define(
       r.contentType,
       kind === "image"
         ? ["image/png", "image/jpeg", "image/webp", "image/gif"]
-        : ["text/plain", "application/json", "application/x-tex"],
+        : kind === "document"
+          ? ["application/pdf"]
+          : ["text/plain", "application/json", "application/x-tex"],
       "file type",
     );
     text(r.name, "Filename", 180, true);

@@ -24,6 +24,7 @@ import { sourceContent, projectCatalog, newQuiz } from "../api/quizzes.js";
 import { createProblemRecord } from "../api/problems.js";
 import { reportFilters } from "../api/reports.js";
 import { bucket } from "../api/assets.js";
+import { extractProblems } from "../ai/provider.js";
 import { updateStatistics } from "../domain/statistics.js";
 
 async function authFor(uid) {
@@ -476,6 +477,14 @@ export async function runJob(db, jobId) {
         const normalized = await sharp(output).metadata();
         width = normalized.width;
         height = normalized.height;
+      } else if (asset.kind === "document") {
+        assert(
+          raw.subarray(0, 5).toString("latin1") === "%PDF-",
+          "INVALID_FIELDS",
+          "The file is not a valid PDF.",
+        );
+        contentType = "application/pdf";
+        extension = "pdf";
       } else {
         assert(
           !raw.includes(0),
@@ -571,6 +580,38 @@ export async function runJob(db, jobId) {
         finish(c, j, { assetId: job.targetId, status: "ready", notice });
       });
       await file.delete({ ignoreNotFound: true });
+    } else if (job.kind === "ai_extract") {
+      const asset = await unit("check", async (c) => {
+        const a = await c.get(`assets/${job.targetId}`);
+        assert(
+          a.ownerId === job.requestedBy && a.status === "ready",
+          "RESOURCE_UNAVAILABLE",
+          "File unavailable.",
+        );
+        return a;
+      });
+      const [bytes] = await bucket()
+        .file(asset.storagePath, { generation: asset.generation })
+        .download();
+      const extracted = await extractProblems({
+        bytes,
+        contentType: asset.contentType,
+        name: asset.originalName,
+      });
+      await unit("finish", (c, j) => {
+        finish(c, j, {
+          title: extracted.title,
+          problemCount: extracted.problemCount,
+          latex: extracted.latex,
+        });
+        c.notify(
+          j.requestedBy,
+          "ai_job",
+          "Your quiz is parsed and ready for review.",
+          null,
+          jobId,
+        );
+      });
     } else if (job.kind === "cleanup_asset") {
       const asset = await unit(
         "check",
@@ -829,6 +870,14 @@ export async function runJob(db, jobId) {
         leaseOwner: null,
         leaseExpiresAt: null,
       });
+      if (job.kind === "ai_extract")
+        c.notify(
+          job.requestedBy,
+          "ai_job",
+          "A document extraction needs attention.",
+          null,
+          jobId,
+        );
       if (job.kind === "finalize_asset") {
         const a = await c.get(`assets/${job.targetId}`, false);
         if (a && a.status !== "ready") {
