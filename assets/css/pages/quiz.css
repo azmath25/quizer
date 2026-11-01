@@ -397,7 +397,12 @@
     min-height: 0;
   }
 }
+.question-meta .actions { flex-wrap: nowrap; }
+#flag[aria-pressed="true"] { border-color: var(--accent); background: var(--brand-tint); }
 @media (max-width: 760px) {
+  .question-meta .actions { gap: 6px; }
+  .question-meta .actions .btn-text { display: none; }
+  .question-meta #star, .question-meta #flag { padding-inline: 10px; min-width: 40px; justify-content: center; }
   .runner-question {
     padding: 20px 18px;
   }

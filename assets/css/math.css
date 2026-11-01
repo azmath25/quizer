@@ -110,11 +110,8 @@
 .auth-scene .uc { fill: none; stroke: var(--muted); stroke-width: 1.5; }
 .auth-scene .ray { stroke: var(--primary); stroke-width: 2; }
 .auth-scene .pt { fill: var(--accent); }
-.auth-scene .rad { transform-origin: 70px 110px; animation: orbit 6s linear infinite reverse; }
-.auth-scene .wave { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 700; stroke-dashoffset: 700; animation: draw 6s linear infinite; }
-.auth-scene .trace { offset-path: path("M70 110 Q 110 30 150 110 T 230 110 T 310 110 T 390 110"); animation: trace 6s linear infinite; }
-@keyframes draw { 0% { stroke-dashoffset: 700; } 85%, 100% { stroke-dashoffset: 0; } }
-@keyframes trace { from { offset-distance: 0; } to { offset-distance: 100%; } }
+.auth-scene .wave { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+.auth-scene .guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
 .auth-scene p { font-size: 1.1rem; font-weight: 600; margin: 0; }
 .scene-eq { font: italic 1rem ui-serif, Georgia, serif; opacity: 0.85; }
 @media (max-width: 800px) { .auth-layout:has(.auth-scene) { grid-template-columns: 1fr; max-width: 450px; } .auth-scene { display: none; } }
@@ -140,8 +137,7 @@ body[data-page="quiz"] .runner-question::after {
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .auth-scene .rad, .auth-scene .wave, .auth-scene .trace { animation: none; stroke-dashoffset: 0; }
-}
+  .auth-scene .rad, .auth-scene .wave, }
 
 /* Flip core (reusable 3D flip mechanism) + logo pop on navigation */
 .flip-container, .logo-flip-container { perspective: 900px; display: inline-block; }
