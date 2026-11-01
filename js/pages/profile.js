@@ -77,7 +77,7 @@ export async function mount(root, session) {
   });
   action(root, "#logout", logout);
   action(root, "#replay-tour", async () => {
-    const { startTour } = await import("../components/tour.js?v=13");
+    const { startTour } = await import("../components/tour.js?v=14");
     startTour(session, { force: true });
   });
   action(root, "#copy-uid", async () => {

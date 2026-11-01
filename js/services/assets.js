@@ -70,11 +70,13 @@ export function uploadAsset(file, onProgress = () => {}, kind = "image") {
 async function sendAsset(file, onProgress, kind) {
   const epoch = getSession().epoch,
     mime =
-      kind === "source"
-        ? file.name.endsWith(".json")
-          ? "application/json"
-          : "text/plain"
-        : file.type;
+      kind === "document"
+        ? "application/pdf"
+        : kind === "source"
+          ? file.name.endsWith(".json")
+            ? "application/json"
+            : "text/plain"
+          : file.type;
   const reservation = await api("createAssetUpload", {
     kind,
     name: file.name,

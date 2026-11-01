@@ -5,6 +5,7 @@ const links = [
   ["quiz", "quizzes.html", "Quizzes"],
   ["activity", "activity.html", "My activity"],
   ["teach", "teaching.html", "Teaching"],
+  ["ai", "ai.html", "AI"],
   ["admin", "admin.html", "Admin"],
 ];
 const EQUATIONS = ["e^{iπ}+1=0", "∑ 1/n²=π²/6", "∫ x² dx", "a²+b²=c²", "φ=(1+√5)/2", "lim n→∞", "∇·F", "x=(-b±√Δ)/2a", "sin²+cos²=1", "dy/dx", "∞", "π", "√2", "n!"];
@@ -12,10 +13,10 @@ function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "assets/css/math.css?v=13";
+  link.href = "assets/css/math.css?v=14";
   const polish = document.createElement("link");
   polish.rel = "stylesheet";
-  polish.href = "assets/css/polish.css?v=13";
+  polish.href = "assets/css/polish.css?v=14";
   document.head.append(link, polish);
   const bg = document.createElement("div");
   bg.id = "math-bg";
@@ -30,7 +31,7 @@ export function mountShell() {
   const draw = (s) => {
     const page = document.body.dataset.page;
     const nav = links
-      .filter(([key]) => key !== "teach" || s.capabilities.teach)
+      .filter(([key]) => !["teach", "ai"].includes(key) || s.capabilities.teach)
       .filter(([key]) => key !== "admin" || s.capabilities.admin);
     const active = (url) =>
       url.split(".")[0] === page ||
@@ -60,7 +61,7 @@ export function mountShell() {
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Appearance</a></span>`;
     if (s.profile?.preferences) applyAppearance(s.profile.preferences);
     if (s.authResolved)
-      import("./assistant.js?v=13").then((m) => m.mountAssistant(s)).catch(() => {});
+      import("./assistant.js?v=14").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   watchSession(draw);
   document.addEventListener("route-changed", () => {

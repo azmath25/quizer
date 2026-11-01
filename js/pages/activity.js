@@ -68,7 +68,7 @@ export async function mount(root) {
         result.items
           .map(
             (n) =>
-              `<div class="list-row"><div class="row-main"><h3>${e(n.title)}</h3><p>${date(n.createdAt)}</p></div><div class="actions">${n.quizId ? linkButton("Open", `quiz.html?id=${n.quizId}`, "secondary") : ""}${!n.readAt ? `<button class="button ghost" data-read="${e(n.id)}">Mark read</button>` : badge("Read")}</div></div>`,
+              `<div class="list-row"><div class="row-main"><h3>${e(n.title)}</h3><p>${date(n.createdAt)}</p></div><div class="actions">${n.quizId ? linkButton("Open", `quiz.html?id=${n.quizId}`, "secondary") : n.type === "ai_job" && n.targetId ? linkButton("View job", `ai.html?job=${encodeURIComponent(n.targetId)}`, "secondary") : ""}${!n.readAt ? `<button class="button ghost" data-read="${e(n.id)}">Mark read</button>` : badge("Read")}</div></div>`,
           )
           .join(""),
       );

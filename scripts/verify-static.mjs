@@ -18,6 +18,7 @@ const pages = [
   "access",
   "admin",
   "guide",
+  "ai",
   "settings",
 ];
 const errors = [];

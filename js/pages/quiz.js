@@ -33,6 +33,7 @@ import {
   icon,
 } from "../components/ui.js";
 import { latexHTML, typeset, clearMath } from "../components/math-content.js";
+import { openProblemInChat } from "../services/chats.js";
 import { loginURL } from "../core/navigation.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
@@ -264,7 +265,7 @@ async function runner(root, initial, session) {
     );
     if (view !== viewSequence || stopped) return;
     clearMath(question);
-    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-label="Star this problem" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-label="Flag this problem for review" aria-pressed="${flagged.has(itemId)}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
+    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span>${getSession().capabilities?.teach ? `<button class="button ghost small" id="ask-ai" type="button" aria-label="Open in AI chat" title="Open in AI chat">${icon("bulb")}<span class="btn-text">AI chat</span></button>` : ""}<button class="button ghost small" id="star" type="button" aria-label="Star this problem" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-label="Flag this problem for review" aria-pressed="${flagged.has(itemId)}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
     function change(value) {
       const base = answers.get(itemId) ?? { revision: 0, value: "" };
       if (
@@ -315,6 +316,10 @@ async function runner(root, initial, session) {
       grid();
       queueFlags();
     };
+    const aiBtn = question.querySelector("#ask-ai");
+    if (aiBtn)
+      aiBtn.onclick = () =>
+        busy(aiBtn, async () => go(await openProblemInChat(item.statementLatex, `Problem ${index + 1}`)), root);
     const starBtn = question.querySelector("#star");
     starBtn.onclick = () =>
       toggleStar({

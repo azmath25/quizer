@@ -70,3 +70,7 @@
 .ai-grip--n { top: 0; left: 14px; right: 0; height: 8px; cursor: ns-resize; }
 .ai-grip--nw { top: 0; left: 0; width: 16px; height: 16px; cursor: nwse-resize; }
 @media (max-width: 640px) { .ai-grip--w, .ai-grip--nw { display: none; } .ai-panel { width: calc(100vw - 16px); right: 8px; } }
+.snip-layer { position: fixed; inset: 0; z-index: 200; cursor: crosshair; background: var(--text); touch-action: none; }
+.snip-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.snip-box { position: absolute; border: 2px solid var(--accent); background: transparent; box-shadow: 0 0 0 9999px var(--overlay); }
+.snip-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 0.85rem; }

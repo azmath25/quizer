@@ -15,6 +15,7 @@ export const routes = {
   "results.html": ["results", "Results", css("quiz")],
   "access.html": ["access", "Request access", css("account")],
   "admin.html": ["admin", "Administration", css("admin", "reports")],
+  "ai.html": ["ai", "AI assistant", css("ai", "editor")],
   "guide.html": ["guide", "LaTeX guide", css("editor")],
 };
 const base = new URL(".", location.href);
@@ -48,7 +49,7 @@ export const loadModule = (file) => {
   if (!modules.has(file))
     modules.set(
       file,
-      import(`../pages/${routes[file][0]}.js?v=13`).catch((error) => {
+      import(`../pages/${routes[file][0]}.js?v=14`).catch((error) => {
         modules.delete(file);
         throw error;
       }),
