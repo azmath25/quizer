@@ -99,7 +99,7 @@ async function renderPage(name, file, token) {
       if (!isStale(token)) {
         mounted = true;
         if (page !== "login" && session.user && session.accountStatus === "active")
-          setTimeout(() => import("./components/tour.js?v=12").then((m) => m.startTour(session)).catch(() => {}), 1200);
+          setTimeout(() => import("./components/tour.js?v=13").then((m) => m.startTour(session)).catch(() => {}), 1200);
       }
     } catch (error) {
       if (isStale(token)) return;

@@ -1,4 +1,5 @@
-const css = (...names) => names.map((n) => `assets/css/pages/${n}.css`);
+const css = (...names) =>
+  names.map((n) => (n.includes("/") ? `assets/css/${n}.css` : `assets/css/pages/${n}.css`));
 export const routes = {
   "index.html": ["home", "Home", css("home", "reports")],
   "quizzes.html": ["catalog", "Quizzes", css("catalog")],
@@ -7,7 +8,7 @@ export const routes = {
   "activity.html": ["activity", "My activity", css("reports")],
   "teaching.html": ["teaching", "Teaching", css("reports")],
   "quiz-manage.html": ["quiz-manage", "Manage quiz", css("reports")],
-  "problems.html": ["problems", "Problem bank", css("editor")],
+  "problems.html": ["problems", "Problem bank", [...css("editor"), "assets/css/problem-card.css"]],
   "problem-edit.html": ["problem-edit", "Edit problem", css("editor")],
   "upload.html": ["quiz-editor", "Quiz editor", css("editor", "quiz")],
   "quiz.html": ["quiz", "Quiz", css("quiz")],
@@ -47,7 +48,7 @@ export const loadModule = (file) => {
   if (!modules.has(file))
     modules.set(
       file,
-      import(`../pages/${routes[file][0]}.js?v=12`).catch((error) => {
+      import(`../pages/${routes[file][0]}.js?v=13`).catch((error) => {
         modules.delete(file);
         throw error;
       }),
