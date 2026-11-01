@@ -17,180 +17,49 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
-    
-    <!-- MathJax Configuration -->
-    <script>
-      window.MathJax = {
-        tex: {
-          inlineMath: [['$', '$'], ['\\(', '\\)']],
-          displayMath: [['$$', '$$'], ['\\[', '\\]']]
-        },
-        svg: { fontCache: 'global' }
-      };
-    </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="js/appearance-init.js"></script>
+    <link rel="stylesheet" href="assets/css/tokens.css?v=14" />
+    <link rel="stylesheet" href="assets/css/base.css?v=14" />
+    <link rel="stylesheet" href="assets/css/layout.css?v=14" />
+    <link rel="stylesheet" href="assets/css/components.css?v=14" />
+    <link rel="stylesheet" href="assets/css/pages/ai.css?v=14" />
+    <script src="js/math-config.js"></script>
+    <script defer src="assets/mathjax.js"></script>
+    <script type="module" src="js/app.js"></script>
 
+    <!-- Inline styling for AI chat features within your schema -->
     <style>
-      :root {
-        --primary: #0281af;
-        --primary-hover: #026b91;
-        --primary-light: #e6f3f8;
-        --bg-main: #f8fafc;
-        --bg-surface: #ffffff;
-        --bg-sidebar: #f1f5f9;
-        --text-main: #1e293b;
-        --text-muted: #64748b;
-        --border-color: #cbd5e1;
-        --input-bg: #ffffff;
-        --bubble-user: #0281af;
-        --bubble-user-text: #ffffff;
-        --bubble-ai: #e2e8f0;
-        --bubble-ai-text: #1e293b;
-        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      .ai-chat-layout {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: var(--bg-surface, #ffffff);
       }
-
-      [data-theme="dark"] {
-        --primary: #38bdf8;
-        --primary-hover: #0ea5e9;
-        --primary-light: #0369a1;
-        --bg-main: #0f172a;
-        --bg-surface: #1e293b;
-        --bg-sidebar: #090d16;
-        --text-main: #f8fafc;
-        --text-muted: #94a3b8;
-        --border-color: #334155;
-        --input-bg: #0f172a;
-        --bubble-user: #0284c7;
-        --bubble-user-text: #ffffff;
-        --bubble-ai: #334155;
-        --bubble-ai-text: #f8fafc;
-        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
-      body {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: var(--bg-main);
-        color: var(--text-main);
-        height: 100vh;
+      aside.ai-sidebar {
+        width: 280px;
+        background-color: var(--bg-sidebar, #f1f5f9);
+        border-right: 1px solid var(--border-color, #cbd5e1);
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        z-index: 10;
+        transition: transform 0.3s ease;
       }
-
-      .skip-link {
-        position: absolute;
-        top: -40px;
-        left: 0;
-        background: var(--primary);
-        color: white;
-        padding: 8px;
-        z-index: 100;
-        transition: top 0.2s;
+      .ai-sidebar-header {
+        padding: 1rem;
       }
-      .skip-link:focus {
-        top: 0;
-      }
-
-      /* Header Schema Styling */
-      #site-header {
-        height: 60px;
-        background-color: var(--bg-surface);
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 1.25rem;
-        z-index: 20;
-      }
-
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-weight: 700;
-        font-size: 1.1rem;
-        color: var(--text-main);
-        text-decoration: none;
-      }
-
-      .brand span {
-        background: var(--primary);
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-      }
-
-      .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-      }
-
-      .btn {
-        background: var(--primary);
+      .ai-new-chat-btn {
+        width: 100%;
+        justify-content: center;
+        background-color: var(--primary, #0281af);
         color: white;
         border: none;
         padding: 0.5rem 1rem;
         border-radius: 8px;
         font-weight: 600;
-        font-size: 0.9rem;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: background 0.2s, transform 0.1s;
       }
-
-      .btn:hover {
-        background: var(--primary-hover);
-      }
-
-      .btn-outline {
-        background: transparent;
-        color: var(--text-main);
-        border: 1px solid var(--border-color);
-      }
-
-      .btn-outline:hover {
-        background: var(--border-color);
-      }
-
-      /* Main Layout Schema Styling */
-      #main {
-        flex: 1;
-        display: flex;
-        overflow: hidden;
-        position: relative;
-      }
-
-      aside.sidebar {
-        width: 280px;
-        background-color: var(--bg-sidebar);
-        border-right: 1px solid var(--border-color);
-        display: flex;
-        flex-direction: column;
-        transition: transform 0.3s ease;
-        z-index: 10;
-      }
-
-      .sidebar-header {
-        padding: 1rem;
-      }
-
-      .new-chat-btn {
-        width: 100%;
-        justify-content: center;
-        background-color: var(--primary);
-      }
-
-      .chat-history-list {
+      .ai-chat-history-list {
         flex: 1;
         overflow-y: auto;
         padding: 0.5rem 1rem;
@@ -198,12 +67,11 @@
         flex-direction: column;
         gap: 0.35rem;
       }
-
-      .chat-history-item {
+      .ai-chat-history-item {
         padding: 0.75rem 1rem;
         border-radius: 8px;
         background: transparent;
-        color: var(--text-main);
+        color: var(--text-main, #1e293b);
         border: none;
         text-align: left;
         cursor: pointer;
@@ -211,40 +79,31 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        transition: background 0.15s;
       }
-
-      .chat-history-item:hover {
-        background: var(--border-color);
+      .ai-chat-history-item:hover {
+        background: var(--border-color, #cbd5e1);
       }
-
-      .chat-history-item.active {
-        background: var(--primary-light);
-        color: var(--primary);
+      .ai-chat-history-item.active {
+        background: var(--primary-light, #e6f3f8);
+        color: var(--primary, #0281af);
         font-weight: 600;
       }
-
-      .sidebar-footer {
+      .ai-sidebar-footer {
         padding: 1rem;
-        border-top: 1px solid var(--border-color);
+        border-top: 1px solid var(--border-color, #cbd5e1);
         font-size: 0.8rem;
-        color: var(--text-muted);
+        color: var(--text-muted, #64748b);
         display: flex;
         justify-content: space-between;
-        align-items: center;
       }
-
-      /* Chat Workspace */
-      .chat-workspace {
+      .ai-chat-workspace {
         flex: 1;
         display: flex;
         flex-direction: column;
-        background-color: var(--bg-surface);
         position: relative;
         overflow: hidden;
       }
-
-      .chat-messages {
+      .ai-chat-messages {
         flex: 1;
         overflow-y: auto;
         padding: 1.5rem;
@@ -252,68 +111,56 @@
         flex-direction: column;
         gap: 1.25rem;
       }
-
-      .welcome-banner {
+      .ai-welcome-banner {
         text-align: center;
         max-width: 500px;
         margin: auto;
         padding: 2rem;
       }
-
-      .welcome-banner h2 {
+      .ai-welcome-banner h2 {
         font-size: 1.75rem;
         margin-bottom: 0.5rem;
-        color: var(--primary);
+        color: var(--primary, #0281af);
       }
-
-      .welcome-banner p {
-        color: var(--text-muted);
+      .ai-welcome-banner p {
+        color: var(--text-muted, #64748b);
         font-size: 0.95rem;
         margin-bottom: 1.5rem;
       }
-
-      .prompt-chips {
+      .ai-prompt-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
         justify-content: center;
       }
-
-      .chip {
-        background: var(--bg-sidebar);
-        border: 1px solid var(--border-color);
+      .ai-chip {
+        background: var(--bg-sidebar, #f1f5f9);
+        border: 1px solid var(--border-color, #cbd5e1);
         padding: 0.5rem 0.85rem;
         border-radius: 20px;
         font-size: 0.85rem;
-        color: var(--text-main);
         cursor: pointer;
-        transition: all 0.2s;
       }
-
-      .chip:hover {
-        border-color: var(--primary);
-        background: var(--primary-light);
-        color: var(--primary);
+      .ai-chip:hover {
+        border-color: var(--primary, #0281af);
+        background: var(--primary-light, #e6f3f8);
+        color: var(--primary, #0281af);
       }
-
-      /* Message Bubbles */
-      .message {
+      .ai-message {
         display: flex;
         gap: 1rem;
         max-width: 800px;
         margin: 0 auto;
         width: 100%;
       }
-
-      .message.user {
+      .ai-message.user {
         flex-direction: row-reverse;
       }
-
-      .message-avatar {
+      .ai-message-avatar {
         width: 36px;
         height: 36px;
         border-radius: 50%;
-        background: var(--primary);
+        background: var(--primary, #0281af);
         color: white;
         display: flex;
         align-items: center;
@@ -322,12 +169,10 @@
         font-size: 0.9rem;
         flex-shrink: 0;
       }
-
-      .message.user .message-avatar {
+      .ai-message.user .ai-message-avatar {
         background: #0284c7;
       }
-
-      .message-content {
+      .ai-message-content {
         padding: 0.85rem 1.15rem;
         border-radius: 12px;
         font-size: 0.95rem;
@@ -335,59 +180,44 @@
         max-width: calc(100% - 50px);
         word-break: break-word;
       }
-
-      .message.user .message-content {
-        background-color: var(--bubble-user);
-        color: var(--bubble-user-text);
+      .ai-message.user .ai-message-content {
+        background-color: var(--primary, #0281af);
+        color: white;
         border-top-right-radius: 2px;
       }
-
-      .message.assistant .message-content {
-        background-color: var(--bubble-ai);
-        color: var(--bubble-ai-text);
+      .ai-message.assistant .ai-message-content {
+        background-color: var(--bg-sidebar, #e2e8f0);
+        color: var(--text-main, #1e293b);
         border-top-left-radius: 2px;
       }
-
-      /* Chat Input Bar */
-      .chat-input-container {
+      .ai-chat-input-container {
         padding: 1rem 1.5rem;
-        background-color: var(--bg-surface);
-        border-top: 1px solid var(--border-color);
+        border-top: 1px solid var(--border-color, #cbd5e1);
       }
-
-      .chat-input-wrapper {
+      .ai-chat-input-wrapper {
         max-width: 800px;
         margin: 0 auto;
         display: flex;
         align-items: flex-end;
-        background: var(--input-bg);
-        border: 1px solid var(--border-color);
+        background: var(--input-bg, #ffffff);
+        border: 1px solid var(--border-color, #cbd5e1);
         border-radius: 12px;
         padding: 0.5rem 0.75rem;
-        box-shadow: var(--shadow);
-        transition: border-color 0.2s;
       }
-
-      .chat-input-wrapper:focus-within {
-        border-color: var(--primary);
-      }
-
-      .chat-input-wrapper textarea {
+      .ai-chat-input-wrapper textarea {
         flex: 1;
         background: transparent;
         border: none;
-        color: var(--text-main);
+        color: var(--text-main, #1e293b);
         font-family: inherit;
         font-size: 0.95rem;
         resize: none;
         max-height: 150px;
         padding: 0.5rem 0;
         outline: none;
-        line-height: 1.4;
       }
-
-      .send-btn {
-        background: var(--primary);
+      .ai-send-btn {
+        background: var(--primary, #0281af);
         color: white;
         border: none;
         width: 36px;
@@ -397,131 +227,79 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: background 0.2s;
         margin-bottom: 2px;
       }
-
-      .send-btn:hover {
-        background: var(--primary-hover);
-      }
-
-      .mobile-menu-toggle {
-        display: none;
-        background: none;
-        border: none;
-        font-size: 1.25rem;
-        color: var(--text-main);
-        cursor: pointer;
-      }
-
       @media (max-width: 768px) {
-        aside.sidebar {
+        aside.ai-sidebar {
           position: absolute;
           height: 100%;
           transform: translateX(-100%);
         }
-        aside.sidebar.open {
+        aside.ai-sidebar.open {
           transform: translateX(0);
-        }
-        .mobile-menu-toggle {
-          display: block;
         }
       }
     </style>
   </head>
   <body data-page="ai">
     <a class="skip-link" href="#main">Skip to content</a>
-    
-    <!-- User Schema Header -->
     <header id="site-header"></header>
-    
-    <!-- User Schema Main Container -->
     <main id="main" tabindex="-1">
       <noscript>This website needs JavaScript to sign in and load quizzes.</noscript>
+
+      <!-- Fully functional chat interface inside your #main container -->
+      <div class="ai-chat-layout">
+        <aside class="ai-sidebar" id="ai-sidebar">
+          <div class="ai-sidebar-header">
+            <button class="ai-new-chat-btn" id="ai-new-chat-btn">＋ New Chat</button>
+          </div>
+          <div class="ai-chat-history-list" id="ai-chat-history-list"></div>
+          <div class="ai-sidebar-footer">
+            <span>Math Assistant</span>
+            <span>Online</span>
+          </div>
+        </aside>
+
+        <section class="ai-chat-workspace">
+          <div class="ai-chat-messages" id="ai-chat-messages">
+            <div class="ai-welcome-banner" id="ai-welcome-banner">
+              <h2>Welcome to Math Assistant</h2>
+              <p>Ask questions about algebra, calculus, geometry, or generate custom math quiz problems instantly with LaTeX formatting.</p>
+              <div class="ai-prompt-chips">
+                <button class="ai-chip" data-prompt="Generate a quadratic equation problem with steps">Quadratic Equations</button>
+                <button class="ai-chip" data-prompt="Explain integration by parts with an example">Calculus Integration</button>
+                <button class="ai-chip" data-prompt="Create a geometry quiz on circles">Circle Theorems</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-chat-input-container">
+            <div class="ai-chat-input-wrapper">
+              <textarea id="ai-user-input" placeholder="Ask a math question or request a quiz problem..." rows="1"></textarea>
+              <button class="ai-send-btn" id="ai-send-btn" aria-label="Send message">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
-    
-    <!-- User Schema Footer -->
     <footer id="site-footer"></footer>
-    
-    <!-- User Schema Mobile Navigation -->
     <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
 
-    <!-- App Logic Script populating the schema layout safely -->
+    <!-- Script to power the interactive chat features within your schema -->
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-        // Populate header schema
-        document.getElementById('site-header').innerHTML = `
-          <div class="brand">
-            <button class="mobile-menu-toggle" id="menu-toggle" aria-label="Toggle navigation menu">☰</button>
-            <span>MathAI</span> Math Quiz Assistant
-          </div>
-          <div class="header-actions">
-            <button class="btn btn-outline" id="theme-toggle" title="Toggle Theme">🌓 Theme</button>
-          </div>
-        `;
-
-        // Populate main schema
-        document.getElementById('main').innerHTML = `
-          <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-              <button class="btn new-chat-btn" id="new-chat-btn">＋ New Chat</button>
-            </div>
-            <div class="chat-history-list" id="chat-history-list"></div>
-            <div class="sidebar-footer">
-              <span>v2.0 Math Assistant</span>
-              <span>Online</span>
-            </div>
-          </aside>
-          <section class="chat-workspace">
-            <div class="chat-messages" id="chat-messages">
-              <div class="welcome-banner" id="welcome-banner">
-                <h2>Welcome to Math Assistant</h2>
-                <p>Ask questions about algebra, calculus, geometry, or generate custom math quiz problems instantly with step-by-step LaTeX formatting.</p>
-                <div class="prompt-chips">
-                  <button class="chip" data-prompt="Generate a quadratic equation problem with steps">Quadratic Equations</button>
-                  <button class="chip" data-prompt="Explain integration by parts with an example">Calculus Integration</button>
-                  <button class="chip" data-prompt="Create a geometry quiz on circles">Circle Theorems</button>
-                </div>
-              </div>
-            </div>
-            <div class="chat-input-container">
-              <div class="chat-input-wrapper">
-                <textarea id="user-input" placeholder="Ask a math question or request a quiz problem..." rows="1"></textarea>
-                <button class="send-btn" id="send-btn" aria-label="Send message">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                </button>
-              </div>
-            </div>
-          </section>
-        `;
-
-        // Application State & Functionality
         let chats = JSON.parse(localStorage.getItem('math_ai_chats')) || [];
         let currentChatId = null;
 
-        const chatHistoryList = document.getElementById('chat-history-list');
-        const chatMessages = document.getElementById('chat-messages');
-        const welcomeBanner = document.getElementById('welcome-banner');
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const newChatBtn = document.getElementById('new-chat-btn');
-        const themeToggle = document.getElementById('theme-toggle');
-        const sidebar = document.getElementById('sidebar');
-        const menuToggle = document.getElementById('menu-toggle');
-
-        const savedTheme = localStorage.getItem('math_ai_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-
-        themeToggle.addEventListener('click', () => {
-          const currentTheme = document.documentElement.getAttribute('data-theme');
-          const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-          document.documentElement.setAttribute('data-theme', newTheme);
-          localStorage.setItem('math_ai_theme', newTheme);
-        });
-
-        menuToggle.addEventListener('click', () => {
-          sidebar.classList.toggle('open');
-        });
+        const historyList = document.getElementById('ai-chat-history-list');
+        const chatMessages = document.getElementById('ai-chat-messages');
+        const welcomeBanner = document.getElementById('ai-welcome-banner');
+        const userInput = document.getElementById('ai-user-input');
+        const sendBtn = document.getElementById('ai-send-btn');
+        const newChatBtn = document.getElementById('ai-new-chat-btn');
+        const sidebar = document.getElementById('ai-sidebar');
 
         userInput.addEventListener('input', function() {
           this.style.height = 'auto';
@@ -543,22 +321,16 @@
           saveChats();
           renderSidebar();
           renderMessages();
-          if (window.innerWidth <= 768) {
-            sidebar.classList.remove('open');
-          }
         }
 
         function switchChat(chatId) {
           currentChatId = chatId;
           renderSidebar();
           renderMessages();
-          if (window.innerWidth <= 768) {
-            sidebar.classList.remove('open');
-          }
         }
 
         function renderSidebar() {
-          chatHistoryList.innerHTML = '';
+          historyList.innerHTML = '';
           if (chats.length === 0) {
             createNewChat();
             return;
@@ -568,10 +340,10 @@
           }
           chats.forEach(chat => {
             const btn = document.createElement('button');
-            btn.className = `chat-history-item ${chat.id === currentChatId ? 'active' : ''}`;
+            btn.className = `ai-chat-history-item ${chat.id === currentChatId ? 'active' : ''}`;
             btn.textContent = chat.title;
             btn.addEventListener('click', () => switchChat(chat.id));
-            chatHistoryList.appendChild(btn);
+            historyList.appendChild(btn);
           });
         }
 
@@ -595,14 +367,14 @@
 
         function appendMessageNode(sender, text, scroll = true) {
           const msgDiv = document.createElement('div');
-          msgDiv.className = `message ${sender}`;
+          msgDiv.className = `ai-message ${sender}`;
 
           const avatar = document.createElement('div');
-          avatar.className = 'message-avatar';
+          avatar.className = 'ai-message-avatar';
           avatar.textContent = sender === 'user' ? 'U' : 'AI';
 
           const content = document.createElement('div');
-          content.className = 'message-content';
+          content.className = 'ai-message-content';
           content.innerHTML = text.replace(/\n/g, '<br>');
 
           msgDiv.appendChild(avatar);
@@ -619,11 +391,9 @@
           if (q.includes('quadratic')) {
             return "Here is a standard quadratic equation problem for your quiz:\n\nSolve for $x$ in the equation: $$2x^2 - 8x + 6 = 0$$\n\n**Step 1:** Factor out the common coefficient $2$:\n$$2(x^2 - 4x + 3) = 0$$\n\n**Step 2:** Factor the quadratic expression:\n$$(x - 1)(x - 3) = 0$$\n\n**Solution:** $x = 1$ or $x = 3$.";
           } else if (q.includes('integral') || q.includes('calculus')) {
-            return "Let's evaluate the indefinite integral using integration by parts ($\\int u \\, dv = uv - \\int v \\, du$):\n\n$$\\int x e^x \\, dx$$\n\n**Step 1:** Choose $u = x$ and $dv = e^x dx$.\n**Step 2:** Then $du = dx$ and $v = e^x$.\n\n**Step 3:** Apply the formula:\n$$x e^x - \\int e^x \\, dx = x e^x - e^x + C$$";
-          } else if (q.includes('circle') || q.includes('geometry')) {
-            return "Here is a circle geometry theorem challenge:\n\nA circle has a radius $r = 5\\text{ cm}$. Find the length of an arc subtended by an angle of $\\theta = 60^\\circ$ at the center.\n\n**Formula:** $s = r \\theta$ (where $\\theta$ is in radians).\n$$\\theta = 60^\\circ = \\frac{\\pi}{3} \\text{ radians}$$\n$$s = 5 \\times \\frac{\\pi}{3} = \\frac{5\\pi}{3} \\approx 5.24\\text{ cm}$$";
+            return "Let's evaluate the indefinite integral using integration by parts:\n\n$$\\int x e^x \\, dx$$\n\n**Step 1:** Choose $u = x$ and $dv = e^x dx$.\n**Step 2:** Then $du = dx$ and $v = e^x$.\n\n**Step 3:** Apply the formula:\n$$x e^x - \\int e^x \\, dx = x e^x - e^x + C$$";
           } else {
-            return `That's an interesting math query regarding "${query}". Here is how you can approach it in your math quiz module:\n\nFor any general mathematical expression like $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$, breaking down the problem into smaller premises helps students grasp concepts quicker. Let me know if you want me to generate 5 practice questions on this topic!`;
+            return `That's an interesting math query regarding "${query}". For any general mathematical expression like $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$, breaking down the problem helps students grasp concepts quicker.`;
           }
         }
 
@@ -666,7 +436,7 @@
           }
         });
 
-        document.querySelectorAll('.chip').forEach(chip => {
+        document.querySelectorAll('.ai-chip').forEach(chip => {
           chip.addEventListener('click', () => {
             userInput.value = chip.getAttribute('data-prompt');
             userInput.style.height = 'auto';
