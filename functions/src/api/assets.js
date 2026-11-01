@@ -33,15 +33,26 @@ export async function signObject(storagePath, generation) {
     });
     return `http://${process.env.FIREBASE_STORAGE_EMULATOR_HOST}/v0/b/${bucket().name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
   }
-  const [url] = await bucket()
-    .file(storagePath, { generation })
-    .getSignedUrl({
-      version: "v4",
-      action: "read",
-      expires: Date.now() + 120000,
-      queryParams: { generation: String(generation) },
+  try {
+    const [url] = await bucket()
+      .file(storagePath, { generation })
+      .getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: Date.now() + 120000,
+        queryParams: { generation: String(generation) },
+      });
+    return url;
+  } catch (error) {
+    console.error("sign_failed", {
+      message: String(error.message).slice(0, 300),
     });
-  return url;
+    assert(
+      false,
+      "SIGNING_UNAVAILABLE",
+      "Images cannot be signed. The functions service account needs the Service Account Token Creator role (see FIREBASE-SETUP.md).",
+    );
+  }
 }
 define(
   "createAssetUpload",

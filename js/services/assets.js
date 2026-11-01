@@ -38,7 +38,27 @@ document.addEventListener(
   },
   true,
 );
-export async function uploadAsset(file, onProgress = () => {}, kind = "image") {
+const uploaded = new Map();
+export function uploadAsset(file, onProgress = () => {}, kind = "image") {
+  const key = [
+    getSession().epoch,
+    kind,
+    file.name,
+    file.size,
+    file.lastModified,
+    file.type,
+  ].join("|");
+  if (!uploaded.has(key))
+    uploaded.set(
+      key,
+      sendAsset(file, onProgress, kind).catch((error) => {
+        uploaded.delete(key);
+        throw error;
+      }),
+    );
+  return uploaded.get(key);
+}
+async function sendAsset(file, onProgress, kind) {
   const epoch = getSession().epoch,
     mime =
       kind === "source"
