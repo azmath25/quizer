@@ -25,9 +25,8 @@
     <link rel="stylesheet" href="assets/css/pages/ai.css?v=14" />
     <script src="js/math-config.js"></script>
     <script defer src="assets/mathjax.js"></script>
-    <script type="module" src="js/app.js"></script>
 
-    <!-- Inline styling for AI chat features within your schema -->
+    <!-- Self-Contained UI & Chat Stylesheet -->
     <style>
       .ai-chat-layout {
         display: flex;
@@ -58,6 +57,12 @@
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .ai-new-chat-btn:hover {
+        background-color: var(--primary-hover, #026b91);
       }
       .ai-chat-history-list {
         flex: 1;
@@ -65,7 +70,7 @@
         padding: 0.5rem 1rem;
         display: flex;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: 0.35s;
       }
       .ai-chat-history-item {
         padding: 0.75rem 1rem;
@@ -79,6 +84,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        transition: background 0.15s;
       }
       .ai-chat-history-item:hover {
         background: var(--border-color, #cbd5e1);
@@ -140,6 +146,7 @@
         border-radius: 20px;
         font-size: 0.85rem;
         cursor: pointer;
+        transition: all 0.2s;
       }
       .ai-chip:hover {
         border-color: var(--primary, #0281af);
@@ -229,6 +236,9 @@
         cursor: pointer;
         margin-bottom: 2px;
       }
+      .ai-send-btn:hover {
+        background: var(--primary-hover, #026b91);
+      }
       @media (max-width: 768px) {
         aside.ai-sidebar {
           position: absolute;
@@ -247,7 +257,7 @@
     <main id="main" tabindex="-1">
       <noscript>This website needs JavaScript to sign in and load quizzes.</noscript>
 
-      <!-- Fully functional chat interface inside your #main container -->
+      <!-- Fully functional chat interface embedded within your #main container -->
       <div class="ai-chat-layout">
         <aside class="ai-sidebar" id="ai-sidebar">
           <div class="ai-sidebar-header">
@@ -287,7 +297,7 @@
     <footer id="site-footer"></footer>
     <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
 
-    <!-- Script to power the interactive chat features within your schema -->
+    <!-- Error-free client-side chat management script -->
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         let chats = JSON.parse(localStorage.getItem('math_ai_chats')) || [];
@@ -299,7 +309,8 @@
         const userInput = document.getElementById('ai-user-input');
         const sendBtn = document.getElementById('ai-send-btn');
         const newChatBtn = document.getElementById('ai-new-chat-btn');
-        const sidebar = document.getElementById('ai-sidebar');
+
+        if (!historyList || !chatMessages || !newChatBtn) return;
 
         userInput.addEventListener('input', function() {
           this.style.height = 'auto';
