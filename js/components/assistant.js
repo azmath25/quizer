@@ -31,7 +31,7 @@ export function mountAssistant(session) {
   if (!document.querySelector("link[data-ai-css]")) {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "assets/css/assistant.css?v=4";
+    link.href = "assets/css/assistant.css?v=5";
     link.dataset.aiCss = "";
     document.head.append(link);
   }
@@ -39,7 +39,7 @@ export function mountAssistant(session) {
   pendingFiles = [];
   root = document.createElement("div");
   root.id = "ai-assistant";
-  root.innerHTML = `<button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Problem assistant</strong><span class="ai-tag">${AI_CONNECTED ? "Beta" : "Preview"}</span></div><div class="ai-head-actions"><a class="icon-button" href="ai.html" data-ai="full" aria-label="Open full AI page" title="Open full AI page">⤢</a><button class="icon-button" type="button" data-ai="snip" aria-label="Snip the screen and ask" title="Snip the screen and ask">✂</button><button class="icon-button" type="button" data-ai="reset" aria-label="New chat" title="New chat">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Attach a PDF, image or .tex file"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask, or attach a PDF of problems…" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div></form></aside>`;
+  root.innerHTML = `<div class="ai-dock" title="Drag to move"><button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><button class="ai-fab ai-snip-fab" type="button" aria-label="Snip the screen and ask" title="Snip the screen and ask"><span aria-hidden="true">✂</span></button></div><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Problem assistant</strong><span class="ai-tag">${AI_CONNECTED ? "Beta" : "Preview"}</span></div><div class="ai-head-actions"><a class="icon-button" href="ai.html" data-ai="full" aria-label="Open full AI page" title="Open full AI page">⤢</a><button class="icon-button" type="button" data-ai="snip" aria-label="Snip the screen and ask" title="Snip the screen and ask">✂</button><button class="icon-button" type="button" data-ai="reset" aria-label="New chat" title="New chat">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Attach a PDF, image or .tex file"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask, or attach a PDF of problems…" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div></form></aside>`;
   document.body.append(root);
   log = root.querySelector(".ai-log");
   form = root.querySelector("form");
@@ -56,6 +56,18 @@ export function mountAssistant(session) {
     if (open) input.focus({ preventScroll: true });
   };
   initResize(panel);
+  initDrag(root.querySelector(".ai-dock"));
+  root.querySelector(".ai-snip-fab").onclick = async () => {
+    const file = await snip();
+    if (!file) return;
+    setOpen(true);
+    send({
+      prompt:
+        input.value.trim() ||
+        "What is this problem asking, and how do I solve it?",
+      files: [file],
+    });
+  };
   fab.onclick = () => setOpen(!state.open);
   root.querySelector("[data-ai=close]").onclick = () => setOpen(false);
   root.querySelector("[data-ai=reset]").onclick = () => {
@@ -424,5 +436,73 @@ function initResize(panel) {
       panel.style.getPropertyValue("--ai-h")
     )
       apply(r.width, r.height);
+  });
+}
+
+const DOCK_KEY = "mathquiz.assistantDock";
+// Lets the floating buttons be dragged anywhere on screen; a short tap still clicks.
+function initDrag(dock) {
+  const place = (x, y) => {
+    const r = dock.getBoundingClientRect();
+    x = Math.max(4, Math.min(innerWidth - r.width - 4, x));
+    y = Math.max(4, Math.min(innerHeight - r.height - 4, y));
+    Object.assign(dock.style, {
+      left: x + "px",
+      top: y + "px",
+      right: "auto",
+      bottom: "auto",
+    });
+    return { x, y };
+  };
+  try {
+    const p = JSON.parse(localStorage.getItem(DOCK_KEY) || "null");
+    if (p) place(p.x, p.y);
+  } catch {}
+  let drag = null,
+    moved = false;
+  dock.addEventListener("pointerdown", (ev) => {
+    const r = dock.getBoundingClientRect();
+    drag = {
+      dx: ev.clientX - r.left,
+      dy: ev.clientY - r.top,
+      x: ev.clientX,
+      y: ev.clientY,
+    };
+    moved = false;
+  });
+  addEventListener("pointermove", (ev) => {
+    if (!drag) return;
+    if (!moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) < 6)
+      return;
+    if (!moved) dock.setPointerCapture?.(ev.pointerId);
+    moved = true;
+    place(ev.clientX - drag.dx, ev.clientY - drag.dy);
+  });
+  const end = () => {
+    if (drag && moved) {
+      const r = dock.getBoundingClientRect();
+      try {
+        localStorage.setItem(DOCK_KEY, JSON.stringify({ x: r.left, y: r.top }));
+      } catch {}
+    }
+    drag = null;
+  };
+  addEventListener("pointerup", end);
+  addEventListener("pointercancel", end);
+  dock.addEventListener(
+    "click",
+    (ev) =>
+      moved && (ev.stopPropagation(), ev.preventDefault(), (moved = false)),
+    true,
+  );
+  dock.addEventListener("dblclick", () => {
+    ["left", "top", "right", "bottom"].forEach((k) =>
+      dock.style.removeProperty(k),
+    );
+    localStorage.removeItem(DOCK_KEY);
+  });
+  addEventListener("resize", () => {
+    const r = dock.getBoundingClientRect();
+    if (dock.style.left) place(r.left, r.top);
   });
 }

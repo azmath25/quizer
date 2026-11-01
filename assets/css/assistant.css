@@ -1,10 +1,14 @@
 #ai-assistant { position: fixed; right: 0; bottom: 0; z-index: 60; }
 .ai-fab {
-  position: fixed; right: 20px; bottom: 20px; display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
   padding: 12px 18px; border: 0; border-radius: var(--radius); color: var(--on-primary); font: 700 0.9rem inherit;
   background: var(--grad); box-shadow: var(--shadow);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.ai-dock { position: fixed; right: 20px; bottom: 20px; display: flex; gap: 8px; touch-action: none; cursor: grab; }
+.ai-dock:active { cursor: grabbing; }
+.ai-snip-fab { padding: 12px 14px; }
+#ai-assistant.is-open .ai-dock { display: none; }
 .ai-fab:hover { transform: translateY(-2px); }
 .ai-fab span:first-child { font-size: 1.1rem; animation: ai-spark 3s ease-in-out infinite; }
 @keyframes ai-spark { 50% { transform: rotate(25deg) scale(1.2); } }
@@ -55,7 +59,7 @@
 .ai-review { display: grid; gap: 10px; max-height: 60vh; overflow: auto; }
 .ai-review-card { cursor: pointer; }
 @media (max-width: 760px) {
-  .ai-fab { bottom: calc(84px + env(safe-area-inset-bottom)); right: 14px; }
+  .ai-dock { bottom: calc(84px + env(safe-area-inset-bottom)); right: 14px; }
   .ai-fab-text { display: none; }
   .ai-panel { top: auto; left: 8px; right: 8px; bottom: calc(76px + env(safe-area-inset-bottom)); width: auto; height: 72vh; }
 }

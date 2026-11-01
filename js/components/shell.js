@@ -61,7 +61,7 @@ export function mountShell() {
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Appearance</a></span>`;
     if (s.profile?.preferences) applyAppearance(s.profile.preferences);
     if (s.authResolved)
-      import("./assistant.js?v=14").then((m) => m.mountAssistant(s)).catch(() => {});
+      import("./assistant.js?v=15").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   watchSession(draw);
   document.addEventListener("route-changed", () => {
