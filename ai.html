@@ -25,13 +25,15 @@
     <link rel="stylesheet" href="assets/css/pages/ai.css?v=14" />
     <script src="js/math-config.js"></script>
     <script defer src="assets/mathjax.js"></script>
+    <script type="module" src="js/app.js"></script>
 
-    <!-- Self-Contained UI & Chat Stylesheet -->
+    <!-- Chat UI Styles -->
     <style>
       .ai-chat-layout {
         display: flex;
         width: 100%;
         height: 100%;
+        min-height: calc(100vh - 120px);
         overflow: hidden;
         background-color: var(--bg-surface, #ffffff);
       }
@@ -42,7 +44,6 @@
         display: flex;
         flex-direction: column;
         z-index: 10;
-        transition: transform 0.3s ease;
       }
       .ai-sidebar-header {
         padding: 1rem;
@@ -70,7 +71,7 @@
         padding: 0.5rem 1rem;
         display: flex;
         flex-direction: column;
-        gap: 0.35s;
+        gap: 0.35rem;
       }
       .ai-chat-history-item {
         padding: 0.75rem 1rem;
@@ -84,7 +85,6 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        transition: background 0.15s;
       }
       .ai-chat-history-item:hover {
         background: var(--border-color, #cbd5e1);
@@ -146,7 +146,6 @@
         border-radius: 20px;
         font-size: 0.85rem;
         cursor: pointer;
-        transition: all 0.2s;
       }
       .ai-chip:hover {
         border-color: var(--primary, #0281af);
@@ -239,16 +238,6 @@
       .ai-send-btn:hover {
         background: var(--primary-hover, #026b91);
       }
-      @media (max-width: 768px) {
-        aside.ai-sidebar {
-          position: absolute;
-          height: 100%;
-          transform: translateX(-100%);
-        }
-        aside.ai-sidebar.open {
-          transform: translateX(0);
-        }
-      }
     </style>
   </head>
   <body data-page="ai">
@@ -257,7 +246,7 @@
     <main id="main" tabindex="-1">
       <noscript>This website needs JavaScript to sign in and load quizzes.</noscript>
 
-      <!-- Fully functional chat interface embedded within your #main container -->
+      <!-- Fully functional chat interface inside your #main container -->
       <div class="ai-chat-layout">
         <aside class="ai-sidebar" id="ai-sidebar">
           <div class="ai-sidebar-header">
@@ -297,7 +286,7 @@
     <footer id="site-footer"></footer>
     <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
 
-    <!-- Error-free client-side chat management script -->
+    <!-- Chat Logic with event propagation stopped to prevent 400 backend errors -->
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         let chats = JSON.parse(localStorage.getItem('math_ai_chats')) || [];
@@ -321,7 +310,8 @@
           localStorage.setItem('math_ai_chats', JSON.stringify(chats));
         }
 
-        function createNewChat() {
+        function createNewChat(e) {
+          if (e) e.stopPropagation();
           const newChat = {
             id: 'chat_' + Date.now(),
             title: 'New Math Chat',
@@ -334,7 +324,8 @@
           renderMessages();
         }
 
-        function switchChat(chatId) {
+        function switchChat(chatId, e) {
+          if (e) e.stopPropagation();
           currentChatId = chatId;
           renderSidebar();
           renderMessages();
@@ -353,7 +344,7 @@
             const btn = document.createElement('button');
             btn.className = `ai-chat-history-item ${chat.id === currentChatId ? 'active' : ''}`;
             btn.textContent = chat.title;
-            btn.addEventListener('click', () => switchChat(chat.id));
+            btn.addEventListener('click', (e) => switchChat(chat.id, e));
             historyList.appendChild(btn);
           });
         }
@@ -408,7 +399,8 @@
           }
         }
 
-        function handleSendMessage() {
+        function handleSendMessage(e) {
+          if (e) e.stopPropagation();
           const text = userInput.value.trim();
           if (!text) return;
 
@@ -443,12 +435,13 @@
         userInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSendMessage();
+            handleSendMessage(e);
           }
         });
 
         document.querySelectorAll('.ai-chip').forEach(chip => {
-          chip.addEventListener('click', () => {
+          chip.addEventListener('click', (e) => {
+            e.stopPropagation();
             userInput.value = chip.getAttribute('data-prompt');
             userInput.style.height = 'auto';
             userInput.style.height = (userInput.scrollHeight) + 'px';
