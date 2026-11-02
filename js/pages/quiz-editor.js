@@ -626,7 +626,18 @@ async function edit(root, quizId) {
     saveState.textContent = "Saving…";
     try {
       let version = draft.version,
-        currentOrder = [...draft.itemOrder];
+        currentOrder = [...draft.itemOrder],
+        touched = false;
+      // Send only fields that actually differ from the saved draft.
+      const current = values();
+      const patch = {};
+      for (const key of ["title", "description", "subject", "difficulty"])
+        if (current[key] !== draft[key]) patch[key] = current[key];
+      const settings = Object.fromEntries(
+        Object.entries(current.settings).filter(([key, value]) =>
+          value !== draft.settings[key]),
+      );
+      if (Object.keys(settings).length) patch.settings = settings;
       const gone = [...removed];
       for (let i = 0; i < gone.length; i += 20) {
         const batch = gone.slice(i, i + 20);
@@ -641,6 +652,7 @@ async function edit(root, quizId) {
         draft.version = version;
         draft.itemOrder = [...currentOrder];
         batch.forEach((id) => removed.delete(id));
+        touched = true;
       }
       const changed = slots.filter(
         (i) =>
@@ -675,13 +687,25 @@ async function edit(root, quizId) {
           order = order.map((id) => (id === client ? itemId : id));
         }
         currentOrder = r.itemOrder;
+        touched = true;
       }
-      await api("saveQuizDraft", {
-        quizId,
-        expectedDraftVersion: version,
-        patch: values(),
-        itemOrder: order,
-      });
+      const orderChanged = order.length !== currentOrder.length ||
+        order.some((id, index) => id !== currentOrder[index]);
+      if (Object.keys(patch).length || orderChanged) {
+        await api("saveQuizDraft", {
+          quizId,
+          expectedDraftVersion: version,
+          ...(Object.keys(patch).length ? { patch } : {}),
+          ...(orderChanged ? { itemOrder: order } : {}),
+        });
+        touched = true;
+      }
+      if (!touched) {
+        dirty = false;
+        store.clear();
+        saveState.textContent = "Already saved · no changes";
+        return true;
+      }
       data = await api("getQuizDraft", { quizId });
       draft = data.draft;
       quiz = data.quiz;
