@@ -424,3 +424,46 @@ test("Old profile fields are normalized without changing the canonical teacher r
   assert.equal(result.profile.uid, "teacher_a");
   assert.equal(result.role, "teacher");
 });
+
+
+test("Saving an unchanged quiz and problem makes no new revisions or draft versions", async () => {
+  const input = problem("numeric");
+  const created = await call("teacher_a", "createProblem", {
+    ...input, metadata: {...input.metadata, title:"No-op test problem"},
+  });
+  const noChange = await call("teacher_a", "saveProblemRevision", {
+    problemId: created.problemId, expectedVersion: created.version,
+    ...input, metadata: {...input.metadata, title:"No-op test problem"},
+  });
+  assert.equal(noChange.unchanged, true);
+  assert.equal(noChange.version, created.version);
+  assert.equal(noChange.revisionId, created.revisionId);
+  const metaChanged = await call("teacher_a", "saveProblemRevision", {
+    problemId: created.problemId, expectedVersion: created.version,
+    ...input, metadata: {...input.metadata, title:"Renamed without a new revision"},
+  });
+  assert.equal(metaChanged.metadataOnly, true);
+  assert.equal(metaChanged.version, created.version + 1);
+  assert.equal(metaChanged.revisionId, created.revisionId);
+  const changed = await call("teacher_a", "saveProblemRevision", {
+    problemId: created.problemId, expectedVersion: metaChanged.version,
+    metadata: {...input.metadata, title:"Renamed without a new revision"},
+    content:{...input.content, statementLatex:"Compute $4/2$."},
+    grading: input.grading,
+  });
+  assert.notEqual(changed.revisionId, created.revisionId);
+
+  const q = await call("teacher_a", "createQuiz", {title:"No-op quiz"});
+  const saved = await call("teacher_a", "saveQuizDraft", {
+    quizId:q.quizId, expectedDraftVersion:1, patch:{title:"Changed once"},
+  });
+  const repeat = await call("teacher_a", "saveQuizDraft", {
+    quizId:q.quizId, expectedDraftVersion:saved.draftVersion,
+    patch:{title:"Changed once"}, itemOrder:[],
+  });
+  assert.equal(repeat.unchanged,true);
+  assert.equal(repeat.draftVersion,saved.draftVersion);
+  assert.equal(repeat.version,saved.version);
+  const doc = await db.doc("quizzes/"+q.quizId+"/drafts/current").get();
+  assert.equal(doc.data().version,saved.draftVersion);
+});
