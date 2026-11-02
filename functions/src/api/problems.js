@@ -189,10 +189,28 @@ define(
     );
     const metadata = validateMetadata(r.metadata),
       { content, grading } = validateProblem(r.content, r.grading);
+    // Revisions are immutable: only a changed statement/answer creates one.
+    // Metadata-only edits update the problem root and reuse the prior revision.
+    const previous = await c.get(`${p}/revisions/${old.latestRevisionId}`);
+    const contentHash = hash({ content, grading });
+    const sameContent = previous.contentHash === contentHash;
+    const sameMetadata = Object.entries(metadata).every(
+      ([key, value]) => JSON.stringify(old[key]) === JSON.stringify(value),
+    );
+    if (sameContent && sameMetadata)
+      return { problemId: r.problemId, revisionId: old.latestRevisionId,
+        version: old.version, unchanged: true };
+    if (sameContent) {
+      c.set(p, { ...old, ...metadata,
+        searchTitle: metadata.title.toLowerCase(),
+        version: old.version + 1, updatedAt: c.now });
+      c.audit("problem.metadata_updated", "problem", r.problemId);
+      return { problemId: r.problemId, revisionId: old.latestRevisionId,
+        version: old.version + 1, metadataOnly: true };
+    }
     const revisionId = c.key("prv_", r.problemId);
-    // Existing images on the previous revision remain valid after a fork.
-    const previous = await c.get(`${p}/revisions/${old.latestRevisionId}`),
-      key = await c.get(`${p}/revisions/${old.latestRevisionId}/grading/main`);
+    // A new revision retains only its referenced images, not all old images.
+    const key = await c.get(`${p}/revisions/${old.latestRevisionId}/grading/main`);
     const priorIds = new Set(assetIds(previous, key));
     const ids = assetIds(content, grading);
     await retainAssets(
