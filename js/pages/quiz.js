@@ -264,7 +264,7 @@ async function runner(root, initial, session) {
     );
     if (view !== viewSequence || stopped) return;
     clearMath(question);
-    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-pressed="${flagged.has(itemId)}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
+    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}" aria-label="${isStarred(itemRef(a.quizId, itemId)) ? "Remove star from problem" : "Star problem"}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-pressed="${flagged.has(itemId)}" aria-label="${flagged.has(itemId) ? "Remove flag from problem" : "Flag problem"}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
     function change(value) {
       const base = answers.get(itemId) ?? { revision: 0, value: "" };
       if (
@@ -311,6 +311,7 @@ async function runner(root, initial, session) {
       const on = !flagged.has(itemId);
       on ? flagged.add(itemId) : flagged.delete(itemId);
       flagBtn.setAttribute("aria-pressed", String(on));
+      flagBtn.setAttribute("aria-label", on ? "Remove flag from problem" : "Flag problem");
       flagBtn.innerHTML = flagLabel(on);
       grid();
       queueFlags();
@@ -414,8 +415,10 @@ async function runner(root, initial, session) {
     }
     if (pending.size) return flush();
   }
-  const flagLabel = (on) => icon("flag") + (on ? "Flagged" : "Flag");
-  const starLabel = (on) => icon("star") + (on ? "Starred" : "Star");
+  // Keep visible captions constant: active state is conveyed by aria-pressed
+  // and the filled icon, never by changing the button's measured width.
+  const flagLabel = () => icon("flag") + "Flag";
+  const starLabel = () => icon("star") + "Star";
   function queueFlags() {
     flagChain = flagChain
       .catch(() => {})
@@ -433,6 +436,7 @@ async function runner(root, initial, session) {
     if (!b || !a.order[index]) return;
     const on = isStarred(itemRef(a.quizId, a.order[index]));
     b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "Remove star from problem" : "Star problem");
     b.innerHTML = starLabel(on);
   }
   loadStars().catch(() => {});
