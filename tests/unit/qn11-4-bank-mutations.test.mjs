@@ -204,8 +204,12 @@ test("fork authorizes shared immutable content and assets and pins source metada
   assert.deepEqual(f.sql.state.revisions.get(a.revisionId).grading_json,
     {...grading,gradingVersion:1});
   assert.equal(f.sql.state.revisions.size,2);
+  // A successful fork can replay after the original owner revokes sharing;
+  // it must not refetch private source content or redo asset authorization.
+  f.sql.state.problems.get(f.id).bank_visibility="private";
   const again=await f.mutate("forkProblem",request);
   assert.deepEqual(again,a);
+  assert.equal(f.assetChecks,1);
   assert.equal(f.sql.state.problems.size,2);
 });
 test("private source cannot be forked and unauthorized actors never trigger copy",async()=>{
