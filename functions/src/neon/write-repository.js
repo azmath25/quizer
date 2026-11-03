@@ -221,7 +221,7 @@ export function createQuizerNeonWriteRepository({
         job.sourceAssetId ? [job.sourceAssetId] : []))];
     await verifyAssets({ actor, assetIds: allAssets });
     const sorted = [...entries].sort((a,b) => a.key.localeCompare(b.key));
-    return sql.transaction(async tx => {
+    return guardedTransaction(async tx => {
       const mapped = new Map();
       for (const entry of sorted) {
         await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
