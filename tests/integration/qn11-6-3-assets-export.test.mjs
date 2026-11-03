@@ -239,3 +239,42 @@ test("QN11.6.3 lost lease prevents ZIP job completion after external write",asyn
     "running");
   assert.equal(f.signed,0);
 });
+
+test("QN11.6.4 shared image revocation between source read and retention fails atomically",async()=>{
+  const f=await retentionFixture({count:1});
+  const assetId=f.imageIds[0],owner=make("other_owner_");
+  await db.doc("assets/"+assetId).update({ownerId:owner});
+  await assert.rejects(f.retention.ensureRetained({
+    plan:f.plan,items:f.items}),reason("RESOURCE_UNAVAILABLE"));
+  const target="quizzes/"+f.quizId+"/revisions/"+f.revisionId;
+  assert.equal((await db.doc("assets/"+assetId).get())
+    .data().referenceCount,0);
+  assert.equal((await db.doc("assets/"+assetId+"/refs/"+hash(target)).get())
+    .exists,false);
+  const grantPath="assets/"+assetId+"/publicationGrants/"+f.quizId;
+  await db.doc(grantPath).set({ownerId:owner,granteeId:f.teacher,
+    revisionId:f.revisionId,active:true});
+  const trusted=createFirestorePublishedImageRetention({
+    enabled:true,db,
+    authFor:async()=>({uid:f.teacher,token:{email_verified:true}}),
+    authorizeSharedAsset:async({c,asset,actor,revisionId,quizId})=>{
+      // Share permission is read in the SAME Firebase transaction as
+      // retainAssets and is therefore revalidated on transaction retry.
+      const grant=await c.get(grantPath,false);
+      return grant?.active===true && grant.ownerId===asset.ownerId &&
+        grant.granteeId===actor.uid &&
+        grant.revisionId===revisionId && quizId===f.quizId;
+    },
+  });
+  await db.doc(grantPath).update({active:false});
+  await assert.rejects(trusted.ensureRetained({
+    plan:f.plan,items:f.items}),reason("RESOURCE_UNAVAILABLE"));
+  assert.equal((await db.doc("assets/"+assetId).get()).data().referenceCount,0);
+  await db.doc(grantPath).update({active:true});
+  const result=await trusted.ensureRetained({
+    plan:f.plan,items:f.items});
+  assert.equal(result.assetCount,1);
+  assert.equal((await db.doc("assets/"+assetId).get()).data().referenceCount,1);
+  assert.equal((await db.doc("assets/"+assetId+"/refs/"+hash(target)).get())
+    .data().target,target);
+});
