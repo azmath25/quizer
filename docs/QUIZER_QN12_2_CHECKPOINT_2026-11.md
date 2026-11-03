@@ -13,15 +13,15 @@ Confirmed risks: selected-problem move/remove buttons were 26 × 26px; quiz-slot
 ## Implemented (style-preserving)
 
 1. assets/css/pages/editor.css: >=44px selected-problem and slot controls; explicit named mobile CSS grid rows for title, points and actions; wrapped controls; image/import/source input column bounds and visible save bar.
-2. js/pages/problems.js: accessible expandable/collapsible selected-problem dock, initially compact on phones, preserving selected revisions/points/order. Its button uses aria-controls and aria-expanded. Desktop defaults to expanded.
-3. assets/css/problem-card.css: responsive wrapping problem toolbar with >=44px actions/checkbox hit area; avoids stuck tooltip on touch.
+2. js/pages/problems.js: accessible expandable/collapsible selected-problem dock, initially compact on phones, preserving selected revisions/points/order. Its button uses aria-controls and aria-expanded. Desktop defaults to expanded. On phones the dock is moved to document.body to escape animation/card stacking contexts, restored to its original grid on desktop, and removed on route leave.
+3. assets/css/problem-card.css: responsive wrapping problem toolbar with >=44px icon targets and full selection-label hit area on phones/tablets; avoids stuck tooltip on touch.
 4. js/core/device.js: shared measured mobile navigation clearance on resize/ResizeObserver/visualViewport changes; editor sticky save and selection dock use the value, retaining safe-area fallback.
 5. js/pages/quiz-editor.js and js/components/problem-form.js: role=status and polite live announcements for import, draft-save and image upload status. Existing import, draft, publish and grade API behavior remains unchanged.
 
 ## Tests and verification
 
-- tests/unit/qn12-2-author-responsive.test.mjs: 11 focused source contracts for 44px sizing, grid areas, collapse semantics, import/save status, nav clearance and bank toolbar.
-- tests/qa/mobile-author-browser.py: test-only real Chromium rendering against synthetic Firebase emulators; widths 320,390,430,768,1024 plus 390px at simulated 200% root text size. Inspect quiz editor action sizes and points, import progress, problem bank selection dock, overflow, nav clearance and collapse/expansion. Capture screenshots.
+- tests/unit/qn12-2-author-responsive.test.mjs: additional source-level contracts for 44px sizing, grid areas, collapse semantics, import/save status, nav clearance and bank toolbar.
+- tests/qa/mobile-author-browser.py: test-only real Chromium rendering against synthetic Firebase emulators; widths 320,390,430,768,844 landscape-touch,1024 plus 390px at simulated 200% root text size. Inspect quiz editor action sizes and points, import progress, problem bank selection dock, overflow, nav clearance and collapse/expansion. Capture screenshots.
 - .github/workflows/quizer-verify.yml: original QN12.1 browser run followed by new QN12.2 author browser run in the Chromium QA job, with separate screenshot artifacts. Existing unit/backend/static and emulator jobs remain.
 - Record confirmed CI run, real browser findings and artifact URL when fully completed. Never imply actual iOS Safari/Android physical-device validation.
 
@@ -31,3 +31,7 @@ Confirmed risks: selected-problem move/remove buttons were 26 × 26px; quiz-slot
 - Real 100/500-problem import latency and API request counts are still integration risks. The active import frontend currently sends one importProblemBatch API request **per problem**; QN11 is responsible for bounded resumable batching. No backend changes are part of QN12.2.
 - No actual Firebase/Neon writes beyond demo emulators; no production data, migration, Mimo access, merge, deployment or main/main-backup modifications.
 - Next after QN12.2: **QN13-A interim preintegration audit**; then QN11 integration, QN12-B frontend regression and QN13-B final system audit.
+
+## Browser regressions found during QN12.2
+
+Real Chromium tapping found that the phone selection-dock toggle could be covered by bank cards or the floating assistant. The stack-order fix passed at 320/390/430px. Tablet testing found an unreliable small checkbox at 768px, resolved by a 44px tappable label. The simulated 200% text-size scenario then exposed a remaining ancestor stacking context; the mobile document-body dock placement removes that dependency. Do not mark complete until final CI confirms it.
