@@ -38,6 +38,7 @@ export function createQuizerPrivateIntegration({
     attemptCommits?.saveAnswers,attemptCommits?.navigate,
     attemptCommits?.gradeBatch,
     gradeFinalization?.finalizeGradeJob,
+    gradeFinalization?.completedManualGrade,
     gradeFinalization?.saveManualGrade,
     gradeFinalization?.releaseResults,
     publisher?.publish,
@@ -132,6 +133,9 @@ export function createQuizerPrivateIntegration({
       "Authenticated actor mismatch.");
     if(action==="getAssetLinks")return imageLinks(firebaseAuth,request);
     if(action==="releaseResults"){
+      assert(typeof request.requestId==="string" &&
+        /^[A-Za-z0-9_-]{16,100}$/.test(request.requestId),
+        "INVALID_FIELDS","Unique release request ID required.");
       assert(Array.isArray(request.attemptIds) &&
         request.attemptIds.length>0 && request.attemptIds.length<=25,
         "INVALID_FIELDS","Choose 1–25 attempts.");
@@ -174,6 +178,17 @@ export function createQuizerPrivateIntegration({
         staffOnly:action!=="getAttemptResult"});
     }
     if(action==="saveManualGrade"){
+      assert(typeof request.requestId==="string" &&
+        /^[A-Za-z0-9_-]{16,100}$/.test(request.requestId),
+        "INVALID_FIELDS","Unique manual-grade request ID required.");
+      const completed=await gradeFinalization.completedManualGrade({
+        firebaseAuth,attemptId,itemId:request.itemId,
+        points:request.points,feedback:request.feedback??"",
+        reason:request.reason??"",
+        expectedGradeVersion:request.expectedGradeVersion,
+        requestId:request.requestId,
+      });
+      if(completed?.completed===true)return completed.result;
       const proof=await secureAttempts.previewManualGrade({
         firebaseAuth,attemptId,itemId:request.itemId,points:request.points,
         feedback:request.feedback??"",reason:request.reason??"",
