@@ -9,6 +9,7 @@ import {
 import { requireRole, released, millis } from "../domain/runtime.js";
 import { attemptDTO } from "../api/attempts.js";
 import { gradeSnapshotAnswer } from "../../shared/grading.js";
+import { fingerprint } from "../neon/write-repository.js";
 import { readPrivatePublishedBundle } from "./published-bundle.js";
 
 const MAX_SLICE = 20;
@@ -99,6 +100,7 @@ export function createSecureBundleAttemptService({
     questions:async()=>({disabled:true}),
     resultPage:async()=>({disabled:true}),
     gradeBatch:async()=>({disabled:true}),
+    previewManualGrade:async()=>({disabled:true}),
     validateAnswers:async()=>({disabled:true}),
     allowedAssetIds:async()=>({disabled:true}),
     navigationPreview:async()=>({disabled:true}),
@@ -310,6 +312,54 @@ export function createSecureBundleAttemptService({
     return {attemptId,jobId,pinnedRevisionId:a.quizRevisionId,
       grades,leaseOwner:job.leaseOwner};
   }
+  async function previewManualGrade({firebaseAuth,attemptId,itemId,
+    points,feedback="",reason="",expectedGradeVersion}={}) {
+    const c=await caller(firebaseAuth,attemptId,{staffOnly:true});
+    assert(c.a.status!=="active" &&
+      ["pending_manual","final"].includes(c.a.gradeState),
+      "FAILED_PRECONDITION","Wait for automatic grading to finish.");
+    number(expectedGradeVersion,"Expected grade version",
+      1,Number.MAX_SAFE_INTEGER,true);
+    assert(c.a.gradeVersion===expectedGradeVersion,
+      "VERSION_CONFLICT","Grades were changed elsewhere.");
+    const keyId=id(itemId,"item ID");
+    assert(c.a.order.includes(keyId),"RESOURCE_UNAVAILABLE",
+      "Problem unavailable.");
+    text(feedback,"Feedback",30000);
+    text(reason,"Reason",500);
+    const s=await source(c.a,true);
+    const [item,key,answer,old]=await Promise.all([
+      s.getItem(keyId),s.getKey(keyId),
+      loadAnswer({attemptId,itemId:keyId}),
+      loadGrade({attemptId,itemId:keyId}),
+    ]);
+    assert(item?.answerMode==="manual",
+      "INVALID_FIELDS","This response is automatically marked.");
+    assert(old && old.gradingVersion===1 &&
+      Number.isInteger(old.version) && old.version>=1,
+      "RESOURCE_UNAVAILABLE","Original grade unavailable.");
+    number(points,"Mark",0,item.points);
+    assert(typeof answer?.value==="string" && answer.value.trim(),
+      "INVALID_FIELDS","An unanswered problem is marked as skipped.");
+    if(old.manualPoints!=null)
+      text(reason,"Correction reason",500,true);
+    const grade={...gradeSnapshotAnswer(item,key,answer.value,points,
+      c.a.settingsSnapshot.penalty),feedbackLatex:feedback,
+      gradedBy:c.actor.uid,gradingVersion:1};
+    assert(grade.manualPoints===points &&
+      grade.status!=="pending" && grade.status!=="skipped",
+      "FAILED_PRECONDITION","Invalid manually marked answer.");
+    // Only protected metadata and a hashed answer are returned to the
+    // Firebase transaction adapter. Never return the grading key itself.
+    return {verifiedManual:true,attemptId,itemId:keyId,
+      pinnedRevisionId:c.a.quizRevisionId,
+      expectedGradeVersion,points,feedback,reason,grade,
+      answerHash:fingerprint(answer.value),
+      oldGradeVersion:old.version,
+      oldGradeHash:fingerprint({status:old.status,awarded:old.awarded,
+        possible:old.possible,manualPoints:old.manualPoints??null,
+        version:old.version})};
+  }
   async function allowedAssetIds({firebaseAuth,attemptId,itemIds,
     result=false}={}) {
     const c=await caller(firebaseAuth,attemptId);
@@ -331,6 +381,6 @@ export function createSecureBundleAttemptService({
   }
   return Object.freeze({
     enabled:true,questions,validateAnswers,navigationPreview,
-    resultPage,gradeBatch,allowedAssetIds,
+    resultPage,gradeBatch,previewManualGrade,allowedAssetIds,
   });
 }
