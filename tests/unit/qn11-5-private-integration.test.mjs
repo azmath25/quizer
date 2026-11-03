@@ -6,6 +6,7 @@ import {fingerprint} from "../../functions/src/neon/write-repository.js";
 import {createPinnedNeonPublicationResolver} from "../../functions/src/bundles/pinned-neon-source.js";
 import {createQuizerPrivateStartAndExport} from "../../functions/src/bundles/private-start-export.js";
 import {createQuizerPrivateIntegration} from "../../functions/src/bundles/private-integration.js";
+import {createQuizerPrivateImageSigner} from "../../functions/src/bundles/private-image-signer.js";
 import {preparePublishedBundle,makePublishedBundleManifest,BUNDLE_FORMAT,
   BUNDLE_CONTENT_TYPE} from "../../functions/src/bundles/published-bundle.js";
 const teacher={uid:"teacher_syn",role:"teacher",emailVerified:true,accountStatus:"active"};
@@ -265,4 +266,55 @@ test("staged integration never imports itself into active router or worker",()=>
     "../../functions/src/jobs/worker.js",import.meta.url),"utf8");
   assert.doesNotMatch(router+worker,
     /private-integration|private-start-export|private-attempt-commits|pinned-neon-source/);
+});
+
+test("QN11.5 image signer restricts ready image objects and two-minute expiry",async()=>{
+  const objects=new Map([
+    ["ast_picture",{kind:"image",status:"ready",
+      storagePath:"assets/teacher_syn/ast_picture/image.png",
+      generation:"9",contentType:"image/png"}],
+    ["ast_source",{kind:"source",status:"ready",
+      storagePath:"sources/teacher_syn/ast_source/original.tex",
+      generation:"11",contentType:"text/plain"}],
+    ["ast_private",{kind:"image",status:"ready",
+      storagePath:"published-bundles/v1/quiz_1/qrv_1/"+"a".repeat(64)+".json",
+      generation:"12",contentType:"application/json"}],
+    ["ast_pending",{kind:"image",status:"processing",
+      storagePath:"assets/teacher_syn/ast_pending/image.png",
+      generation:"10",contentType:"image/png"}],
+  ]);
+  const fakeDb={doc:path=>({async get(){
+    const row=objects.get(path.slice(7));
+    return {exists:!!row,data:()=>row};
+  }})};
+  const now=new Date("2026-11-03T14:00:00Z");
+  let signed=0;
+  const svc=createQuizerPrivateImageSigner({enabled:true,db:fakeDb,
+    serverNow:()=>now,
+    signImage:async({storagePath,generation,expiresAt})=>{
+      signed++;
+      assert.equal(storagePath,"assets/teacher_syn/ast_picture/image.png");
+      assert.equal(generation,"9");
+      assert.equal(expiresAt.valueOf()-now.valueOf(),120000);
+      return "https://files.example/ready-image.png?sig=abc";
+    }});
+  const got=await svc.signReadyAssets({
+    firebaseAuth:auth(student),assetIds:["ast_picture"]});
+  assert.equal(got.links[0].contentType,"image/png");
+  assert.equal(got.links[0].expiresAt.toISOString(),
+    "2026-11-03T14:02:00.000Z");
+  assert.equal(signed,1);
+  for(const key of ["ast_source","ast_private","ast_pending","ast_unknown"])
+    await assert.rejects(svc.signReadyAssets({
+      firebaseAuth:auth(student),assetIds:[key]}),why("RESOURCE_UNAVAILABLE"));
+  assert.equal(signed,1);
+  await assert.rejects(svc.signReadyAssets({
+    firebaseAuth:auth(student),assetIds:["ast_picture","ast_picture"]}),
+    why("INVALID_FIELDS"));
+});
+test("QN11.5 signing adapter is inert unless explicitly enabled",async()=>{
+  assert.deepEqual(await createQuizerPrivateImageSigner().signReadyAssets(),
+    {disabled:true});
+  assert.throws(()=>createQuizerPrivateImageSigner({enabled:true}),
+    /Trusted asset metadata and signing ports/);
 });
