@@ -23,6 +23,8 @@ import {createFirestorePrivateExportStore} from "./private-export-store.js";
 import {createPrivateZipStoragePort} from "./private-zip-storage.js";
 import {createPrivateQuizZipWorker} from "./private-zip-worker.js";
 import {createQuizerPrivateIntegration} from "./private-integration.js";
+import {createQuizerStagedRecoveryAudit}
+  from "./private-recovery-audit.js";
 
 export function createQuizerStagedPrivateRuntime({
   enabled=false,db,bucket,authFor,neonReader,
@@ -189,6 +191,8 @@ export function createQuizerStagedPrivateRuntime({
         ? "private_bundle_v1" : "firestore_legacy";
     return readKind(job.targetId,job.input?.revisionId);
   };
+  const recoveryAudit=createQuizerStagedRecoveryAudit({
+    enabled:true,db,bucket,authFor});
   const facade=createQuizerPrivateIntegration({
     enabled:true,resolveFirebaseActor,resolveAttemptOrigin,
     resolveQuizOrigin,legacy:{handle:legacyHandle},
@@ -198,5 +202,5 @@ export function createQuizerStagedPrivateRuntime({
     authorizeAuthorAssets:authorAssets,
     resolveExportOrigin,exportStore,zipWorker,
   });
-  return Object.freeze({...facade,enabled:true});
+  return Object.freeze({...facade,enabled:true,recoveryAudit});
 }
