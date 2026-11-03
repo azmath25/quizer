@@ -75,7 +75,7 @@
 
 Release-boundary tests added in `tests/unit/qn13-b-release-boundaries.test.mjs` (7 tests) assert that new code remains OFF, active production dispatch does not import it, Firebase rules deny client access, Postgres revision writes are immutable by schema, work-branch CI has no deployment action, recovery inspectors cannot delete objects and App Check's true gating is understood. Tests are **static and local**, not a production security scan.
 
-[Final GitHub Actions run 41733119542](https://github.com/azmath25/quizer/actions/runs/41733119542) is the audit's test evidence. Its jobs exercise Node/backend/static, demo Firebase emulator and Chromium; the release-boundary tests add no cloud calls. No penetration test, remote SQL/Firebase/GCS integration or billable load measurement occurred.
+**All 3 GitHub Actions jobs passed** on source+test SHA `f036223bba5692ef10923791c87279edf4b01e2c`: [run 41733119542](https://github.com/azmath25/quizer/actions/runs/41733119542). Results: **355/355 Node unit tests** (including the seven QN13-B release-boundary assertions), **5/5 backend tests** and static verification, **88/88 Firebase demo-emulator integration tests**, **1/1 Firebase transport test**, and Chromium mobile runner and author QA at 320–1024 CSS px plus 390 px enlarged-text tests. The documentation-only audit commits afterward did not change the tested source or tests. No penetration test, remote SQL/Firebase/GCS integration or billable load measurement occurred.
 
 ## Final QN13-B decision and stop
 
