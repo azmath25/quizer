@@ -1,0 +1,65 @@
+name: Quizer work-branch verification
+
+on:
+  push:
+    branches:
+      - work/quizer-audit-optimization-2026-11
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-backend-static:
+    name: Unit + backend + static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install browser/CLI test dependencies
+        run: npm ci
+      - name: Install private backend dependencies
+        run: npm ci --prefix functions
+      - name: Synchronize shared modules
+        run: npm run prepare:backend
+      - name: Unit regressions (including QN1–QN6)
+        run: npm test
+      - name: Backend regressions
+        run: npm run test:backend
+      - name: Static frontend verification
+        run: npm run verify:static
+
+  firebase-emulators:
+    name: Firebase emulator regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install project and backend dependencies
+        run: |
+          npm ci
+          npm ci --prefix functions
+      - name: Emulator integration suite
+        run: npm run test:integration
+      - name: Emulator transport suite
+        run: npm run test:transport
