@@ -82,6 +82,9 @@ export function createPrivateBundlePublisher({
         problemId:slot.problemId,
         problemRevisionId:slot.problemRevisionId,
         source:slot.source,
+        // Trusted publication plan comes from Firestore's lease/draft
+        // preflight; the staged resolver rechecks actor, pin and assets.
+        plan,
       });
       assert(resolved && resolved.problemId === slot.problemId &&
         resolved.problemRevisionId === slot.problemRevisionId,
