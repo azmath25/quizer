@@ -142,8 +142,8 @@ test("schema is migration-only and documents strong uniqueness/foreign keys", ()
     assert.match(sql, new RegExp("CREATE TABLE quizer\\." + table));
   assert.match(sql, /DEFERRABLE INITIALLY DEFERRED/);
   assert.match(sql, /BEFORE UPDATE OR DELETE ON quizer.problem_revisions/);
-  assert.match(sql, /RETURNS trigger LANGUAGE plpgsql AS \\$\\$/);
-  assert.match(sql, /\\$\\$;\\s*CREATE TRIGGER quizer_problem_revision_immutable/);
+  assert.match(sql, /RETURNS trigger LANGUAGE plpgsql AS \$\$/);
+  assert.match(sql, /\$\$;\s*CREATE TRIGGER quizer_problem_revision_immutable/);
   assert.match(sql, /PRIMARY KEY \(job_id, import_item_key\)/);
   assert.match(sql, /event_id varchar\(128\) PRIMARY KEY/);
   assert.match(sql, /REVOKE ALL ON SCHEMA quizer FROM PUBLIC/);
