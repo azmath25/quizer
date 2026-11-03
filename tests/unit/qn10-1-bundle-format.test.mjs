@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { signObject } from "../../functions/src/api/assets.js";
 import {
   BUNDLE_FORMAT, BUNDLE_CONTENT_TYPE, BUNDLE_ENCODING, MAX_BUNDLE_BYTES,
   BUNDLE_OBJECT_PREFIX, bundleStoragePath, canonicalBundleBytes,
@@ -196,4 +197,11 @@ test("sparse arrays, unsupported values and prototype pollution are refused",()=
   assert.throws(()=>canonicalBundleBytes({x:[1,,3]}),/Sparse/);
   const obj=JSON.parse('{"__proto__":{"isAdmin":true}}');
   assert.throws(()=>canonicalBundleBytes(obj),/Unsafe property/);
+});
+
+test("protected bundle cannot be signed by the existing asset URL helper",async()=>{
+  await assert.rejects(
+    signObject("published-bundles/v1/quiz_alpha/qrv_2026_a/"+
+      "a".repeat(64)+".json","1"),
+    err=>err.reason==="RESOURCE_UNAVAILABLE");
 });
