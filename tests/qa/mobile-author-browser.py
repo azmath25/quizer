@@ -147,6 +147,30 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                 "Selection toggle lacks accessible controlled region")
         require(rect(toggle)["height"]>=43.5 and
                 rect(toggle)["width"]>=43.5,"Selection toggle too small")
+        if scale:
+            diagnostics=page.evaluate("""() => {
+              const panel=document.querySelector('#selection-panel');
+              const btn=document.querySelector('#toggle-selection');
+              const r=btn.getBoundingClientRect();
+              const x=r.left+r.width/2, y=r.top+r.height/2;
+              const css=getComputedStyle(panel);
+              const hit=document.elementFromPoint(x,y);
+              return {
+                parent:panel.parentElement?.tagName,
+                position:css.position, zIndex:css.zIndex,
+                display:css.display, panelRect:panel.getBoundingClientRect().toJSON(),
+                buttonRect:r.toJSON(),
+                center:{x,y}, hit:hit?.outerHTML?.slice(0,300),
+                viewport:{width:innerWidth,height:innerHeight,
+                  visualHeight:visualViewport?.height},
+                navClearance:getComputedStyle(document.documentElement)
+                  .getPropertyValue('--mobile-nav-clearance'),
+                navRect:document.querySelector('#mobile-nav')?.getBoundingClientRect().toJSON()
+              };
+            }""")
+            print("QN12.2 enlarged dock hit-testing: "+json.dumps(diagnostics),flush=True)
+            page.screenshot(path=str(OUTPUT/"390px-enlarged-dock-before-tap.png"),
+                            full_page=False)
         if width==320:
             page.screenshot(path=str(OUTPUT/"320px-selected-collapsed.png"),
                             full_page=False)
