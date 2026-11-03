@@ -26,7 +26,7 @@ export function publishedAssetIds(items){
   return ids;
 }
 export function createFirestorePublishedImageRetention({
-  enabled=false,db,authFor,
+  enabled=false,db,authFor,authorizeSharedAsset=null,
 }={}){
   if(enabled!==true)return Object.freeze({enabled:false,
     ensureRetained:async()=>({disabled:true})});
@@ -86,6 +86,19 @@ export function createFirestorePublishedImageRetention({
             assert(a.kind==="image" && a.status==="ready" &&
               a.generation && SHA.test(a.sha256??""),
               "ASSET_NOT_READY","A published image was not ready.");
+            // A source resolver's earlier permission check is NOT enough:
+            // sharing may be revoked while private Storage bytes are written.
+            // Shared-image checks MUST be trusted Firestore-only reads inside
+            // this SAME transaction, not Neon/Storage/network calls.
+            if(a.ownerId!==quiz.ownerId){
+              assert(typeof authorizeSharedAsset==="function" &&
+                await authorizeSharedAsset({
+                  c,actor:c.actor,assetId,asset:a,target,
+                  quizId:plan.quizId,revisionId:plan.revisionId,
+                  jobId:plan.jobId,sourcePlan:plan,
+                })===true,"RESOURCE_UNAVAILABLE",
+                "Shared image permission was revoked before retention.");
+            }
           }
           await retainAssets(c,chunk,target,quiz.ownerId,
             {authorizedCopy:true});
