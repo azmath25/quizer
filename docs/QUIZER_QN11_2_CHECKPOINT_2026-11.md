@@ -28,7 +28,7 @@ Changed:
 
 ## Verification
 
-- GitHub Actions test-only work-branch run: [41692041973](https://github.com/azmath25/quizer/actions/runs/41692041973), code/test commit `cf5e3b6e7c52ec95782fb1051f9caedf6a2cf717`. The Node unit/backend/static job was confirmed successful: **257/257 unit tests**, **5/5 backend tests**, static checks. Confirm emulator and Chromium job conclusions separately before marking the full CI green.
+- GitHub Actions test-only work-branch run: [41692041973](https://github.com/azmath25/quizer/actions/runs/41692041973), code/test commit `cf5e3b6e7c52ec95782fb1051f9caedf6a2cf717`. **VERIFIED GREEN, all three jobs passed:** **257/257 Node unit tests**, **5/5 backend tests**, static/frontend validation, Firebase emulator integration and transport suites, and actual headless Chromium QN12.1 runner plus QN12.2 author regression at 320, 390, 430, 768, 844 landscape-touch and 1024px, including 390px simulated enlarged text. This is synthetic/demo emulator validation, not physical-device or actual PostgreSQL verification.
 - New QN11.2 checks are mock/injected-port tests. They do **not** establish genuine SQL transaction durability or cloud costs. An independent read-only/production inventory was NOT performed.
 - Changes outside this checkpoint: none. The independent AI experiment and `main`/`main-backup` stay untouched.
 
