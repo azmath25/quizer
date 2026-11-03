@@ -83,7 +83,9 @@ export function createQuizerNeonReadRepository(port) {
       subject = "", difficulty = "", limit = 25, after = null,
     }) {
       requireTeacher(actor);
-      requirePageSize(limit);
+      // 101 is the internal hybrid-merge lookahead for a public page of 100.
+      if (!Number.isInteger(limit) || limit < 1 || limit > 101)
+        throw new NeonContractError("INVALID_FIELDS", "Page size must be 1–101.");
       if (!["mine", "shared"].includes(view) ||
         !["active", "trashed"].includes(lifecycle))
         throw new NeonContractError("INVALID_FIELDS", "Invalid bank filter.");
