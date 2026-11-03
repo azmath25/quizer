@@ -502,7 +502,9 @@ fieldset.choices {
 }
 
 @media (max-width: 760px) {
-  html[data-input="touch"] .runner-footer {
+  /* The fixed mobile nav exists on narrow screens regardless of pointer mode.
+     Synthetic mouse events after touch must never disable its clearance. */
+  .runner-footer {
     position: sticky;
     /* Actual nav height is measured at runtime for zoom and safe-area changes. */
     bottom: var(--runner-mobile-nav-clearance, calc(72px + env(safe-area-inset-bottom)));
@@ -515,36 +517,36 @@ fieldset.choices {
     background: var(--surface);
     border-top: 1px solid var(--border);
   }
-  html[data-input="touch"] .runner-save-feedback {
+  .runner-save-feedback {
     grid-column: 1 / -1;
     grid-row: 1;
     min-height: 22px;
     flex-direction: column;
     gap: 4px;
   }
-  html[data-input="touch"] .runner-footer #previous {
+  .runner-footer #previous {
     grid-column: 1;
     grid-row: 2;
   }
-  html[data-input="touch"] .runner-footer #next {
+  .runner-footer #next {
     grid-column: 2;
     grid-row: 2;
   }
-  html[data-input="touch"] .runner-footer > .button {
+  .runner-footer > .button {
     width: 100%;
     min-width: 0;
     min-height: 44px;
     justify-content: center;
     overflow-wrap: anywhere;
   }
-  html[data-input="touch"] .runner-save-feedback .save-indicator {
+  .runner-save-feedback .save-indicator {
     display: flex;
     max-width: 100%;
   }
-  html[data-input="touch"] .runner-save-feedback .actions {
+  .runner-save-feedback .actions {
     width: 100%;
   }
-  html[data-input="touch"] .runner-save-feedback .actions .button {
+  .runner-save-feedback .actions .button {
     min-height: 44px;
   }
 }
