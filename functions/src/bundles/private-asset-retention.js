@@ -37,8 +37,7 @@ export function createFirestorePublishedImageRetention({
     const ids=publishedAssetIds(items);
     const digest=hash(ids);
     const batches=Math.ceil(ids.length/BATCH);
-    const auth=await authFor(plan.revision.ownerId??plan.sourcesOwnerId??
-      plan.requestedBy);
+    const auth=await authFor(id(plan.ownerId,"publication owner ID"));
     assert(auth?.uid,"AUTH_REQUIRED",
       "Trusted publication owner identity required.");
     const target="quizzes/"+plan.quizId+"/revisions/"+plan.revisionId;
