@@ -20,13 +20,14 @@ const events = [
     target_type:"problem",target_id:"prb_1",quiz_id:null,quiz_owner_uid:null,
     changed_fields:[],occurred_at:"2026-11-03T10:00:00.000Z" },
 ];
-function reader(rows=events) {
+function reader(rows=events, ownerId="teacher_a") {
   const sql = {calls:[], async query(statement,params) {
     this.calls.push({statement,params});
     return {rows};
   }};
   return {sql, reporting:createFutureActivityReader({
     enabled:true,sql,cutoverAt:cutoff,cursorSecret:"local-synthetic-test-secret-32-chars-only",
+    resolveQuizOwnerId:async () => ownerId,
   })};
 }
 const reason = (x) => (e) => e?.reason === x;
@@ -53,16 +54,14 @@ test("admin receives sanitized future events and explicit history boundary", asy
 });
 test("teacher can read their owned quiz activity after Firebase ownership verification", async () => {
   const {sql,reporting}=reader();
-  await reporting.listOwnedQuizHistory({actor:teacher,quizId:"quiz_1",
-    verifiedQuizOwnerId:"teacher_a",limit:10});
+  await reporting.listOwnedQuizHistory({actor:teacher,quizId:"quiz_1",limit:10});
   assert.match(sql.calls[0].statement,/e.quiz_owner_uid =/);
   assert(sql.calls[0].params.includes("quiz_1"));
   assert(sql.calls[0].params.includes("teacher_a"));
 });
 test("teacher cannot read another teacher's quiz", async () => {
   const {sql,reporting}=reader();
-  await assert.rejects(reporting.listOwnedQuizHistory({actor:other,quizId:"quiz_1",
-    verifiedQuizOwnerId:"teacher_a"}),reason("RESOURCE_UNAVAILABLE"));
+  await assert.rejects(reporting.listOwnedQuizHistory({actor:other,quizId:"quiz_1"}),reason("RESOURCE_UNAVAILABLE"));
   assert.equal(sql.calls.length,0);
 });
 test("admin can filter by target user safely", async () => {
