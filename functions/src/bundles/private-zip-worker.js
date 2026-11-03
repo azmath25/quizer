@@ -107,13 +107,13 @@ export function createPrivateQuizZipWorker({
     const storagePath="exports/"+plan.ownerId+"/"+jobId+"/"+
       plan.quizId+"-"+jobId+".zip";
     try{
-      await storage.createOnly({storagePath,bytes});
+      await storage.createOnly({storagePath,bytes,quizId:plan.quizId});
     }catch(e){
       if(e?.code!==412 && e?.code!=="OBJECT_ALREADY_EXISTS")throw e;
     }
     // A retry may find a previous unacknowledged ZIP; its bytes MUST be
     // identical before Firestore reports a successful export.
-    const verified=await storage.readExact({storagePath,
+    const verified=await storage.readExact({storagePath,quizId:plan.quizId,
       sha256:sha(bytes),byteLength:bytes.byteLength});
     return exportStore.finish({plan,object:verified});
   }
