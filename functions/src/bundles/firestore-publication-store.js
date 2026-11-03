@@ -81,7 +81,7 @@ export function createFirestoreBundlePublicationStore({
           source.itemId===revision.itemOrder[index]),
         "VERSION_CONFLICT","Pinned source manifest mismatch.");
       return {
-        jobId,quizId,revisionId,
+        jobId,quizId,revisionId,ownerId:quiz.ownerId,
         leaseOwner:job.leaseOwner,
         jobInputHash:hash(job.input),
         revisionManifestHash:revision.manifestHash,
@@ -93,7 +93,7 @@ export function createFirestoreBundlePublicationStore({
     },auth);
   }
 
-  async function activate({plan,manifest}) {
+  async function activate({plan,manifest,assetRetention=null}) {
     assert(plan && typeof plan==="object" && plan.jobId,
       "INVALID_FIELDS","Missing verified publication preflight.");
     validatePublishedBundleManifest(manifest,plan.quizId,plan.revisionId);
@@ -141,6 +141,14 @@ export function createFirestoreBundlePublicationStore({
         assert(revision.itemCount===manifest.itemCount &&
           revision.totalPoints===manifest.totalPoints,
           "VERSION_CONFLICT","Bundle does not match frozen publication.");
+        if(assetRetention!==null){
+          assert(assetRetention.jobId===plan.jobId &&
+            revision.assetRetention?.jobId===plan.jobId &&
+            revision.assetRetention?.assetHash===assetRetention.assetHash &&
+            revision.assetRetention?.assetCount===assetRetention.assetCount &&
+            revision.assetRetention?.batches===assetRetention.batches,
+            "VERSION_CONFLICT","Published image retention not complete.");
+        }
         const ready={...revision,state:"ready",bundle:manifest,readyAt:c.now};
         const next={...quiz,publishedRevisionId:plan.revisionId,
           lastPublishedRevisionId:plan.revisionId,publishingJobId:null,
