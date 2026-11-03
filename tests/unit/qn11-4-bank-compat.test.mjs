@@ -103,8 +103,10 @@ test("hybrid list keeps exact DTO pagination and includes both proven sources",a
   assert.equal(second.nextCursor,null);
   await assert.rejects(f.call("listProblems",{limit:3,cursor:first.nextCursor}),
     e=>e.reason==="INVALID_FIELDS");
-  await assert.rejects(f.call("listProblems",{limit:2,cursor:
-    first.nextCursor.slice(0,-1)+"X"}),e=>e.reason==="INVALID_FIELDS");
+  const [body,mac]=first.nextCursor.split(".");
+  const tampered=body+"."+(mac[0]==="A"?"B":"A")+mac.slice(1);
+  await assert.rejects(f.call("listProblems",{limit:2,cursor:tampered}),
+    e=>e.reason==="INVALID_FIELDS");
   assert(f.events.includes("neon-list")&&f.events.includes("legacy-list"));
 });
 test("hybrid filters never expose private rows through shared view",async()=>{
