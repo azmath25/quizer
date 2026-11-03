@@ -3,6 +3,11 @@ import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
 import { readLegacyDeviceQuizzes } from "../migration/legacy-device.js";
 import { drafts, draftBanner } from "../services/drafts.js";
 import { api, waitForJob } from "../services/api.js";
+import { getSession } from "../firebase-client.js";
+import {
+  planImportBatches, missingImportRecords, sourceDigest, fileDigests,
+  readImportRecovery, saveImportRecovery, clearImportRecovery, recoveryMatches,
+} from "../services/import-resume.js";
 import { buildFinalQuizSaveRequest, changedQuizSlots, rememberSavedQuizSlots } from "./quiz-save-diff.js";
 import { uploadAsset
 } from "../services/assets.js";
@@ -286,93 +291,135 @@ async function importPage(root) {
   }
   action(root, "#import-save", async () => {
     if (!parsed) throw new Error("Preview the problems before importing.");
+    const uid = getSession().user?.uid;
+    if (!uid) throw new Error("Sign in again to import problems.");
     const progress = (text) => {
       status.textContent = text;
     };
-    importState ??= { assets: {}, sourceAssetId: null, jobId: null, done: 0 };
+    const fingerprint = await sourceDigest(input.value);
+    const imageDigests = await fileDigests(files);
+    if (!importState) {
+      const recovery = readImportRecovery(sessionStorage, uid, bankOnly);
+      importState = recoveryMatches(recovery,{
+        sourceFingerprint:fingerprint,itemCount:parsed.questions.length,
+        imageDigests,
+      }) ? {
+        assets:{...recovery.assets},sourceAssetId:recovery.sourceAssetId,
+        jobId:recovery.jobId,importNonce:recovery.importNonce,
+        sourceFingerprint:fingerprint,imageDigests,
+        itemCount:parsed.questions.length,
+      } : {
+        assets:{},sourceAssetId:null,jobId:null,
+        importNonce:crypto.randomUUID(),sourceFingerprint:fingerprint,
+        imageDigests,itemCount:parsed.questions.length,
+      };
+    }
+    const persist = () => saveImportRecovery(sessionStorage,uid,bankOnly,importState);
+    if (!persist())
+      progress("Browser recovery storage is blocked — keep this tab open.");
     try {
-      for (const [alias, file] of files) {
+      let importedKeys=[];
+      if (importState.jobId) {
+        // The private server job is the authority, never the locally cached
+        // progress counter. Re-select the exact source/images after reload.
+        const existing = await api("getImportCheckpoint",{jobId:importState.jobId});
+        if (existing.sourceFingerprint!==fingerprint ||
+            existing.itemCount!==parsed.questions.length ||
+            existing.bankOnly!==bankOnly ||
+            (importState.sourceAssetId &&
+              existing.sourceAssetId!==importState.sourceAssetId))
+          throw new Error("Saved import belongs to another source. Start a new import.");
+        if (existing.status==="succeeded") {
+          clearImportRecovery(sessionStorage,uid,bankOnly);
+          progress("Import already completed");
+          go(bankOnly?"problems.html":`upload.html?id=${existing.result.quizId}`);
+          return;
+        }
+        if (existing.status!=="running")
+          throw new Error("This import can no longer be resumed.");
+        importState.sourceAssetId=existing.sourceAssetId;
+        importedKeys=existing.processedKeys;
+        progress(`Resuming import: ${importedKeys.length} of ${parsed.questions.length} saved`);
+      }
+      for (const [alias,file] of files) {
         if (importState.assets[alias]) continue;
-        importState.assets[alias] = await uploadAsset(file, (p) =>
-          progress(`${alias}: ${p.stage} ${p.percent}%`),
-        );
+        importState.assets[alias] = await uploadAsset(file,(p)=>
+          progress(`${alias}: ${p.stage} ${p.percent}%`));
+        persist();
       }
       if (!importState.sourceAssetId) {
-        const source = new File(
-          [input.value],
-          sourceFile?.name ||
-            (input.value.trimStart().startsWith("{")
-              ? "quiz.json"
-              : "quiz.tex"),
-          {
-            type: input.value.trimStart().startsWith("{")
-              ? "application/json"
-              : "text/plain",
-          },
-        );
-        importState.sourceAssetId = await uploadAsset(
-          source,
-          (p) => progress(`Source: ${p.stage}`),
-          "source",
-        );
+        // Preserve the real uploaded .tex bytes if the editor has not changed
+        // them. Edited/JSON source is explicitly uploaded as generated text,
+        // never misrepresented as unchanged original input.
+        const original = sourceFile && /\.tex$/i.test(sourceFile.name) &&
+          (await sourceFile.text())===input.value;
+        const json=input.value.trimStart().startsWith("{");
+        const source=original ? sourceFile : new File(
+          [input.value],json?"quiz.json":"quiz.tex",
+          {type:json?"application/json":"text/plain"});
+        importState.sourceAssetId=await uploadAsset(source,
+          (p)=>progress(`Source: ${p.stage}`),"source");
+        persist();
       }
-      if (!importState.jobId)
-        importState.jobId = (
-          await api("createImportJob", {
-            name: parsed.title,
-            sourceAssetId: importState.sourceAssetId,
-            itemCount: parsed.questions.length,
-            bankOnly,
-          })
-        ).jobId;
-      // One bounded problem at a time makes partial imports recoverable and large math safe.
-      for (let i = importState.done; i < parsed.questions.length; i++) {
-        const q = parsed.questions[i],
-          record = backupManifest
-            ? backupRecord(backupManifest, i, importState.assets)
-            : fromLegacyQuestion(q, importState.assets);
-        record.metadata = {
-          title: `${parsed.title} — ${i + 1}`,
-          subject: parsed.subject,
-          difficulty: parsed.difficulty,
-          tags: [],
-          bankVisibility: bankOnly
-            ? root.querySelector("#bank-visibility").value
-            : "private",
+      if (!importState.jobId) {
+        importState.jobId=(await api("createImportJob",{
+          name:parsed.title,sourceAssetId:importState.sourceAssetId,
+          itemCount:parsed.questions.length,bankOnly,
+          sourceFingerprint:fingerprint,
+        },importState.importNonce)).jobId;
+        persist();
+      }
+      // Construct each normalized record only once. Backend SQL receipts (and
+      // legacy Firestore mappings) are keyed by stable problem_i item keys.
+      const records=parsed.questions.map((q,i)=>{
+        const record=backupManifest
+          ? backupRecord(backupManifest,i,importState.assets)
+          : fromLegacyQuestion(q,importState.assets);
+        record.metadata={
+          title:`${parsed.title} — ${i+1}`,
+          subject:parsed.subject,difficulty:parsed.difficulty,tags:[],
+          bankVisibility:bankOnly
+            ? root.querySelector("#bank-visibility").value : "private",
         };
-        await api("importProblemBatch", {
-          jobId: importState.jobId,
-          records: [
-            {
-              importItemKey: "problem_" + i,
-              originalQuestionId: q.id,
-              ...record,
-              points: q.points,
-            },
-          ],
-        });
-        importState.done = i + 1;
-        progress(`Imported ${i + 1} of ${parsed.questions.length} problems`);
-      }
-      const q = await api("finishImportJob", {
-        jobId: importState.jobId,
-        title: parsed.title,
-        description: parsed.description,
-        settings: {
-          ...DEFAULT_SETTINGS,
-          ...(backupManifest ? backupManifest.revision.settings : {}),
-          durationSeconds: parsed.durationMinutes * 60,
-          shuffleQuestions: parsed.settings.shuffleQuestions,
-          shuffleOptions: parsed.settings.shuffleOptions,
-          allowBack: parsed.settings.allowBack,
-          penalty: parsed.settings.penalty,
-        },
-        order: parsed.questions.map((_, i) => "problem_" + i),
+        return {importItemKey:"problem_"+i,originalQuestionId:q.id,
+          ...record,points:q.points};
       });
+      const remaining=missingImportRecords(records,importedKeys);
+      const batches=remaining.length ? planImportBatches(remaining):[];
+      let done=importedKeys.length;
+      for(const chunk of batches){
+        // Deterministic across lost acknowledgements and page reloads.
+        const requestId="imp_"+(await sourceDigest(JSON.stringify({
+          jobId:importState.jobId,records:chunk,
+        }))).slice(0,32);
+        const result=await api("importProblemBatch",{
+          jobId:importState.jobId,records:chunk,
+        },requestId);
+        done=result.processed;
+        progress(`Imported ${done} of ${parsed.questions.length} problems`);
+      }
+      // Recheck the durable server ledger before publishing a complete draft.
+      const checkpoint=await api("getImportCheckpoint",{jobId:importState.jobId});
+      if(checkpoint.processed!==parsed.questions.length ||
+         missingImportRecords(records,checkpoint.processedKeys).length)
+        throw new Error("Some items were not confirmed by the server. Retry import.");
+      const q=await api("finishImportJob",{
+        jobId:importState.jobId,title:parsed.title,description:parsed.description,
+        settings:{
+          ...DEFAULT_SETTINGS,
+          ...(backupManifest?backupManifest.revision.settings:{}),
+          durationSeconds:parsed.durationMinutes*60,
+          shuffleQuestions:parsed.settings.shuffleQuestions,
+          shuffleOptions:parsed.settings.shuffleOptions,
+          allowBack:parsed.settings.allowBack,penalty:parsed.settings.penalty,
+        },
+        order:parsed.questions.map((_,i)=>"problem_"+i),
+      });
+      clearImportRecovery(sessionStorage,uid,bankOnly);
       progress("Saved to Firebase");
-      go(bankOnly ? "problems.html" : `upload.html?id=${q.quizId}`);
-    } catch (error) {
-      progress("Import paused — retry to continue from the last saved problem");
+      go(bankOnly?"problems.html":`upload.html?id=${q.quizId}`);
+    } catch(error) {
+      progress("Import paused — reselect the same files to resume safely");
       throw error;
     }
   });
