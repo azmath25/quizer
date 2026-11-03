@@ -14,28 +14,38 @@ const ALLOWED=Object.freeze({
   getTeacherAttempt:["attemptId","offset","limit"],
   getAdminAttempt:["attemptId","offset","limit"],
   getAssetLinks:["context","assetIds"],
+  saveManualGrade:["attemptId","itemId","points","feedback","reason",
+    "expectedGradeVersion","requestId"],
+  releaseResults:["quizId","attemptIds","score","solutions","requestId"],
 });
 const fail=(reason,message)=>assert(false,reason,message);
 export function createQuizerPrivateIntegration({
   enabled=false,resolveFirebaseActor,resolveAttemptOrigin,
   resolveQuizOrigin,legacy,secureAttempts,startExport,
-  attemptCommits,publisher,resolveImageScope,signReadyAssets,
+  attemptCommits,gradeFinalization,publisher,resolveImageScope,signReadyAssets,
 }={}){
   if(enabled!==true)return Object.freeze({enabled:false,
     handle:async()=>({disabled:true}),publishJob:async()=>({disabled:true}),
     gradeJobBatch:async()=>({disabled:true}),
+    finalizeGradeJob:async()=>({disabled:true}),
     exportSource:async()=>({disabled:true})});
   const checks=[resolveFirebaseActor,resolveAttemptOrigin,resolveQuizOrigin,
     legacy?.handle,secureAttempts?.questions,secureAttempts?.validateAnswers,
     secureAttempts?.navigationPreview,secureAttempts?.resultPage,
-    secureAttempts?.gradeBatch,secureAttempts?.allowedAssetIds,
+    secureAttempts?.gradeBatch,secureAttempts?.previewManualGrade,
+    secureAttempts?.allowedAssetIds,
     startExport?.start,startExport?.exportSource,
     attemptCommits?.saveAnswers,attemptCommits?.navigate,
-    attemptCommits?.gradeBatch,publisher?.publish,
+    attemptCommits?.gradeBatch,
+    gradeFinalization?.finalizeGradeJob,
+    gradeFinalization?.saveManualGrade,
+    gradeFinalization?.releaseResults,
+    publisher?.publish,
     resolveImageScope,signReadyAssets];
   assert(checks.every(fn=>typeof fn==="function") &&
     secureAttempts.enabled===true && attemptCommits.enabled===true &&
-    startExport.enabled===true && publisher.enabled===true,
+    startExport.enabled===true && publisher.enabled===true &&
+    gradeFinalization.enabled===true,
     "INVALID_FIELDS","Verified, enabled, server-only QN11.5 ports required.");
   async function originForAttempt(firebaseAuth,attemptId){
     const source=await resolveAttemptOrigin({
@@ -121,6 +131,24 @@ export function createQuizerPrivateIntegration({
     assert(actor.uid===firebaseAuth.uid,"AUTH_REQUIRED",
       "Authenticated actor mismatch.");
     if(action==="getAssetLinks")return imageLinks(firebaseAuth,request);
+    if(action==="releaseResults"){
+      assert(Array.isArray(request.attemptIds) &&
+        request.attemptIds.length>0 && request.attemptIds.length<=25,
+        "INVALID_FIELDS","Choose 1–25 attempts.");
+      const origins=await Promise.all(request.attemptIds.map(attemptId=>
+        originForAttempt(firebaseAuth,attemptId)));
+      if(origins.every(origin=>origin==="firestore_legacy"))
+        return callLegacy(action,firebaseAuth,request);
+      assert(origins.every(origin=>origin==="private_bundle_v1"),
+        "FAILED_PRECONDITION",
+        "Mixed legacy/private release must be split into separate batches.");
+      return gradeFinalization.releaseResults({
+        firebaseAuth,quizId:request.quizId,
+        attemptIds:request.attemptIds,score:request.score??false,
+        solutions:request.solutions??false,
+        requestId:request.requestId,
+      });
+    }
     if(action==="startAttempt"){
       const source=await originForQuiz(
         firebaseAuth,request.quizId,request.sourceAttemptId??null);
@@ -144,6 +172,19 @@ export function createQuizerPrivateIntegration({
       return secureAttempts.resultPage({firebaseAuth,attemptId,
         offset:request.offset??0,limit:request.limit??10,
         staffOnly:action!=="getAttemptResult"});
+    }
+    if(action==="saveManualGrade"){
+      const proof=await secureAttempts.previewManualGrade({
+        firebaseAuth,attemptId,itemId:request.itemId,points:request.points,
+        feedback:request.feedback??"",reason:request.reason??"",
+        expectedGradeVersion:request.expectedGradeVersion,
+      });
+      return gradeFinalization.saveManualGrade({
+        firebaseAuth,attemptId,itemId:request.itemId,points:request.points,
+        feedback:request.feedback??"",reason:request.reason??"",
+        expectedGradeVersion:request.expectedGradeVersion,
+        proof,requestId:request.requestId,
+      });
     }
     if(action==="saveAnswers"){
       assert(typeof request.requestId==="string" &&
@@ -178,8 +219,15 @@ export function createQuizerPrivateIntegration({
     const proof=await secureAttempts.gradeBatch({jobId,attemptId,itemIds});
     return attemptCommits.gradeBatch({jobId,attemptId,proof});
   }
+  async function finalizeGradeJob({jobId,attemptId,leaseOwner}={}){
+    const source=await resolveAttemptOrigin({
+      attemptId:id(attemptId),worker:true});
+    assert(source==="private_bundle_v1","FAILED_PRECONDITION",
+      "Legacy grading completion remains on the original worker.");
+    return gradeFinalization.finalizeGradeJob({jobId,attemptId,leaseOwner});
+  }
   return Object.freeze({enabled:true,handle,
     publishJob:({jobId})=>publisher.publish({jobId}),
-    gradeJobBatch,
+    gradeJobBatch,finalizeGradeJob,
     exportSource:({jobId})=>startExport.exportSource({jobId})});
 }
