@@ -25,6 +25,8 @@ Mimo's existing Neon project remains isolated. The Quizer backend uses
 server-side credentials only. Quizer must work normally for students if Neon
 or the archive worker is unavailable.
 
+**Keep the problem-bank integration minimal.** Reuse Quizer's existing Firebase-authenticated callable actions and existing page controllers rather than create a separate public problem-bank API, extra service, or proxy hop. Where technical constraints allow, batch needed bank data into existing operations and avoid unnecessary round trips. A tiny server-only Neon data-access module is sufficient; no browser PostgreSQL credentials, browser direct SQL, or duplicated REST interface. Any additional endpoint must be justified by a concrete security, pagination, or performance requirement and approved separately.
+
 ## Immutable guardrails
 
 - Change only this GitHub work branch. No merges, rebases of unrelated
@@ -60,7 +62,7 @@ or the archive worker is unavailable.
 | **QN5 — future-only activity log relay** | Design/implement trusted Firebase outbox → Neon log relay for **new events only**; retry/idempotency tests, no old-log backfill. Disabled by default. | Stop for approval. |
 | **QN6 — future logs and reports** | Implement teacher/admin Neon log readers for events after cutover, with pagination, authorization and clear pre-cutover boundary. Define optional old-test-log cleanup runbook **without executing it**. | Stop for approval. |
 | **QN7 — optional quiz mirror benchmark** | Implement feature-flagged, async, hash-deduplicated archive of published revision JSON (not image bytes) into Neon; measure fixture bytes, lag, overhead, failure and growth. Owner separately approves whether to enable it at all. | Stop for approval. |
-| **QN8 — problem bank adapter** | Implement Neon-backed CRUD/search/filter/versions/teacher sharing behind existing Firebase-authenticated API, disabled until migration; no browser SQL. | Stop for approval. |
+| **QN8 — minimal Neon data access** | Keep existing authenticated problem-bank actions and UI contracts; replace their Firestore storage access with a small server-only Neon repository for necessary CRUD/filter/version operations. Avoid new public endpoints, extra backend service, and redundant requests unless tests demonstrate a technical need. Feature-disabled until cutover. | Stop for approval. |
 | **QN9 — preservation-first migration rehearsal** | Inventory **all prior quizzes/drafts/published revisions/asset links** and their referenced problems; test sanitized problem migration to disposable Neon with checksums, IDs, revision/ownership parity, legacy quiz readability, and rollback. No real data movement or log backfill. | Stop for approval. |
 | **QN10 — publish materialization** | Stage and verify pinned Neon problem revisions; create immutable Firebase published snapshot with stable hashes, safe partial failures, concurrency guards, legacy Firestore fallback. Test active attempts unchanged. | Stop for approval. |
 | **QN11 — editor/bank integration** | Update problem bank/import/editor to use the guarded Neon adapter, preserve image uploads, optional Mimo draft import contract, mobile usability; test server identity boundaries and latency. | Stop for approval. |
@@ -83,6 +85,8 @@ or the archive worker is unavailable.
   from Firebase using published snapshot (not degraded).
 - Quizer Neon unavailable -> authors see a clear bank/edit availability
   warning; quizzes remain live.
+- Existing authenticated problem-bank actions continue to work with the same frontend request shapes; no extra API surface or separate service is added without a demonstrated need.
+- Opening a quiz/editor does not fetch the full bank by default; requests are scoped to the current page or explicitly selected problems and batched when justified.
 - Publication reads validated canonical problem revision and takes an immutable
   snapshot; leaked keys and broken private sharing rejected.
 - Neon archive worker slow or failing -> never blocks publishing.
@@ -114,7 +118,7 @@ approval.
 
 - QN0: static GitHub inspection and Neon project/table inventory completed;
   documentation only. Local verification and live timing have **not** been run.
-- QN1–QN12: not started. Historical test logs will **not** be migrated; preservation of all existing quizzes is mandatory. No logs have been deleted.
+- QN1–QN12: not started. Historical test logs will **not** be migrated; preservation of all existing quizzes is mandatory. The problem bank should reuse existing authenticated operations without new public APIs. No logs have been deleted.
 - The unmerged `feature/diff-only-quiz-and-problem-saves` remains untouched.
   Review and selectively transplant its code/tests into this branch for QN1/QN2
   after owner approval; **do not merge it**.
