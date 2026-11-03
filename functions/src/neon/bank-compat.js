@@ -34,9 +34,11 @@ function parseCursor(secret,token,scope){
     !/^[\w-]+\.[\w-]+$/.test(token))
     fail("INVALID_FIELDS","Invalid bank cursor.");
   const [msg,mac]=token.split(".");
-  const expected=createHmac("sha256",secret).update(msg).digest();
-  const given=Buffer.from(mac,"base64url");
-  if(given.length!==expected.length||!timingSafeEqual(given,expected))
+  const expected=createHmac("sha256",secret).update(msg).digest("base64url");
+  // Compare canonical base64url bytes, not a tolerant decoded value: the
+  // final base64 character may contain ignored pad bits.
+  if(mac.length!==expected.length||
+    !timingSafeEqual(Buffer.from(mac),Buffer.from(expected)))
     fail("INVALID_FIELDS","Invalid bank cursor.");
   let data;
   try{data=JSON.parse(Buffer.from(msg,"base64url").toString("utf8"));}
@@ -55,13 +57,12 @@ function parseCursor(secret,token,scope){
 function revisionAfter(secret,token,scope){
   if(!token)return null;
   if(typeof token!=="string"||token.length>3000 ||
-    !/^[\\w-]+\\.[\\w-]+$/.test(token))
+    !/^[\w-]+\.[\w-]+$/.test(token))
     fail("INVALID_FIELDS","Invalid revision cursor.");
   const [msg,mac]=token.split(".");
-  const expected=createHmac("sha256",secret).update(msg).digest();
-  const supplied=Buffer.from(mac,"base64url");
-  if(supplied.length!==expected.length||
-    !timingSafeEqual(supplied,expected))
+  const expected=createHmac("sha256",secret).update(msg).digest("base64url");
+  if(mac.length!==expected.length||
+    !timingSafeEqual(Buffer.from(mac),Buffer.from(expected)))
     fail("INVALID_FIELDS","Invalid revision cursor.");
   let data;
   try{data=JSON.parse(Buffer.from(msg,"base64url").toString("utf8"));}
