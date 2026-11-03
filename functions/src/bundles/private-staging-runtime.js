@@ -182,9 +182,11 @@ export function createQuizerStagedPrivateRuntime({
     const job=await get("jobs/"+id(jobId));
     assert(job?.kind==="export_quiz"||job?.kind==="export_results",
       "RESOURCE_UNAVAILABLE","Export job unavailable.");
-    return job.kind==="export_results"
-      ? "firestore_legacy"
-      : readKind(job.targetId,job.input?.revisionId);
+    if(job.kind==="export_results")return "firestore_legacy";
+    if(job.status==="succeeded")
+      return job.result?.privateBundleExport===true
+        ? "private_bundle_v1" : "firestore_legacy";
+    return readKind(job.targetId,job.input?.revisionId);
   };
   const facade=createQuizerPrivateIntegration({
     enabled:true,resolveFirebaseActor,resolveAttemptOrigin,
