@@ -11,11 +11,12 @@ export function createFirestorePrivateExportAssetReader({
   enabled=false,db,bucket,
 }={}){
   if(enabled!==true)return Object.freeze({enabled:false,
-    readVerified:async()=>({disabled:true})});
+    readVerified:async()=>({disabled:true}),
+    verifyRetained:async()=>({disabled:true})});
   assert(typeof db?.doc==="function" &&
     typeof bucket?.file==="function","INVALID_FIELDS",
     "Trusted Firestore asset metadata and Storage required.");
-  async function readVerified({job,quizId,revisionId,assetId}={}){
+  async function checked({job,quizId,revisionId,assetId}={}){
     const target="quizzes/"+id(quizId)+"/revisions/"+id(revisionId);
     const itemId=id(assetId,"image ID");
     assert(job?.authorized===true && job.kind==="export_quiz" &&
@@ -39,6 +40,14 @@ export function createFirestorePrivateExportAssetReader({
       a.sizeBytes<=LIMITS.imageBytes &&
       /^[1-9][0-9]{0,22}$/.test(String(a.generation)),
       "RESOURCE_UNAVAILABLE","Image is not retained or ready.");
+    return {a,itemId};
+  }
+  async function verifyRetained(args){
+    await checked(args);
+    return true;
+  }
+  async function readVerified(args={}){
+    const {a,itemId}=await checked(args);
     const file=bucket.file(a.storagePath,{generation:String(a.generation)});
     const [metadata]=await file.getMetadata();
     assert(String(metadata.generation)===String(a.generation) &&
@@ -55,5 +64,5 @@ export function createFirestorePrivateExportAssetReader({
       contentType:a.contentType,originalName:a.originalName??itemId,
       name:"images/"+itemId+"."+EXT[a.contentType]};
   }
-  return Object.freeze({enabled:true,readVerified});
+  return Object.freeze({enabled:true,readVerified,verifyRetained});
 }
