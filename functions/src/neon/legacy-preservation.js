@@ -169,6 +169,13 @@ export function buildLegacyPreservationPlan({ documents } = {}) {
     const a=documents[path];
     const quiz=quizMap.get(a.quizId);
     if(!quiz){fail("ATTEMPT_QUIZ_MISSING",path);continue;}
+    if(a.quizRevisionId==null &&
+        (a.provenance==="legacy_client_v1"||a.legacySnapshotUnknown===true)){
+      // Older client results intentionally lack a pinned server snapshot.
+      // Keep their scores/answers untouched; never manufacture a revision.
+      warn("LEGACY_ATTEMPT_UNPINNED_PRESERVE_AS_IS",path);
+      continue;
+    }
     const revisionPath="quizzes/"+a.quizId+"/revisions/"+a.quizRevisionId;
     const rev=find(revisionPath,"ATTEMPT_PINNED_REVISION_MISSING");
     if(!rev)continue;
