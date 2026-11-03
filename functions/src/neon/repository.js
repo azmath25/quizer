@@ -80,7 +80,7 @@ export function createQuizerNeonReadRepository(port) {
 
     async listProblemHeaders({
       actor, view = "mine", lifecycle = "active", search = "", tag = "",
-      limit = 25, after = null,
+      subject = "", difficulty = "", limit = 25, after = null,
     }) {
       requireTeacher(actor);
       requirePageSize(limit);
@@ -89,6 +89,11 @@ export function createQuizerNeonReadRepository(port) {
         throw new NeonContractError("INVALID_FIELDS", "Invalid bank filter.");
       requireText(search, 200, "search");
       requireText(tag, 60, "tag");
+      requireText(subject, 80, "subject");
+      requireText(difficulty, 40, "difficulty");
+      if ([subject, difficulty, tag].filter(Boolean).length > 1)
+        throw new NeonContractError("INVALID_FIELDS",
+          "Use one subject, difficulty or tag filter at a time.");
       const values = [];
       const bind = (value) => {
         values.push(value);
@@ -111,17 +116,28 @@ export function createQuizerNeonReadRepository(port) {
         where.push("EXISTS (SELECT 1 FROM quizer.problem_tags ft " +
           "WHERE ft.problem_id = p.problem_id AND ft.tag = " + bind(tag.trim()) + ")");
       }
+      if (subject) where.push("p.subject = " + bind(subject));
+      if (difficulty) where.push("p.difficulty = " + bind(difficulty));
+      const byTitle = !!search.trim();
       if (after !== null) {
         if (!after || typeof after !== "object")
           throw new NeonContractError("INVALID_FIELDS", "Invalid bank cursor.");
-        const timestamp = asIso(after.updatedAt);
         const afterId = requireId(after.problemId, "cursor problem ID");
-        where.push("(p.updated_at, p.problem_id) < (" +
-          bind(timestamp) + "::timestamptz, " + bind(afterId) + "::varchar)");
+        if (byTitle) {
+          const cursorTitle = requireText(after.searchTitle, 200, "cursor title");
+          where.push("(p.search_title, p.problem_id) > (" +
+            bind(cursorTitle) + "::varchar, " + bind(afterId) + "::varchar)");
+        } else {
+          const timestamp = asIso(after.updatedAt);
+          where.push("(p.updated_at, p.problem_id) < (" +
+            bind(timestamp) + "::timestamptz, " + bind(afterId) + "::varchar)");
+        }
       }
       const sql = HEADERS +
         " WHERE " + where.join(" AND ") +
-        " ORDER BY p.updated_at DESC, p.problem_id DESC LIMIT " + bind(limit + 1);
+        (byTitle ? " ORDER BY p.search_title ASC, p.problem_id ASC LIMIT "
+          : " ORDER BY p.updated_at DESC, p.problem_id DESC LIMIT ") +
+        bind(limit + 1);
       const found = rows(await query(sql, values));
       const selected = found.slice(0, limit);
       const last = selected.at(-1);
@@ -129,9 +145,48 @@ export function createQuizerNeonReadRepository(port) {
         items: selected.map(toProblemHeader),
         // INTERNAL only. QN8 wraps it as a scoped opaque browser cursor.
         next: found.length > limit && last
-          ? { updatedAt: asIso(last.updated_at), problemId: last.problem_id }
+          ? byTitle
+            ? { searchTitle:last.search_title, problemId:last.problem_id }
+            : { updatedAt: asIso(last.updated_at), problemId: last.problem_id }
           : null,
       };
+    },
+
+    async listProblemRevisions({actor,problemId,limit=25,after=null}) {
+      requireTeacher(actor);
+      requireId(problemId, "problem ID");
+      requirePageSize(limit);
+      // Permission is checked before any immutable revision metadata leaves SQL.
+      const visible = rows(await query(
+        HEADERS + " WHERE p.problem_id=$1 AND " +
+          "(p.owner_uid=$2 OR $3='admin' OR " +
+          "(p.bank_visibility='teachers' AND p.lifecycle='active')) LIMIT 1",
+        [problemId,actor.uid,actor.role]));
+      if (!visible.length)
+        throw new NeonContractError("RESOURCE_UNAVAILABLE","Problem unavailable.");
+      const values=[problemId];
+      let cursor="";
+      if(after!==null){
+        if(!after || typeof after!=="object")
+          throw new NeonContractError("INVALID_FIELDS","Invalid revision cursor.");
+        const at=asIso(after.createdAt);
+        const rid=requireId(after.revisionId,"cursor revision ID");
+        cursor=" AND (created_at,revision_id)<($2::timestamptz,$3::varchar)";
+        values.push(at,rid);
+      }
+      values.push(limit+1);
+      const found=rows(await query(
+        "SELECT revision_id,revision_number,created_by_uid,created_at " +
+        "FROM quizer.problem_revisions WHERE problem_id=$1"+cursor+
+        " ORDER BY created_at DESC,revision_id DESC LIMIT $"+values.length,
+        values));
+      const items=found.slice(0,limit).map(row=>({
+        id:row.revision_id,revisionNumber:Number(row.revision_number),
+        createdAt:asIso(row.created_at),createdBy:row.created_by_uid,
+      }));
+      const last=items.at(-1);
+      return {items,next:found.length>limit && last
+        ? {createdAt:last.createdAt,revisionId:last.id}:null};
     },
   });
 }
