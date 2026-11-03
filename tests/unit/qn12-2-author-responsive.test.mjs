@@ -80,3 +80,8 @@ test("QN12.2 bank card toolbar wraps into 44px buttons on small viewports",()=>{
   assert.match(cards,/\.prob-select\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
   assert.match(cards,/@media \(hover: none\)\s*\{[^}]*\.action-btn\[data-tooltip\]:hover::before\s*\{[^}]*opacity:\s*0;/s);
 });
+
+test("QN12.2 selected-problem dock sits above card and assistant overlays",()=>{
+  assert.match(editor,/\.selection-panel\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*70;[^}]*pointer-events:\s*auto;/s);
+  assert.match(editor,/\.sel-head #toggle-selection\s*\{[^}]*order:\s*-1;/s);
+});
