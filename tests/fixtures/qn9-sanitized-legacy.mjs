@@ -92,15 +92,26 @@ export function syntheticLegacySnapshot(n=2) {
     quizId:"quiz_synthetic",quizRevisionId:"qrv_old",
     studentId:"student_synthetic",quizOwnerId:"teacher_synthetic",
     status:"submitted",gradeState:"final",
-    order:slots.map(s=>s.itemId),answeredCount:1,
-    totals:{score:2,possible:n*2},
-    startedAt:tm,submittedAt:tm,
+    ordinal:1,attemptKind:"standard",sourceAttemptId:null,
+    quizTitle:"Synthetic quiz",studentDisplayName:"Synthetic student",
+    studentEmail:"student@synthetic.invalid",
+    settingsSnapshot:{durationSeconds:1200,allowBack:false,penalty:0,
+      scoreRelease:"immediate",solutionRelease:"immediate"},
+    scoreReleasedAt:tm,solutionsReleasedAt:tm,
+    currentFrontier:0,uiState:{currentIndex:0,flaggedItemIds:[],version:1},
+    order:slots.map(s=>s.itemId),optionOrder:{},
+    answeredCount:1,answeredItemIds:["itm_0"],
+    answerVersion:1,gradeVersion:1,
+    totals:{score:2,possible:n*2,correct:1,incorrect:0,pending:0,
+      skipped:n-1,partial:0,percentage:100/n},
+    startedAt:tm,submittedAt:tm,lastSavedAt:tm,
   };
   docs["attempts/att_synthetic_old/answers/itm_0"]={
     value:"2",revision:1,updatedAt:tm,
   };
   docs["attempts/att_synthetic_old/grades/itm_0"]={
-    score:2,status:"correct",gradedAt:tm,
+    score:2,awarded:2,possible:2,status:"correct",
+    version:1,manualPoints:null,feedbackLatex:"",gradedAt:tm,
   };
   docs["quizzes/quiz_synthetic/participants/student_synthetic"]={
     accessStatus:"approved",attemptCount:1,
