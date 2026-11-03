@@ -62,6 +62,12 @@ export function mountAssistant(session) {
     try {
       const text = await snipPageContent();
       if (!text) return toast("No visible text found. For diagrams, use Visual snip.", { tone: "info" });
+      const approved = await dialog({
+        title: "Send selected page content to AI?",
+        body: `<p class="muted small">Review exactly what will be sent. No screenshot or computer snipping tool was used.</p><pre class="ai-clip-preview">${e(text)}</pre>`,
+        confirm: "Send to AI",
+      });
+      if (!approved) return;
       const prompt = input.value.trim() || "Explain this selected material without assuming missing context.";
       setOpen(true);
       await send({ prompt: prompt + "\n\nSelected from this page:\n" + text });
