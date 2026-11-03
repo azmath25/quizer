@@ -3,6 +3,7 @@
 Date: 2026-11-03
 Branch: work/quizer-audit-optimization-2026-11
 Scope: **QN12.2 only**. Stop before QN13-A interim system audit, QN11 integration or QN12-B postintegration regression.
+Status: **QN12.2 verified complete (test-only; unmerged and undeployed)**.
 
 ## Source review
 
@@ -23,7 +24,9 @@ Confirmed risks: selected-problem move/remove buttons were 26 × 26px; quiz-slot
 - tests/unit/qn12-2-author-responsive.test.mjs: additional source-level contracts for 44px sizing, grid areas, collapse semantics, import/save status, nav clearance and bank toolbar.
 - tests/qa/mobile-author-browser.py: test-only real Chromium rendering against synthetic Firebase emulators; widths 320,390,430,768,844 landscape-touch,1024 plus 390px at simulated 200% root text size. Inspect quiz editor action sizes and points, import progress, problem bank selection dock, overflow, nav clearance and collapse/expansion. Capture screenshots.
 - .github/workflows/quizer-verify.yml: original QN12.1 browser run followed by new QN12.2 author browser run in the Chromium QA job, with separate screenshot artifacts. Existing unit/backend/static and emulator jobs remain.
-- Record confirmed CI run, real browser findings and artifact URL when fully completed. Never imply actual iOS Safari/Android physical-device validation.
+- **VERIFIED GREEN: [GitHub Actions run 41685852261](https://github.com/azmath25/quizer/actions/runs/41685852261)** on source/test commit `9ab4284f8d68e8fc685420a8340bd0803b67d802` (completed 2026-11-03). All **three** test-only jobs passed: Unit + backend + static, Firebase emulator regressions, Chromium mobile runner + author QA. Node unit suite: **245/245 pass**; backend unit suite: **5/5 pass**. Emulator integration and transport test steps passed.
+- Actual headless Chromium author checks passed at **320, 390, 430, 768, 844 landscape-touch, and 1024px**, plus **390px with simulated 200% root text size**. Logged assertions cover minimum 44px hit areas, problem selection and dock expand/collapse, points field width, no horizontal overflow, editor preview tabs, save/import status announcements and dock/mobile-nav separation. The QN12.1 browser runner also passed in the same workflow.
+- [Synthetic QN12.2 browser screenshots/logs](https://github.com/azmath25/quizer/actions/runs/41685852261/artifacts/13255197649) and [QN12.1 screenshots/logs](https://github.com/azmath25/quizer/actions/runs/41685852261/artifacts/13254848534) were uploaded with short artifact retention. These are browser simulations **not** actual iOS Safari/Android physical-device tests.
 
 ## Remaining risks and boundary
 
@@ -34,4 +37,4 @@ Confirmed risks: selected-problem move/remove buttons were 26 × 26px; quiz-slot
 
 ## Browser regressions found during QN12.2
 
-Real Chromium tapping found that the phone selection-dock toggle could be covered by bank cards or the floating assistant. The stack-order fix passed at 320/390/430px. Tablet testing found an unreliable small checkbox at 768px, resolved by a 44px tappable label. The simulated 200% text-size scenario then exposed a remaining ancestor stacking context; the mobile document-body dock placement removes that dependency. Do not mark complete until final CI confirms it.
+Real Chromium tapping found that the phone selection-dock toggle could be covered by bank cards or the floating assistant. The stack-order fix passed at 320/390/430px. Tablet testing found an unreliable small checkbox at 768px, resolved by a 44px tappable label. The simulated 200% text-size scenario then exposed a remaining ancestor stacking context; the mobile document-body dock placement removes that dependency. Final CI passed on commit `9ab4284f8d68e8fc685420a8340bd0803b67d802`; the remaining physical-device items below are rollout checks, not unresolved QN12.2 CI blockers.
