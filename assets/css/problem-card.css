@@ -148,3 +148,55 @@
   .tab-actions { padding: 0 6px; gap: 0; }
   .action-btn { width: 30px; }
 }
+
+/* QN12.2: keep the existing cards, but never squeeze teacher actions on
+   small screens. The tabs form two rows rather than clipping buttons. */
+@media (max-width: 600px) {
+  .prob-tabs {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .tab-meta {
+    flex: 0 1 auto;
+    max-width: 100%;
+    min-height: 44px;
+    padding-right: 28px;
+  }
+  .tab-actions {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+    padding: 4px 8px;
+    gap: 4px;
+    justify-content: flex-start;
+  }
+  .prob-select {
+    min-width: 44px;
+    min-height: 44px;
+    margin-right: 0;
+    display: inline-grid;
+    place-items: center;
+  }
+  .prob-select input {
+    width: 22px;
+    height: 22px;
+  }
+  .tab-actions .action-btn {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .action-popover {
+    min-width: 0;
+    width: min(290px, calc(100vw - 40px));
+    max-width: calc(100vw - 40px);
+  }
+}
+@media (hover: none) {
+  .action-btn[data-tooltip]:hover::before {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
