@@ -55,11 +55,11 @@ CREATE TABLE quizer.problem_revisions (
 -- Revision bodies/answer keys are append-only; old quizzes may reference
 -- any earlier revision. Refuse UPDATE/DELETE even if an app bug tries it.
 CREATE FUNCTION quizer.reject_revision_mutation()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   RAISE EXCEPTION 'Problem revisions are immutable';
 END;
-$;
+$$;
 CREATE TRIGGER quizer_problem_revision_immutable
 BEFORE UPDATE OR DELETE ON quizer.problem_revisions
 FOR EACH ROW EXECUTE FUNCTION quizer.reject_revision_mutation();
