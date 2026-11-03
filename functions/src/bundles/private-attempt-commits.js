@@ -37,6 +37,16 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
       const path="attempts/"+attemptId;
       const attempt=await c.get(path);
       assertActive(c,attempt,firebaseAuth?.uid);
+      const receiptPath="operations/"+c.actor.uid+"/requests/"+requestId;
+      const inputHash=fingerprint({action:"saveAnswers",attemptId,
+        expectedAnswerVersion,changes});
+      const priorReceipt=await c.get(receiptPath,false);
+      if(priorReceipt){
+        assert(priorReceipt.action==="saveAnswers" &&
+          priorReceipt.inputHash===inputHash,"INVALID_FIELDS",
+          "Request ID reused with different answers.");
+        return priorReceipt.result;
+      }
       assert(attempt.quizRevisionId===proof.pinnedRevisionId,
         "VERSION_CONFLICT","Attempt publication changed.");
       version(attempt.answerVersion,expectedAnswerVersion);
@@ -80,9 +90,12 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
           quizId:attempt.quizId,quizOwnerId:attempt.quizOwnerId,
           affectedUserId:attempt.studentId,changedFields:[...seen]});
       }
-      return {answerVersion:attempt.answerVersion+Number(changed),
+      const result={answerVersion:attempt.answerVersion+Number(changed),
         answeredCount:count,answeredItemIds:[...answered],
         confirmed,savedAt:changed?c.now:attempt.lastSavedAt};
+      c.set(receiptPath,{action:"saveAnswers",inputHash,result,
+        createdAt:c.now});
+      return result;
     },firebaseAuth);
   }
   async function navigate({firebaseAuth,attemptId,targetIndex,proof,requestId}={}){
@@ -96,6 +109,16 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
       const path="attempts/"+attemptId;
       const a=await c.get(path);
       assertActive(c,a,firebaseAuth?.uid);
+      const receiptPath="operations/"+c.actor.uid+"/requests/"+requestId;
+      const inputHash=fingerprint({action:"navigateAttempt",attemptId,
+        targetIndex});
+      const priorReceipt=await c.get(receiptPath,false);
+      if(priorReceipt){
+        assert(priorReceipt.action==="navigateAttempt" &&
+          priorReceipt.inputHash===inputHash,"INVALID_FIELDS",
+          "Request ID reused with another navigation.");
+        return priorReceipt.result;
+      }
       assert(a.quizRevisionId===proof.pinnedRevisionId &&
         a.currentFrontier===proof.expectedFrontier &&
         a.uiState.version===proof.expectedUiVersion,
@@ -111,7 +134,10 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
       const uiState={...a.uiState,currentIndex:targetIndex,
         version:a.uiState.version+1};
       c.set(path,{...a,currentFrontier,uiState});
-      return {currentFrontier,uiState,item:proof.item};
+      const result={currentFrontier,uiState,item:proof.item};
+      c.set(receiptPath,{action:"navigateAttempt",inputHash,result,
+        createdAt:c.now});
+      return result;
     },firebaseAuth);
   }
   async function gradeBatch({jobId,attemptId,proof}={}){
