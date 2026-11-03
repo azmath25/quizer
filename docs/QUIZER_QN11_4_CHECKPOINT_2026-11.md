@@ -1,0 +1,34 @@
+# Quizer QN11.4 — staged problem-bank and draft compatibility checkpoint
+
+Date: 2026-11-03
+Branch: `work/quizer-audit-optimization-2026-11`
+Start HEAD: `48d6f901336c5ac0b9580c53dc13529d8dbe8e5a`
+Scope: QN11.4 **development-only, default-OFF staging**. STOP before QN11.5.
+
+## Implementation
+
+- `functions/src/neon/repository.js`: extend SQL header listing with the existing Firebase single optional subject/difficulty/tag restriction, literal title-prefix search ordering with a correct ASC keyset cursor, and a one-row internal lookahead for 100-item public pages. Add authorized, protected `listProblemRevisions` metadata-only query, 1–100 pages, keyset paging. Protected statement/grading fetch and revision-history fetch **recheck authorization inside the same SQL statement as the protected read**, so a sharing change between header inspection and revision selection cannot leak answer keys or history.
+- `functions/src/neon/bank-mutations.js`: new default-OFF SQL transaction service for `setProblemSharing`, `trashProblem`, `restoreProblem`, `bulkUpdateProblems` and `forkProblem`. Preserve teacher/admin ownership, account verification, 1–50 selection bounds, tag limits, metadata-only version increments, immutable question revisions, private visibility after restore, explicit source and protected asset-copy authorization for forks, deterministic fork identities and pinned source provenance. Store successful mutation receipts in the SAME PostgreSQL transaction as the actual version/metadata update. Repeated exact request IDs replay original results even after later changes; collisions fail closed. Fork replays can recover their own already committed result after source sharing is revoked without re-fetching protected source content. Every transaction checks restricted `quizer_app` privileges.
+- `db/quizer/002_mutation_receipts_DISPOSABLE_ONLY.sql`: extend the proposed, **unexecuted** immutable receipt table CHECK action allowlist to the bank mutations above; this is a staged SQL proposal, not a migration or connection. No destructive SQL or runtime credential changes.
+- `functions/src/neon/bank-compat.js`: new default-OFF, verified-actor action router for existing `apiVersion:2` names. Require an explicit trusted `resolveOrigin` result (`neon_revision` or `firestore_legacy`) before individual reads/writes. Reject unknown provenance and mixed-source bulk writes; **never reinterpret Neon outage as a legacy fallback**. Merge separately authorized legacy and Neon list pages in stable order, enforce shared/mine search filters, refuse cross-source ID collisions, and return authenticated, HMAC-scoped opaque browser `nextCursor` tokens (including revision-history paging). Treat mutations as preflight → effect → finalize only through a separately injected fenced durable Firebase coordinator; no Neon call within Firebase transaction retries. The required production coordinator/adapter is deliberately not installed yet.
+- `functions/src/neon/draft-compat.js`: new default-OFF staged quiz-draft resolver for up to 20 pinned slot reads, new/legacy source distinctions, privileged editor content and grading, selected asset IDs and optimistic version/permission recheck **after** the external read. A revoked source can use an existing retained published snapshot ONLY through a trusted verifier that checks matching pinned problem/revision/item identity. No fallback on SQL/storage outages or unknown origin. Provides `getItems`, `prepareUpserts` and `draftAssetIds` contracts; no live write, asset signing, worker, publisher or student route is changed.
+- Tests: `tests/unit/qn11-4-bank-compat.test.mjs`, `tests/unit/qn11-4-bank-mutations.test.mjs`, `tests/unit/qn11-4-neon-read.test.mjs`, and updated QN3 permission query expectations. Fake restricted SQL transactions test idempotency/collision/rollback, unauthorized mutation denial, revocation-safe forking and preserved immutable protected revisions; hybrid adapter tests cover scopes, deduplication, no implicit Neon-error fallback, read/checkpoint/asset authorization and cross-store version rechecks.
+
+## Explicit limitations / release gates
+
+1. **All new Quizer Neon bank/draft modules remain unmounted.** Existing Firebase `dispatch()`, active `functions/src/api/problems.js`, `quizzes.js`, `assets.js`, student attempts and worker are unchanged. This is NOT a live switch to Neon.
+2. Legacy `listHeaders`, `handle`, source provenance registry and draft read/recheck callbacks are trusted **injected interfaces**, not yet wired to concrete Firebase transaction or connection runtime. Generic Firebase mutation coordinator for bank edit/fork/share remains a required QN11.5/11.6 integration dependency. A completed code review of staged interface cannot substitute for integration.
+3. PostgreSQL role proof, DDL, grants and mutation receipt durability were exercised in synthetic fake SQL tests only. Real `quizer_app` SQL-created restricted LOGIN and a separate disposable Quizer project migration still need **separate approval**; never use Mimo, default Neon database, or production.
+4. Forking shared image references requires cross-store asset reference/retention reconciliation and a Firebase-backed authorized-copy verifier. QN11.4 accepts only an injected trusted asset-copy verifier; the real retention callback and fail-safe cleanup remain unimplemented. Never enable fork without it.
+5. Legacy history, old private quizzes, frozen published revisions and in-progress student attempts remain on existing Firestore routes. Missing/ambiguous provenance or mixed legacy/Neon bulk changes must fail closed; production inventory and backup/restore were not performed.
+6. `getAssetLinks` signing, `saveQuizDraft` persistence, publisher, grading worker, student solution-release, exports and actual hybrid lookahead query performance remain integration/release gates in QN11.5–11.6 and QN12-B/QN13-B. No 10/100/500 remote latency or billing measurement is claimed.
+7. No production data, Firebase cloud, database, protected branch, Google Cloud, Mimo, AI snip branch, merge, deploy, destructive log cleanup or cutover was touched.
+
+## CI acceptance
+
+Code/test commit: *to be recorded on finalized passing code head*.
+Test-only GitHub Actions run: *pending final verification*. Required checks: all three jobs (Node unit + backend/static, Firebase emulator/transport, Chromium QN12.1+12.2). New bank tests are injected mock/port tests; CI emulator tests verify the unchanged active legacy paths, not a deployed Neon bank integration.
+
+## Stop
+
+**QN11.4 staged source and tests added; do not claim final verified completion until latest-code CI is green.** Stop before QN11.5. Next separately approved QN11.5 integrates private publish + authenticated student/grade/asset/export paths with immutable source pins and protected legacy fallback, but requires the identified durable coordinator and Firebase trusted port dependencies to be resolved first.
