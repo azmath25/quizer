@@ -62,8 +62,26 @@ export function createQuizerNeonWriteRepository({
   });
   // QN8 cannot provision privileged Neon-MCP default roles.
   if (!sql || typeof sql.transaction !== "function" ||
-      sql.restrictedRoleVerified !== true || typeof verifyAssets !== "function")
-    throw new Error("QN8 requires restricted Postgres role verification, transactions and Firebase asset checks.");
+      typeof verifyAssets !== "function")
+    throw new Error("QN8 requires transactional Postgres port and Firebase asset checks.");
+  async function guardedTransaction(fn) {
+    return guardedTransaction(async tx => {
+      // Do not trust a JS assertion or a URL name: prove SQL privileges using
+      // the live connection actually executing the transaction.
+      const role = first(await tx.query(
+        "SELECT current_user AS role_name, rolsuper, rolcreatedb, rolcreaterole, " +
+        "rolreplication, rolbypassrls, EXISTS (SELECT 1 FROM pg_roles s " +
+        "WHERE s.rolname='neon_superuser' AND pg_has_role(current_user,s.oid,'MEMBER')) " +
+        "AS inherited_neon_superuser FROM pg_roles WHERE rolname=current_user",
+        []));
+      if (!role || role.role_name !== "quizer_app" ||
+          role.rolsuper !== false || role.rolcreatedb !== false ||
+          role.rolcreaterole !== false || role.rolreplication !== false ||
+          role.rolbypassrls !== false || role.inherited_neon_superuser !== false)
+        throw new Error("QN8 refused elevated or unverified PostgreSQL role");
+      return fn(tx);
+    });
+  }
   async function verify(actor, content, grading, sourceAssetId = null) {
     const ids = [...new Set([...assetIds(content, grading),
       ...(sourceAssetId ? [sourceAssetId] : [])])];
@@ -116,7 +134,7 @@ export function createQuizerNeonWriteRepository({
     await verify(actor, content, grading);
     const id = deterministicId("prb_", actor.uid, "createProblem", requestId);
     const rev = deterministicId("prv_", actor.uid, "createProblem", requestId);
-    return sql.transaction(tx => insert(tx, { actor, problemId: id,
+    return guardedTransaction(tx => insert(tx, { actor, problemId: id,
       revisionId: rev, metadata, content, grading, now, ownerDisplayName }));
   }
   async function saveProblemRevision({ actor, requestId, problemId, expectedVersion,
@@ -131,7 +149,7 @@ export function createQuizerNeonWriteRepository({
       fail("INVALID_FIELDS", "Content and grading must be submitted together.");
     const parsed = hasContent ? validateProblem(rawContent, rawGrading) : null;
     if (parsed) await verify(actor, parsed.content, parsed.grading);
-    return sql.transaction(async tx => {
+    return guardedTransaction(async tx => {
       const old = first(await tx.query(HEADER_SQL, [problemId]));
       if (!old || (old.owner_uid !== actor.uid && actor.role !== "admin") ||
           old.lifecycle !== "active")
@@ -172,7 +190,7 @@ export function createQuizerNeonWriteRepository({
           metadata.bankVisibility, revisionId, revisionNumber,
           nextVersion, stamp, expectedVersion]);
       if (!first(updated)) fail("VERSION_CONFLICT", "The problem changed concurrently.");
-      if (!sameMeta) {
+      if (canonical([...(old.tags ?? [])].sort()) !== canonical([...metadata.tags].sort())) {
         await tx.query("DELETE FROM quizer.problem_tags WHERE problem_id=$1", [problemId]);
         for (const tag of metadata.tags)
           await tx.query("INSERT INTO quizer.problem_tags (problem_id,tag) VALUES ($1,$2)",
@@ -197,8 +215,11 @@ export function createQuizerNeonWriteRepository({
     const entries = records.map(validatedEntry);
     if (new Set(entries.map(e => e.key)).size !== entries.length)
       fail("INVALID_FIELDS", "Duplicate import key in the batch.");
-    for (const entry of entries)
-      await verify(actor, entry.content, entry.grading, job.sourceAssetId);
+    // Batch asset authorization once, not twenty duplicate Firebase lookups.
+    const allAssets = [...new Set(entries.flatMap(entry =>
+      assetIds(entry.content, entry.grading)).concat(
+        job.sourceAssetId ? [job.sourceAssetId] : []))];
+    await verifyAssets({ actor, assetIds: allAssets });
     const sorted = [...entries].sort((a,b) => a.key.localeCompare(b.key));
     return sql.transaction(async tx => {
       const mapped = new Map();
