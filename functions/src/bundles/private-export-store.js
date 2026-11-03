@@ -155,7 +155,8 @@ export function createFirestorePrivateExportStore({
       return persistedLink(job,jobId,quizId);
     },firebaseAuth);
     const url=await signExport({storagePath:meta.storagePath,
-      generation:meta.generation,expiresAt:new Date(Date.now()+120000)});
+      quizId:meta.quizId,generation:meta.generation,
+      expiresAt:new Date(Date.now()+120000)});
     assert(typeof url==="string"&&url.startsWith("https://") &&
       !url.includes("published-bundles") &&
       !url.includes("firebaseStorageDownloadTokens"),
