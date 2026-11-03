@@ -30,3 +30,27 @@ export function buildFinalQuizSaveRequest({ quizId, expectedDraftVersion, curren
     ...(changedOrder ? { itemOrder: order } : {}),
   };
 }
+
+/**
+ * Only called AFTER an acknowledged saveQuizDraft slot batch.
+ * Advancing the baseline prevents subsequent retries from resending writes
+ * that succeeded before a partial failure. IDs must be mapped to server IDs.
+ */
+export function rememberSavedQuizSlots(savedItems, committedSlots) {
+  const byId = new Map(savedItems.map((item) => [item.itemId, item]));
+  for (const slot of committedSlots) {
+    const snapshot = {
+      itemId: slot.itemId,
+      problemId: slot.problemId,
+      problemRevisionId: slot.problemRevisionId,
+      points: slot.points,
+    };
+    const previous = byId.get(slot.itemId);
+    if (previous) Object.assign(previous, snapshot);
+    else {
+      savedItems.push(snapshot);
+      byId.set(slot.itemId, snapshot);
+    }
+  }
+  return savedItems;
+}
