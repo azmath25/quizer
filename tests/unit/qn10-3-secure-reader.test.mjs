@@ -325,3 +325,32 @@ test("bounded simulated 500-item decode and 8 concurrent readers report local me
     elapsed.toFixed(2)+" ms, 8 complete bundle reads, "+
     f.bundle.byteLength+" bytes each; NOT production latency/cost.");
 });
+
+test("QN11.5 next-question preview is pinned, keyless, and enforces no-back frontier",async()=>{
+  const f=makeFixture();
+  const proof=await f.svc.navigationPreview({firebaseAuth:student.uid,
+    attemptId:"att_syn",targetIndex:1});
+  assert.equal(proof.targetIndex,1);
+  assert.equal(proof.expectedFrontier,0);
+  assert.equal(proof.expectedUiVersion,0);
+  assert.equal(proof.item.itemId,"itm_1");
+  assert.equal(proof.item.statementLatex,"Compute 1+1");
+  assert(!JSON.stringify(proof).includes("acceptedAnswers"));
+  assert(!JSON.stringify(proof).includes("ast_solution"));
+  await assert.rejects(f.svc.navigationPreview({firebaseAuth:student.uid,
+    attemptId:"att_syn",targetIndex:2}),isReason("INVALID_FIELDS"));
+  await assert.rejects(f.svc.navigationPreview({firebaseAuth:other.uid,
+    attemptId:"att_syn",targetIndex:1}),isReason("RESOURCE_UNAVAILABLE"));
+  assert.equal(f.reads,1,"future and unrelated previews rejected before Storage");
+});
+test("QN11.5 preview refuses expired attempts and missing private objects",async()=>{
+  const f=makeFixture();
+  f.attempt.deadlineAt=new Date(now.valueOf()-1000);
+  await assert.rejects(f.svc.navigationPreview({firebaseAuth:student.uid,
+    attemptId:"att_syn",targetIndex:1}),isReason("ATTEMPT_EXPIRED"));
+  assert.equal(f.reads,0);
+  f.attempt.deadlineAt=null;
+  f.setManifest({...f.manifest,sha256:"e".repeat(64)});
+  await assert.rejects(f.svc.navigationPreview({firebaseAuth:student.uid,
+    attemptId:"att_syn",targetIndex:1}),isReason("RESOURCE_UNAVAILABLE"));
+});
