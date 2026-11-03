@@ -1,10 +1,12 @@
 import { go } from "../core/router.js";
+import { openProblemInChat } from "../services/chats.js";
 import { api } from "../services/api.js";
 import {
   pageHead,
   linkButton,
   action,
-  notice
+  notice,
+  busy
 } from "../components/ui.js";
 import { problemForm, blankProblem } from "../components/problem-form.js";
 export async function mount(root, session) {
@@ -29,6 +31,17 @@ export async function mount(root, session) {
         '<button class="button primary" id="fork">Make an editable copy</button>'
       : "") +
     '<div id="editor"></div>';
+  if (data && session.capabilities?.teach) {
+    const askButton = document.createElement("button");
+    askButton.type = "button";
+    askButton.className = "button secondary";
+    askButton.textContent = "Ask AI";
+    askButton.setAttribute("aria-label", "Ask AI about this problem statement");
+    root.querySelector(".page-heading")?.append(askButton);
+    askButton.onclick = () => busy(askButton, async () =>
+      go(await openProblemInChat(data.content.statementLatex,
+        data.problem.title || "Problem")), root);
+  }
   action(root, "#fork", async () => {
     const copy = await api("forkProblem", {
       problemId,
