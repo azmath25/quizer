@@ -34,12 +34,12 @@ test("QN11.6.3 private ZIP Storage allows only created, hash-matched, private fi
     enabled:true,bucket:f.bucket});
   const path="exports/teacher_1/job_1/quiz_1-job_1.zip";
   const bytes=Buffer.from("TEST_PRIVATE_ZIP_BYTES");
-  const created=await s.createOnly({storagePath:path,bytes});
+  const created=await s.createOnly({storagePath:path,bytes,quizId:"quiz_1"});
   assert.equal(created.sha256,digest(bytes));
   const read=await s.readExact({...created});
   assert.equal(read.generation,"15");
   assert.equal(read.contentType,"application/zip");
-  const url=await s.sign({storagePath:path,generation:read.generation,
+  const url=await s.sign({storagePath:path,quizId:"quiz_1",generation:read.generation,
     expiresAt:new Date(Date.now()+60000)});
   assert(url.startsWith("https://"));
   assert.equal(f.signed,1);
@@ -55,10 +55,10 @@ test("QN11.6.3 ZIP paths cannot escape owner/job scope or sign private bundles",
     "exports/teacher_1/job_1/../../source.tex",
     "exports/teacher_1/job_1/quiz_wrong-job_1.zip",
   ])
-    await assert.rejects(s.createOnly({storagePath:path,
+    await assert.rejects(s.createOnly({storagePath:path,quizId:"quiz_1",
       bytes:Buffer.from("a")}),reason("INVALID_FIELDS"));
   await assert.rejects(s.sign({storagePath:
-    "exports/teacher_1/job_1/quiz_1-job_1.zip",generation:"15",
+    "exports/teacher_1/job_1/quiz_1-job_1.zip",quizId:"quiz_1",generation:"15",
     expiresAt:new Date(Date.now()+300000)}),reason("INVALID_FIELDS"));
   assert.equal(f.signed,0);
 });
