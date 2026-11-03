@@ -118,13 +118,36 @@ async function runner(root, initial, session) {
   let serverBase = Date.parse(a._serverTime),
     basePerf = performance.now(),
     lastWarning = 0;
-  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><span class="save-indicator" id="save-status" role="status">Restoring answers…</span><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div><div class="actions" id="save-actions" hidden><button class="button secondary" id="retry-save">Retry saving</button><button class="button secondary" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
+  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><div class="runner-save-feedback"><span class="save-indicator" id="save-status" role="status" aria-live="polite">Restoring answers…</span><div class="actions" id="save-actions" hidden><button class="button secondary small" id="retry-save">Retry saving</button><button class="button secondary small" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
   const question = root.querySelector("#question-panel"),
     saveStatus = root.querySelector("#save-status");
+  // The fixed bottom navigation varies in height with safe-area, zoom and
+  // device text size. Measure its actual top edge instead of assuming 72px.
+  const mobileNav = document.querySelector("#mobile-nav");
+  const syncMobileClearance = () => {
+    if (!mobileNav) return;
+    const rect = mobileNav.getBoundingClientRect();
+    if (rect.height < 1) {
+      root.style.removeProperty("--runner-mobile-nav-clearance");
+      return;
+    }
+    root.style.setProperty(
+      "--runner-mobile-nav-clearance",
+      `${Math.ceil(Math.max(0, window.innerHeight - rect.top) + 8)}px`,
+    );
+  };
+  const mobileNavObserver = typeof ResizeObserver === "function" && mobileNav
+    ? new ResizeObserver(syncMobileClearance) : null;
+  mobileNavObserver?.observe(mobileNav);
+  window.addEventListener("resize", syncMobileClearance);
+  window.visualViewport?.addEventListener("resize", syncMobileClearance);
+  syncMobileClearance();
   function saveLabel(text, failed = false) {
-    saveStatus.textContent = text;
+    if (saveStatus.textContent !== text) saveStatus.textContent = text;
     saveStatus.classList.toggle("danger-text", failed);
     root.querySelector("#save-actions").hidden = !failed;
+    root.querySelector("#retry-save").hidden = !failed || conflict;
+    root.querySelector("#resolve-conflict").hidden = !failed || !conflict;
   }
   function clock() {
     serverBase = Date.parse(a._serverTime);
@@ -150,7 +173,7 @@ async function runner(root, initial, session) {
     const flagList = root.querySelector("#flag-list");
     flagList.hidden = !flagged.size;
     flagList.innerHTML = flagged.size
-      ? `<strong>Flagged</strong>${a.order.map((id, i) => (flagged.has(id) ? `<button type="button" class="button ghost small" data-index="${i}">${icon("flag")}Problem ${i + 1}</button>` : "")).join("")}`
+      ? `<strong>Flagged</strong>${a.order.map((id, i) => (flagged.has(id) ? `<button type="button" class="button ghost small" data-index="${i}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${icon("flag")}Problem ${i + 1}</button>` : "")).join("")}`
       : "";
     root
       .querySelectorAll("[data-index]")
@@ -595,9 +618,11 @@ async function runner(root, initial, session) {
   document.addEventListener("keydown", keys);
   let touch;
   const swipeStart = (event) => {
-    touch = event.target.closest("input, textarea, .math-content img")
-      ? null
-      : event.changedTouches[0];
+    // Never turn a swipe on interactive controls or horizontally scrollable
+    // LaTeX into unintended navigation; only blank question space swipes.
+    touch = event.target.closest(
+      "button, a, input, textarea, select, label, [contenteditable], .math-content, [role=button]",
+    ) ? null : event.changedTouches[0];
   };
   const swipeEnd = (event) => {
     if (!touch || document.documentElement.dataset.input !== "touch") return;
@@ -619,6 +644,10 @@ async function runner(root, initial, session) {
     document.removeEventListener("visibilitychange", visibility);
     document.removeEventListener("session-cleared", sessionCleared);
     document.removeEventListener("stars-changed", syncStar);
+    mobileNavObserver?.disconnect();
+    window.removeEventListener("resize", syncMobileClearance);
+    window.visualViewport?.removeEventListener("resize", syncMobileClearance);
+    root.style.removeProperty("--runner-mobile-nav-clearance");
   });
   action(root, "#previous", () => navigate(index - 1));
   action(root, "#next", () =>
