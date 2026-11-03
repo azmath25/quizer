@@ -60,3 +60,9 @@ Then inspect in Firebase Console:
 
 This milestone is **configuration-prepared only**, not a pass for a complete Firebase backend or STG2 deployment.
 Keep STG2 **NO GO** until Auth, Firestore rules/indexes, Storage, Functions, restricted database login, budget/IAM/secret management, and rollback controls are verified separately. No production/Mimo/AI branch changes, merges or deployments.
+
+## Verified CI checkpoint
+
+**PASS:** [GitHub Actions run 41742378046](https://github.com/azmath25/quizer/actions/runs/41742378046) on exact staging source commit `215273a2ad51f82dec3078041378d77426997640` — all 3/3 jobs successful. Includes **367/367 unit tests**, **5/5 backend tests**, Firebase emulator integration/transport, and Chromium mobile runner / author checks. Offline staging-build identity test passed and original production source remained unchanged.
+
+These were local/CI tests against emulator and repo files, **not live Firebase, Storage, Firestore, Google Auth or deployment verification**. Further external STG1 gates remain pending.
