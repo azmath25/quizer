@@ -17,7 +17,7 @@ export const QUIZER_MIGRATIONS=Object.freeze([
 const NO_CONNECTION="Migration requires a verified disposable Quizer branch.";
 function gitBlob(bytes) {
   return createHash("sha1")
-    .update("blob "+bytes.byteLength+"\\0")
+    .update("blob "+bytes.byteLength+"\0")
     .update(bytes).digest("hex");
 }
 function verifyIdentity(identity){
