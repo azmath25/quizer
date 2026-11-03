@@ -67,13 +67,17 @@ export function createQuizerRecoveryInspector({
     assert(storagePath===bundleStoragePath(
       quizId,revisionId,manifest.sha256),"RESOURCE_UNAVAILABLE",
       "Unexpected private bundle provenance.");
+    // inspectObject MUST read the exact generation with a 24 MiB cap and
+    // compute SHA-256 from the returned bytes; metadata-only "hash" fields
+    // cannot certify a private answer-bearing publication.
     const meta=await inspectObject({
       kind:"publication",storagePath,
       generation:String(manifest.generation),maxBytes:24*1024*1024,
+      requireByteHash:true,
     });
     const verified=confirmedObject(meta,{
       generation:manifest.generation,byteLength:manifest.byteLength,
-      contentType:manifest.contentType,
+      contentType:manifest.contentType,sha256:manifest.sha256,
     });
     if(job.status==="succeeded")
       return result("publication",jobId,
@@ -113,7 +117,8 @@ export function createQuizerRecoveryInspector({
         return result("export",jobId,"integrity_alert",
           "Completed ZIP metadata is not trusted");
       const meta=await inspectObject({kind:"export",storagePath:path,
-        generation:String(obj.generation),maxBytes:128*1024*1024});
+        generation:String(obj.generation),maxBytes:128*1024*1024,
+        requireByteHash:true});
       const good=confirmedObject(meta,{
         generation:obj.generation,byteLength:obj.byteLength,
         contentType:"application/zip",sha256:obj.sha256});
