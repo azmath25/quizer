@@ -62,7 +62,7 @@ or the archive worker is unavailable.
 | --- | --- | --- |
 | **QN0 — audit** | Read-only current-code audit, unmerged diff-only branch review, connected Neon inventory, new architecture decisions. | **Documented**; running tests and production timings not claimed. |
 | **QN1 — draft diff-only** | Review/port frontend/backend `saveQuizDraft` field/item/order diffing and no-op detection. Test unchanged saves, 100/500-question renames, settings/points/order changes and zero TeX reimports/problem writes. | **Code and tests committed on work branch; local pure-helper tests 9 pass, editor check skipped locally, emulator pending**. Stop before QN2. |
-| **QN2 — problem save efficiency** | Review/port unchanged-content and metadata-only behavior from unmerged optimization branch; preserve immutable changed-content revisions, references and assets; add tests. | Stop for approval. |
+| **QN2 — problem save efficiency** | Implement no-op zero-write saves, metadata-only payload/parent updates, and one immutable revision for changed content/answers; preserve existing image references and optimistic version checks; add tests. | **Code and tests committed on work branch**; 9 isolated frontend tests passed, emulator/integration verification pending. Stop before QN3. |
 | **QN3 — contracts and schema** | Define independent Quizer Neon SQL schema (problems, revisions, ownership, tags, audit log, outbox receipts, optional quiz mirrors) and typed server adapter; create synthetic fixtures and migration SQL in repo. No live Neon changes. | Stop for approval. |
 | **QN4 — local/disposable schema tests** | Rehearse reversible schema changes on an explicitly authorized disposable PostgreSQL/Neon dev branch; verify uniqueness, foreign keys, indexes, pagination, idempotency, rollback. Never touch Mimo or production. | Stop for approval. |
 | **QN5 — future-only activity log relay** | Design/implement trusted Firebase outbox → Neon log relay for **new events only**; retry/idempotency tests, no old-log backfill. Disabled by default. | Stop for approval. |
@@ -148,7 +148,8 @@ approval.
 - QN0: static GitHub inspection and Neon project/table inventory completed;
   documentation only. Local verification and live timing have **not** been run.
 - QN1: frontend diff-only helper/handler, backend no-op detection and no-op receipt suppression, unit and emulator regression tests committed on the isolated branch. Locally, **9 pure-helper tests passed and 1 editor-source check was skipped** (full repo unavailable); the emulator suite and all-repo CI have not been executed in this environment. See `docs/QUIZER_QN1_CHECKPOINT_2026-11.md`.
-- QN2–QN13: not started. Historical test logs will **not** be migrated; existing quizzes remain mandatory preservation targets. Problem bank reuses existing authenticated operations; no new public API. No logs deleted.
+- QN2: metadata-only/no-op problem-save paths, frontend reduced-payload helpers, quick-edit revision counter fixes and unit/emulator tests committed on the work branch. Local isolated Node tests: **9 passed, 0 failed**; emulator, full CI, and browser checks **not run**. See `docs/QUIZER_QN2_CHECKPOINT_2026-11.md`.
+- QN3–QN13: not started. Historical test logs will **not** be migrated; existing quizzes remain mandatory preservation targets. Problem bank reuses existing authenticated operations; no new public API. No logs deleted.
 - The unmerged `feature/diff-only-quiz-and-problem-saves` remains untouched.
   Review and selectively transplant its code/tests into this branch for QN1/QN2
   after owner approval; **do not merge it**.
