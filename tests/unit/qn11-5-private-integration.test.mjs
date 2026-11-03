@@ -176,6 +176,8 @@ function gatewayFixture({privateOrigin=true,disabled=false}={}){
     async gradeBatch(){calls.push("commit-grades");return {processed:1};},
   };
   const gradeFinalization={enabled:true,
+    async completedManualGrade(){calls.push("receipt-check");
+      return {completed:false};},
     async finalizeGradeJob(){calls.push("finalize-grades");return {attemptId:"att_new"};},
     async saveManualGrade(){calls.push("manual");return {gradeVersion:2};},
     async releaseResults(){calls.push("release");return {released:1};},
@@ -327,4 +329,37 @@ test("QN11.5 signing adapter is inert unless explicitly enabled",async()=>{
     {disabled:true});
   assert.throws(()=>createQuizerPrivateImageSigner({enabled:true}),
     /Trusted asset metadata and signing ports/);
+});
+
+test("QN11.6.2 private manual-grade route checks receipt before protected rubric",async()=>{
+  const f=gatewayFixture();
+  const out=await f.call("saveManualGrade",teacher,{
+    attemptId:"att_new",itemId:"itm_1",points:2,
+    feedback:"Detailed",reason:"",expectedGradeVersion:1,
+    requestId:"request_manual_1234567890",
+  });
+  assert.deepEqual(out,{gradeVersion:2});
+  assert.deepEqual(f.calls.slice(0,3),[
+    "receipt-check","preview-manual","manual"]);
+});
+test("QN11.6.2 private release does not mix legacy and private attempts",async()=>{
+  const f=gatewayFixture();
+  const result=await f.call("releaseResults",teacher,{
+    quizId:"quiz_1",attemptIds:["att_new"],score:true,
+    requestId:"request_release_1234567890"});
+  assert.deepEqual(result,{released:1});
+  assert(f.calls.includes("release"));
+  await assert.rejects(f.call("releaseResults",teacher,{
+    quizId:"quiz_1",attemptIds:["att_new","att_old"],score:true,
+    requestId:"request_release_1234567891"}),why("FAILED_PRECONDITION"));
+  const old=await f.call("releaseResults",teacher,{
+    quizId:"quiz_1",attemptIds:["att_old"],score:true,
+    requestId:"request_release_1234567892"});
+  assert.equal(old.legacy,true);
+  const completed=await f.facade.finalizeGradeJob({
+    jobId:"job_grade",attemptId:"att_new",leaseOwner:"worker_1"});
+  assert.equal(completed.attemptId,"att_new");
+  await assert.rejects(f.facade.finalizeGradeJob({
+    jobId:"job_grade",attemptId:"att_old",leaseOwner:"worker_1"}),
+    why("FAILED_PRECONDITION"));
 });
