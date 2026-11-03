@@ -133,7 +133,13 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                     f"Bank toolbar undersized at {width}px: {r}")
         checks=page.locator("[data-select]")
         require(checks.count()>0,"Seeded teacher has no bank problems")
-        checks.first.check(timeout=12000,force=True)
+        target=page.locator(".problem-wrapper .prob-select").first
+        require(rect(target)["width"]>=43.5 and
+                rect(target)["height"]>=43.5,
+                f"Problem selection hit area below 44px at {width}px")
+        tap_or_click(target,touch)
+        require(checks.first.is_checked(),
+                f"Problem selection tap did not select item at {width}px")
         panel=page.locator("#selection-panel")
         panel.wait_for(state="visible",timeout=15000)
         toggle=page.locator("#toggle-selection")
