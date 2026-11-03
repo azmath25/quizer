@@ -430,7 +430,10 @@ export async function dispatch(
       return prior.result;
     }
     const result = await def.fn(c, request);
-    if (receipt)
+    // A verified no-op quiz draft save has no state change to deduplicate.
+    // Do not create even an idempotency receipt for this one action.
+    // Other mutation actions retain their normal receipts.
+    if (receipt && !(request.action === "saveQuizDraft" && result?.unchanged === true))
       c.set(receipt, {
         action: request.action,
         inputHash,
