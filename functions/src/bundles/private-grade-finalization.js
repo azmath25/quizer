@@ -182,8 +182,12 @@ export function createFirestorePrivateGradeFinalization({
       if(old.manualPoints!==null)
         text(reason,"Correction reason",500,true);
       const grade={...proof.grade,updatedAt:c.now,version:old.version+1};
-      assert(grade.possible===old.possible &&
-        grade.awarded>=0 && grade.awarded<=old.possible &&
+      // The existing gradeSnapshotAnswer applies the configured negative
+      // penalty to a manually marked zero-point incorrect answer.
+      const penalty=a.settingsSnapshot?.penalty??0;
+      assert(Number.isFinite(penalty) && penalty>=0 &&
+        grade.possible===old.possible &&
+        grade.awarded>=-penalty && grade.awarded<=old.possible &&
         grade.status!=="pending" &&
         grade.status!=="skipped",
         "VERSION_CONFLICT","Manual grade is outside the pinned rubric.");
