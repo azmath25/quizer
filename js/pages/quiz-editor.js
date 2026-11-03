@@ -3,6 +3,7 @@ import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
 import { readLegacyDeviceQuizzes } from "../migration/legacy-device.js";
 import { drafts, draftBanner } from "../services/drafts.js";
 import { api, waitForJob } from "../services/api.js";
+import { buildFinalQuizSaveRequest, changedQuizSlots } from "./quiz-save-diff.js";
 import { uploadAsset
 } from "../services/assets.js";
 import { parseLatex } from "../../shared/latex-parser.js";
@@ -626,7 +627,9 @@ async function edit(root, quizId) {
     saveState.textContent = "Saving…";
     try {
       let version = draft.version,
-        currentOrder = [...draft.itemOrder];
+        currentOrder = [...draft.itemOrder],
+        touched = false;
+      const current = values();
       const gone = [...removed];
       for (let i = 0; i < gone.length; i += 20) {
         const batch = gone.slice(i, i + 20);
@@ -641,18 +644,9 @@ async function edit(root, quizId) {
         draft.version = version;
         draft.itemOrder = [...currentOrder];
         batch.forEach((id) => removed.delete(id));
+        touched = true;
       }
-      const changed = slots.filter(
-        (i) =>
-          order.includes(i.itemId) &&
-          (i.itemId.startsWith("new_") ||
-            !data.items.some(
-              (old) =>
-                old.itemId === i.itemId &&
-                old.points === i.points &&
-                old.problemRevisionId === i.problemRevisionId,
-            )),
-      );
+      const changed = changedQuizSlots(slots, data.items, order);
       for (let i = 0; i < changed.length; i += 20) {
         const batch = changed.slice(i, i + 20).map((slot) => ({
           ...(slot.itemId.startsWith("new_")
@@ -675,13 +669,22 @@ async function edit(root, quizId) {
           order = order.map((id) => (id === client ? itemId : id));
         }
         currentOrder = r.itemOrder;
+        touched = true;
       }
-      await api("saveQuizDraft", {
-        quizId,
-        expectedDraftVersion: version,
-        patch: values(),
-        itemOrder: order,
+      const finalRequest = buildFinalQuizSaveRequest({
+        quizId, expectedDraftVersion: version, current, draft,
+        order, currentOrder,
       });
+      if (finalRequest) {
+        await api("saveQuizDraft", finalRequest);
+        touched = true;
+      }
+      if (!touched) {
+        dirty = false;
+        store.clear();
+        saveState.textContent = "Already saved · no changes";
+        return true;
+      }
       data = await api("getQuizDraft", { quizId });
       draft = data.draft;
       quiz = data.quiz;
