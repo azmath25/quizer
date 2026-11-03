@@ -88,6 +88,9 @@ function harness(size=3,options={}) {
   const {plan,revisionById}=fixture(size);
   const rawStorage=fakeBucket();
   const storage=createPrivateBundleStoragePort({bucket:rawStorage.bucket,enabled:true});
+  const writerStorage=options.failStorageCreate ?
+    {...storage,createOnly:async()=>{throw Error("SIMULATED_UPLOAD_FAILURE");}} :
+    storage;
   const state={plan,latestPublished:"qrv_old",draftVersion:4,
     jobStatus:"running",leaseOwner:"lease_A",activationCount:0,
     oldSnapshot:{revisionId:"qrv_old",answer:"original"},
@@ -120,7 +123,7 @@ function harness(size=3,options={}) {
     },
   };
   const publisher=createPrivateBundlePublisher({
-    enabled:true,storage,publicationStore,
+    enabled:true,storage:writerStorage,publicationStore,
     resolvePinnedRevision:async({problemId,problemRevisionId})=>{
       resolveCalls++;
       const source=revisionById.get(problemRevisionId);
@@ -211,8 +214,7 @@ test("wrong revision source identity and altered pinned points reject before upl
   assert.equal(y.rawStorage.objects.size,0);
 });
 test("upload error leaves prior published revision and old attempts untouched",async()=>{
-  const h=harness();
-  h.storage.createOnly=async()=>{throw new Error("SIMULATED_UPLOAD_FAILURE");};
+  const h=harness(3,{failStorageCreate:true});
   await assert.rejects(h.publisher.publish({jobId:"job_qn10_2"}),
     /SIMULATED_UPLOAD_FAILURE/);
   assert.equal(h.state.latestPublished,"qrv_old");
