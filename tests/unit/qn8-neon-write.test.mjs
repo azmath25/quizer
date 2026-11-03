@@ -23,7 +23,7 @@ const safeRole = () => ({
 });
 
 function fakeDatabase({ role = safeRole(), fail = null } = {}) {
-  let state = {problems:new Map(),revisions:new Map(),tags:new Map(),receipts:new Map()};
+  let state = {problems:new Map(),revisions:new Map(),tags:new Map(),receipts:new Map(),mutationReceipts:new Map()};
   let pending = Promise.resolve();
   const log = [];
   let commits = 0;
@@ -96,6 +96,19 @@ function fakeDatabase({ role = safeRole(), fail = null } = {}) {
               revision_number:args[6],version:args[7],updated_at:args[8],
             });
             return {rows:[{problem_id:args[0]}]};
+          }
+          if (raw.startsWith("SELECT action,payload_hash,result_json FROM quizer.mutation_receipts")) {
+            const receipt=working.mutationReceipts.get(args[0]+":"+args[1]);
+            return {rows:receipt?[{...receipt}]:[]};
+          }
+          if (raw.startsWith("INSERT INTO quizer.mutation_receipts")) {
+            const key=args[0]+":"+args[1];
+            if(working.mutationReceipts.has(key)) throw Error("duplicate mutation receipt");
+            working.mutationReceipts.set(key,{
+              action:"saveProblemRevision",payload_hash:args[2],
+              result_json:JSON.parse(args[3]),
+            });
+            return {rows:[]};
           }
           if (raw.startsWith("SELECT payload_hash,problem_id,revision_id FROM quizer.import_receipts")) {
             const item=working.receipts.get(args[0]+":"+args[1]);
@@ -313,4 +326,63 @@ test("SQL values are parameters; malicious titles cannot become SQL syntax",asyn
 test("canonical normalized content hash matches the expected stable SHA form",()=>{
   assert.equal(fingerprint({x:1,y:2}),fingerprint({y:2,x:1}));
   assert.equal(fingerprint({content,grading}),fingerprint({grading,content}));
+});
+
+test("QN11.2 metadata edit receipt replays after version advances",async()=>{
+  const {writer,sql}=fakeDatabase();
+  const created=await init(writer);
+  const input={actor:teacher,requestId:"request_edit_receipt_11111",
+    problemId:created.problemId,expectedVersion:1,
+    metadata:{...metadata,title:"New title"}};
+  const first=await writer.saveProblemRevision(input);
+  assert.equal(first.metadataOnly,true);
+  assert.equal(sql.state.mutationReceipts.size,1);
+  const later=await writer.saveProblemRevision({...input,
+    requestId:"request_edit_receipt_22222",expectedVersion:2,
+    metadata:{...metadata,title:"Later title"}});
+  assert.equal(later.version,3);
+  const again=await writer.saveProblemRevision(input);
+  assert.deepEqual(again,first);
+  assert.equal(sql.state.revisions.size,1);
+  assert.equal(sql.state.mutationReceipts.size,2);
+  await assert.rejects(writer.saveProblemRevision({...input,
+    metadata:{...metadata,title:"Altered"}}),why("VERSION_CONFLICT"));
+});
+test("QN11.2 answer revision receipt prevents double-write after lost response",async()=>{
+  const {writer,sql}=fakeDatabase();
+  const created=await init(writer);
+  const input={actor:teacher,requestId:"request_answer_receipt_1234",
+    problemId:created.problemId,expectedVersion:1,metadata,
+    content:{...content,statementLatex:"Compute $3+3$."},
+    grading:{...grading,acceptedAnswers:["6"]}};
+  const results=await Promise.all([
+    writer.saveProblemRevision(input),writer.saveProblemRevision(input),
+    writer.saveProblemRevision(input),
+  ]);
+  assert.deepEqual(results,[results[0],results[0],results[0]]);
+  assert.equal(sql.state.revisions.size,2);
+  assert.equal(sql.state.mutationReceipts.size,1);
+  assert.equal(results[0].version,2);
+  await assert.rejects(writer.saveProblemRevision({...input,
+    grading:{...grading,acceptedAnswers:["7"]}}),why("VERSION_CONFLICT"));
+});
+test("QN11.2 rejected edits leave no receipt or partial revision",async()=>{
+  const s=fakeDatabase({fail:raw=>raw.startsWith("INSERT INTO quizer.mutation_receipts")});
+  const created=await init(s.writer);
+  await assert.rejects(s.writer.saveProblemRevision({actor:teacher,
+    requestId:"request_edit_fail_12345",problemId:created.problemId,
+    expectedVersion:1,metadata:{...metadata,title:"Failed"}}),
+    /SIMULATED_SQL_FAILURE/);
+  assert.equal(s.sql.state.problems.get(created.problemId).version,1);
+  assert.equal(s.sql.state.revisions.size,1);
+  assert.equal(s.sql.state.mutationReceipts.size,0);
+});
+test("QN11.2 unchanged edits cause no immutable mutation receipt",async()=>{
+  const s=fakeDatabase();const created=await init(s.writer);
+  const noop=await s.writer.saveProblemRevision({actor:teacher,
+    requestId:"request_edit_noop_12345",problemId:created.problemId,
+    expectedVersion:1,metadata});
+  assert.equal(noop.unchanged,true);
+  assert.equal(s.sql.state.mutationReceipts.size,0);
+  assert.equal(s.writer.replaySafeEdits,true);
 });
