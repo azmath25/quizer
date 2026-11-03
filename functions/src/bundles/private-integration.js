@@ -166,6 +166,12 @@ export function createQuizerPrivateIntegration({
     fail("INVALID_FIELDS","Unknown staged integration action.");
   }
   async function gradeJobBatch({jobId,attemptId,itemIds}={}){
+    // The trusted worker MUST select the bundle path from persisted attempt
+    // provenance, not grade old legacy attempts through the new writer.
+    const source=await resolveAttemptOrigin({
+      attemptId:id(attemptId),worker:true});
+    assert(source==="private_bundle_v1","FAILED_PRECONDITION",
+      "Legacy grading remains with the existing worker.");
     // Worker-only. The secure service verifies persisted lease and keys;
     // the Firebase write checks the lease again before committing grades.
     const proof=await secureAttempts.gradeBatch({jobId,attemptId,itemIds});
