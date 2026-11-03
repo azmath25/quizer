@@ -88,6 +88,9 @@ export async function mount(root, session) {
   };
   const panel = root.querySelector("#selection-panel"),
     mine = (p) => p.row.ownerId === session.user.uid;
+  // A compact, expandable selection dock keeps the bank usable on phones.
+  // Preserve this state when card selections or ordering refresh the panel.
+  let collapsed = matchMedia("(max-width: 760px)").matches;
   const total = () =>
     [...selected.values()].reduce((sum, p) => sum + (Number(p.points) || 0), 0);
   function updateTotal() {
@@ -176,15 +179,26 @@ export async function mount(root, session) {
     const values = [...selected.values()];
     panel.hidden = values.length === 0;
     if (!values.length) return (panel.innerHTML = "");
-    panel.innerHTML = `<div class="sel-head"><h2>${values.length} selected</h2><strong id="sel-total"></strong></div><ol class="sel-list">${values
+    panel.dataset.collapsed = String(collapsed);
+    panel.innerHTML = `<div class="sel-head"><h2>${values.length} selected</h2><strong id="sel-total"></strong><button type="button" class="icon-button" id="toggle-selection" aria-controls="selection-details" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Expand selected problems" : "Collapse selected problems"}">${collapsed ? "▴" : "▾"}</button></div><div id="selection-details" ${collapsed ? "hidden" : ""}><ol class="sel-list">${values
       .map(
         (p, i) =>
           `<li class="sel-row" data-row="${e(p.id)}"><span class="sel-num">${i + 1}</span><span class="sel-title" title="${e(p.title)}">${e(p.title)}</span><label class="sel-points"><span class="sr-only">Points for ${e(p.title)}</span><input type="number" min="0.00000001" max="1000" step="any" value="${e(p.points)}" data-points="${e(p.id)}"></label><span class="sel-ctl"><button type="button" class="icon-button" data-move="up" data-id="${e(p.id)}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-move="down" data-id="${e(p.id)}" aria-label="Move down" ${i === values.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-remove="${e(p.id)}" aria-label="Remove ${e(p.title)}">${icon("close")}</button></span></li>`,
       )
       .join(
         "",
-      )}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
+      )}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button></div>`;
     updateTotal();
+    panel.querySelector("#toggle-selection").onclick = () => {
+      collapsed = !collapsed;
+      panel.dataset.collapsed = String(collapsed);
+      panel.querySelector("#selection-details").hidden = collapsed;
+      const toggle = panel.querySelector("#toggle-selection");
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      toggle.setAttribute("aria-label",
+        collapsed ? "Expand selected problems" : "Collapse selected problems");
+      toggle.textContent = collapsed ? "▴" : "▾";
+    };
     panel.querySelectorAll("[data-points]").forEach((n) =>
       n.addEventListener("input", () => {
         const p = selected.get(n.dataset.points);
