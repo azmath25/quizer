@@ -9,6 +9,7 @@ import {
   badge,
 } from "../components/ui.js";
 import { snip } from "../components/snip.js";
+import { snipPageContent } from "../components/page-snip.js";
 import { onLeave, go } from "../core/router.js";
 import { askAssistant } from "../services/ai.js";
 import * as chats from "../services/chats.js";
@@ -136,7 +137,7 @@ export async function mount(root) {
       <div class="ai-log" data-log>${current.messages.length ? current.messages.map(msgHtml).join("") : `<p class="muted">Ask a question, snip a problem, or attach a PDF or image to extract problems.</p>`}${thinking ? `<div class="ai-msg assistant"><p class="ai-typing" aria-label="Thinking"><i></i><i></i><i></i></p></div>` : ""}</div>
       <form class="ai-composer" data-form><div class="ai-row">
         <label class="ai-attach" title="Attach PDF or image" aria-label="Attach PDF or image">${icon("upload")}<input type="file" accept="application/pdf,image/*" data-file hidden></label>
-        <button type="button" class="ai-attach" data-snip title="Snip the screen and ask" aria-label="Snip the screen and ask">${icon("search")}</button>
+        <button type="button" class="ai-attach" data-snip-page title="Select page content without sharing" aria-label="Snip visible page content without permission">${icon("search")}</button><button type="button" class="ai-attach" data-snip title="Capture browser tab pixels with permission" aria-label="Visual snip of browser tab, permission required">▣</button>
         <textarea rows="1" name="q" placeholder="Ask a question…" aria-label="Message"></textarea>
         <button class="button primary" type="submit">Send</button></div></form>`;
     const log = main.querySelector("[data-log]");
@@ -282,15 +283,33 @@ export async function mount(root) {
     if (t.dataset.open) return openChat(t.dataset.open);
     if (t.dataset.chat) return openChat(t.dataset.chat);
     if (t.dataset.job) return openJob(t.dataset.job);
+    if (t.matches("[data-snip-page]")) {
+      try {
+        const clipped = await snipPageContent();
+        if (clipped) {
+          const question = main.querySelector("textarea")?.value.trim() ||
+            "Explain this selected material.";
+          await send(question + "\n\nSelected from this page:\n" + clipped);
+        } else toast("Nothing readable selected. Try Visual snip for a diagram.", { tone: "info" });
+      } catch (error) {
+        toast(error.message || "Could not snip page content.", { tone: "error" });
+      }
+      return;
+    }
     if (t.matches("[data-snip]")) {
-      const file = await snip();
-      if (file) {
-        if (!(await confirmShot(file))) return;
-        await send(
-          main.querySelector("textarea")?.value.trim() ||
-            "What is this problem asking, and how do I solve it?",
-          [file],
-        );
+      document.documentElement.classList.add("ai-capture-in-progress");
+      try {
+        const file = await snip();
+        if (file && await confirmShot(file))
+          await send(
+            main.querySelector("textarea")?.value.trim() ||
+              "Inspect this visible diagram or problem.",
+            [file],
+          );
+      } catch (error) {
+        toast(error.message || "Visual snip unavailable. Try content snip.", { tone: "error" });
+      } finally {
+        document.documentElement.classList.remove("ai-capture-in-progress");
       }
       return;
     }
