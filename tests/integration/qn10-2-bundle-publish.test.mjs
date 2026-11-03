@@ -1,5 +1,5 @@
 // QN10.2 — Firebase/Storage EMULATOR ONLY. No production credentials.
-import test from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { initializeApp } from "../../functions/node_modules/firebase-admin/lib/esm/app/index.js";
 import { getFirestore, Timestamp } from "../../functions/node_modules/firebase-admin/lib/esm/firestore/index.js";
@@ -19,6 +19,12 @@ initializeApp({projectId:"demo-mathquiz-v2",
   storageBucket:"demo-mathquiz-v2.appspot.com"});
 const db=getFirestore(), auth=getAuth(), bucket=getStorage().bucket();
 const uid="qn10_bundle_teacher";
+before(async()=>{
+  await auth.createUser({uid,email:"qn10.bundle.teacher@synthetic.invalid",
+    emailVerified:true,displayName:"Bundle Teacher"});
+  await db.doc("roles/"+uid).set({role:"teacher",accountStatus:"active",
+    version:1,updatedAt:Timestamp.now()});
+});
 const settings={durationSeconds:1200,shuffleQuestions:false,
   shuffleOptions:false,allowBack:false,penalty:0,
   scoreRelease:"immediate",solutionRelease:"manual"};
