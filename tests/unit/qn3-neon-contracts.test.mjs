@@ -84,9 +84,11 @@ test("SQL injection strings are never interpolated into a query", async () => {
   const attack = "%' OR TRUE --";
   await repo.listProblemHeaders({ actor: owner, search: attack, tag: "test' OR 1=1 --" });
   assert(!port.queries[0].sql.includes(attack));
-  assert(port.queries[0].values.includes(attack.toLowerCase()));
+  const literalPrefix = attack.toLowerCase().replace(/[!%_]/g, (ch) => "!" + ch) + "%";
+  assert(port.queries[0].values.includes(literalPrefix));
   assert(port.queries[0].values.includes("test' OR 1=1 --"));
-  assert.match(port.queries[0].sql, /starts_with\(p.search_title/);
+  assert.match(port.queries[0].sql, /p.search_title LIKE/);
+  assert.match(port.queries[0].sql, /ESCAPE '!'/);
 });
 test("mine page is scoped to owner, returns headers only and a deterministic cursor", async () => {
   const a = { ...fixture.header, problem_id:"prb_a" };
