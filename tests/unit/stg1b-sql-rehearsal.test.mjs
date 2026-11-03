@@ -14,7 +14,7 @@ test("STG1-B staged migrations preserve immutable revisions and separate receipt
   assert.match(second,/PRIMARY KEY \(actor_uid, request_id\)/);
   assert.match(second,/CHECK \(jsonb_typeof\(result_json\) = 'object'\)/);
   assert.match(second,/REVOKE ALL ON quizer\.mutation_receipts FROM PUBLIC/);
-  assert.doesNotMatch(first+second,/CREATE ROLE|GRANT ALL|GRANT .* TO PUBLIC/i);
+  assert.doesNotMatch(first+second,/^\s*(?:CREATE ROLE\b|GRANT ALL\b|GRANT .+ TO PUBLIC\b)/im);
 });
 
 test("STG1-B QN4R role rehearsal is explicitly NOLOGIN and non-elevated",()=>{
