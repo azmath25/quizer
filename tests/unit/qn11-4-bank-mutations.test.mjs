@@ -201,7 +201,8 @@ test("fork authorizes shared immutable content and assets and pins source metada
   assert.equal(copy.bank_visibility,"private");
   assert.equal(copy.source_problem_id,f.id);
   assert.equal(copy.source_problem_revision_id,f.rid);
-  assert.deepEqual(f.sql.state.revisions.get(a.revisionId).grading_json,grading);
+  assert.deepEqual(f.sql.state.revisions.get(a.revisionId).grading_json,
+    {...grading,gradingVersion:1});
   assert.equal(f.sql.state.revisions.size,2);
   const again=await f.mutate("forkProblem",request);
   assert.deepEqual(again,a);
