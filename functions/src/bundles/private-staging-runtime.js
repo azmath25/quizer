@@ -27,6 +27,7 @@ import {createQuizerPrivateIntegration} from "./private-integration.js";
 export function createQuizerStagedPrivateRuntime({
   enabled=false,db,bucket,authFor,neonReader,
   resolvePublicationActor,verifyPublicationAssets,
+  authorizeSharedAsset=null,
   preflightStart,commitStart,authorizeExport,verifyExportAssets,
   resolveImageScope,signImage,legacyHandle,
   authorImagePorts=null,
@@ -116,7 +117,7 @@ export function createQuizerStagedPrivateRuntime({
     enabled:true,readRepository:neonReader,
     resolvePublicationActor,verifyAssets:verifyPublicationAssets});
   const retention=createFirestorePublishedImageRetention({
-    enabled:true,db,authFor});
+    enabled:true,db,authFor,authorizeSharedAsset});
   const publisher=createPrivateBundlePublisher({
     enabled:true,publicationStore,
     resolvePinnedRevision:args=>pinned.resolve(args),
