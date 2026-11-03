@@ -270,7 +270,7 @@ export async function mount(root, session) {
         ) +
         `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
         (session.capabilities.teach
-          ? btn("ai", "bulb", "Open in AI chat", "data-ask-ai")
+          ? btn("ai", "bulb", "Ask AI about this problem", "data-ask-ai")
           : "") +
         btn("download", "download", "Download .tex", "data-download") +
         btn("solve", "bulb", "Answer and solution", "data-solve") +
