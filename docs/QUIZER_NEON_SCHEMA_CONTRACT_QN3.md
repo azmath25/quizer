@@ -36,7 +36,7 @@ Tables under the Quizer schema:
 
 Indexes cover owner and shared bank pagination, literal title-prefix search, tags, immutable revision history, and actor/quiz event history.
 
-The latest-revision foreign key is DEFERRABLE INITIALLY DEFERRED and composite on problem_id plus latest_revision_id; a new problem and its first revision must be inserted within **one SQL transaction**. The database verifies that the selected latest revision belongs to that problem. New revisions must be appended, never edited in place. Metadata-only edits update the root and tags, without touching revision or grading records. No-op saves must write nothing.
+The latest-revision foreign key is DEFERRABLE INITIALLY DEFERRED and composite on problem_id plus latest_revision_id; a new problem and its first revision must be inserted within **one SQL transaction**. The database verifies that the selected latest revision belongs to that problem. New revisions must be appended, never edited in place. A PostgreSQL BEFORE UPDATE OR DELETE trigger rejects mutations of existing problem-revision rows, protecting historical quiz references even against future writer mistakes. Metadata-only edits update the root and tags, without touching revision or grading records. No-op saves must write nothing. QN4 must execute actual trigger tests in disposable PostgreSQL.
 
 Firebase UIDs are external identity references; do not mirror authentication users or introduce Neon Auth. Application grants should be limited to trusted Functions and configured later after test validation. The migration revokes PUBLIC schema/table privileges.
 
