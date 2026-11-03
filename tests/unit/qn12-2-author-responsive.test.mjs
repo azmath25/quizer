@@ -27,7 +27,7 @@ test("QN12.2 points field no longer placed in implicit 28px grid column",()=>{
   assert.match(editor,/\.sel-row\s*\{[^}]*grid-template-areas:\s*"number title points" "controls controls controls"/s);
 });
 test("QN12.2 mobile selection can collapse without clearing its chosen revisions",()=>{
-  assert.match(bank,/let collapsed = matchMedia\("\(max-width: 760px\)"\)\.matches/);
+  assert.match(bank,/let collapsed = mobileDock\.matches/);
   assert.match(bank,/id="toggle-selection" aria-controls="selection-details"/);
   assert.match(bank,/id="selection-details"/);
   assert.match(bank,/panel\.dataset\.collapsed = String\(collapsed\)/);
