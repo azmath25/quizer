@@ -1,6 +1,7 @@
 import { api } from "../services/api.js";
 import { resolveImages } from "../services/assets.js";
 import { validateMetadata, validateProblem } from "../../shared/schema.js";
+import { problemSavePayload } from "./problem-save-diff.js";
 import { sheet, e, busy, message, field, textarea, select, date, icon } from "./ui.js";
 import { problemPreview, typeset, clearMath } from "./math-content.js";
 
@@ -32,7 +33,7 @@ export async function quickEdit(row, { onSaved }) {
     title: "Quick edit",
     wide: true,
     body: `<form id="quick-edit" class="quick-edit"><div class="stack">${field("Title", "title", "text", row.title, 'required maxlength="200"')}<div class="form-grid">${field("Subject", "subject", "text", row.subject || "", 'maxlength="80"')}${field("Difficulty", "difficulty", "text", row.difficulty || "", 'maxlength="40"')}</div>${field("Tags · comma separated", "tags", "text", (row.tags || []).join(", "))}${textarea("Statement · LaTeX", "statementLatex", content.statementLatex, 'required rows="6"')}${options}${textarea("Solution", "explanationLatex", grading.explanationLatex || "", 'rows="3"')}${field("Points", "defaultPoints", "number", content.defaultPoints, 'min="0.00000001" max="1000" step="any" required')}</div><div class="quick-edit__preview"><div class="muted small">Live preview</div><div id="qe-preview"></div></div></form><div data-message></div>`,
-    footer: `<button type="button" class="button ghost" data-close-btn>Cancel</button><button type="submit" form="quick-edit" class="button primary">Save new revision</button>`,
+    footer: `<button type="button" class="button ghost" data-close-btn>Cancel</button><button type="submit" form="quick-edit" class="button primary">Save changes</button>`,
   });
   node.querySelector("[data-close-btn]").onclick = close;
   const form = node.querySelector("#quick-edit"),
@@ -77,12 +78,13 @@ export async function quickEdit(row, { onSaved }) {
         const v = build();
         validateMetadata(v.metadata);
         validateProblem(v.content, v.grading);
-        const r = await api("saveProblemRevision", { problemId: row.id, expectedVersion: row.version, ...v });
+        const payload = problemSavePayload(v, { content, grading });
+        const r = await api("saveProblemRevision", { problemId: row.id, expectedVersion: row.version, ...payload });
         Object.assign(row, v.metadata, {
           version: r.version,
           latestRevisionId: r.revisionId,
-          revisionNumber: (row.revisionNumber || 1) + 1,
-          updatedAt: new Date().toISOString(),
+          revisionNumber: (row.revisionNumber || 1) + (r.metadataOnly || r.unchanged ? 0 : 1),
+          updatedAt: r.unchanged ? row.updatedAt : new Date().toISOString(),
         });
         close();
         onSaved(row);
@@ -142,8 +144,8 @@ export async function history(row, { onSaved, canRestore }) {
             Object.assign(row, {
               version: r.version,
               latestRevisionId: r.revisionId,
-              revisionNumber: (row.revisionNumber || 1) + 1,
-              updatedAt: new Date().toISOString(),
+              revisionNumber: (row.revisionNumber || 1) + (r.metadataOnly || r.unchanged ? 0 : 1),
+              updatedAt: r.unchanged ? row.updatedAt : new Date().toISOString(),
             });
             close();
             onSaved(row);
