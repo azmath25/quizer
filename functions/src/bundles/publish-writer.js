@@ -86,7 +86,12 @@ export function createPrivateBundlePublisher({
       assert(resolved && resolved.problemId === slot.problemId &&
         resolved.problemRevisionId === slot.problemRevisionId,
         "VERSION_CONFLICT", "Pinned source revision identity mismatch.");
-      const normalized = validateProblem(resolved.content,resolved.grading);
+      assert(resolved.grading && typeof resolved.grading === "object" &&
+        (resolved.grading.gradingVersion === undefined ||
+          resolved.grading.gradingVersion === 1),
+        "VERSION_CONFLICT", "Unsupported immutable grading version.");
+      const {gradingVersion: ignoredVersion, ...gradingInput} = resolved.grading;
+      const normalized = validateProblem(resolved.content,gradingInput);
       assert(fingerprint(normalized) === slot.contentHash,
         "VERSION_CONFLICT", "Pinned source revision content changed.");
       items.push({itemId:slot.itemId,problemId:slot.problemId,
