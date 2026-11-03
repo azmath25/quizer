@@ -34,8 +34,10 @@ function canonical(value, depth = 0) {
   }
   assert(value && typeof value === "object", "INVALID_FIELDS", "Invalid bundle value.");
   if (Array.isArray(value)) {
-    assert(Object.keys(value).length === value.length,
-      "INVALID_FIELDS", "Sparse arrays are forbidden.");
+    assert(Object.keys(value).length === value.length &&
+      Array.from({length:value.length},(_,i)=>Object.hasOwn(value,i))
+        .every(Boolean),
+      "INVALID_FIELDS", "Sparse or decorated arrays are forbidden.");
     return "[" + value.map(x => canonical(x, depth + 1)).join(",") + "]";
   }
   assert(Object.getPrototypeOf(value) === Object.prototype ||
