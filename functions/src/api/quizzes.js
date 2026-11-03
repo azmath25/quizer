@@ -370,6 +370,21 @@ define(
       "INVALID_FIELDS",
       "Order must contain every remaining slot exactly once.",
     );
+    // No-op saves preserve versions and avoid all item, parent and audit writes.
+    const sameFields = ["title", "description", "subject", "difficulty"].every(
+      (key) => next[key] === draft[key],
+    ) && JSON.stringify(next.settings) === JSON.stringify(draft.settings);
+    const sameOrder =
+      next.itemOrder.length === draft.itemOrder.length &&
+      next.itemOrder.every((value, index) => value === draft.itemOrder[index]);
+    if (!upserts.length && !removes.length && sameFields && sameOrder)
+      return {
+        draftVersion: draft.version,
+        version: quiz.version,
+        itemOrder: draft.itemOrder,
+        itemIdMap: {},
+        unchanged: true,
+      };
     c.set(`${qp}/drafts/current`, next);
     c.set(qp, {
       ...quiz,
@@ -385,7 +400,11 @@ define(
     c.audit("quiz.draft_saved", "quiz", r.quizId, {
       quizId: r.quizId,
       quizOwnerId: quiz.ownerId,
-      changedFields: [...Object.keys(patch), "items"],
+      changedFields: [
+        ...Object.keys(patch),
+        ...(upserts.length || removes.length ? ["items"] : []),
+        ...(sameOrder ? [] : ["order"]),
+      ],
     });
     return {
       draftVersion: next.version,
