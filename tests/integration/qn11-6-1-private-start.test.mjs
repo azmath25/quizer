@@ -6,6 +6,11 @@ import {initializeApp,getApps} from "../../functions/node_modules/firebase-admin
 import {getFirestore,Timestamp} from "../../functions/node_modules/firebase-admin/lib/esm/firestore/index.js";
 import {DEFAULT_SETTINGS} from "../../shared/schema.js";
 import {createFirestorePrivateAttemptStart} from "../../functions/src/bundles/private-attempt-start.js";
+import {createQuizerPrivateStartAndExport} from "../../functions/src/bundles/private-start-export.js";
+import {
+  preparePublishedBundle,makePublishedBundleManifest,
+  BUNDLE_FORMAT,BUNDLE_CONTENT_TYPE,
+} from "../../functions/src/bundles/published-bundle.js";
 
 assert(process.env.FIRESTORE_EMULATOR_HOST,
   "QN11.6.1 must NEVER connect to production Firestore");
@@ -282,4 +287,83 @@ test("QN11.6.1 expired active attempt is timed out and replaced atomically if pe
   const job=(await db.doc("attempts/att_expired").get()).data().gradingJobId;
   assert.equal((await db.doc("jobs/"+job).get()).data().kind,"grade_attempt");
   assert.equal((await db.doc(f.pp).get()).data().attemptCount,2);
+});
+
+function publishedFixture(f){
+  const payload=preparePublishedBundle({
+    format:BUNDLE_FORMAT,quizId:f.quizId,
+    revisionId:f.currentRevisionId,revisionNumber:1,
+    title:"Mathematics Quiz",description:"",
+    subject:"Math",difficulty:"",settings,
+    itemOrder:items,itemCount:3,totalPoints:9,
+    items:items.map((itemId,i)=>({
+      itemId,problemId:"prb_"+i,problemRevisionId:"prv_"+i,
+      points:selected[i].points,
+      content:{type:"open",answerMode:"auto",
+        statementLatex:"Question "+i,options:[],
+        defaultPoints:selected[i].points,
+        questionAssetBindings:{}},
+      grading:{correctOptionId:null,
+        acceptedAnswers:["supersecret_answer_"+i],tolerance:0,
+        explanationLatex:"",rubricLatex:"",
+        solutionAssetBindings:{}},
+    })),
+  });
+  const manifest=makePublishedBundleManifest(payload,"1001");
+  return {payload,manifest};
+}
+test("QN11.6.1 full staged bundle start loads protected bytes outside Firestore, then replays",async()=>{
+  const f=await fixture(),{payload,manifest}=publishedFixture(f);
+  await db.doc(`quizzes/${f.quizId}/revisions/${f.currentRevisionId}`)
+    .update({bundle:manifest});
+  let privateReads=0;
+  const service=createQuizerPrivateStartAndExport({enabled:true,
+    preflightStart:f.svc.preflightStart,
+    commitStart:f.svc.commitStart,
+    loadRevision:async({quizId,revisionId})=>
+      (await db.doc(`quizzes/${quizId}/revisions/${revisionId}`).get()).data(),
+    readPrivateObject:async({generation,storagePath})=>{
+      privateReads++;
+      assert.equal(generation,manifest.generation);
+      assert.equal(storagePath,manifest.storagePath);
+      return {bytes:payload.bytes,generation,contentType:BUNDLE_CONTENT_TYPE};
+    },
+    authorizeExport:async()=>({authorized:false}),
+    verifyExportAssets:async()=>false,
+  });
+  const requestId=ident("request_");
+  const first=await service.start({
+    firebaseAuth:f.auth,quizId:f.quizId,requestId});
+  assert.equal(first.quizRevisionId,f.currentRevisionId);
+  assert.equal(first.totals.possible,9);
+  assert(!JSON.stringify(first).includes("supersecret_answer"));
+  assert.equal(privateReads,1);
+  await db.doc("attempts/"+first.attemptId).update({status:"submitted"});
+  await db.doc(f.pp).update({activeAttemptId:null});
+  const second=await service.start({
+    firebaseAuth:f.auth,quizId:f.quizId,requestId});
+  assert.equal(second.attemptId,first.attemptId);
+  assert.equal(second.status,"submitted");
+  assert.equal(privateReads,1,"Receipt replay needs no private Storage read");
+  assert.equal((await db.doc(f.pp).get()).data().attemptCount,1);
+});
+test("QN11.6.1 Storage failure leaves no attempt, participant, job or statistics",async()=>{
+  const f=await fixture(),{manifest}=publishedFixture(f);
+  await db.doc(`quizzes/${f.quizId}/revisions/${f.currentRevisionId}`)
+    .update({bundle:manifest});
+  const service=createQuizerPrivateStartAndExport({enabled:true,
+    preflightStart:f.svc.preflightStart,
+    commitStart:f.svc.commitStart,
+    loadRevision:async({quizId,revisionId})=>
+      (await db.doc(`quizzes/${quizId}/revisions/${revisionId}`).get()).data(),
+    readPrivateObject:async()=>{throw Error("SIMULATED_PRIVATE_STORAGE_OUTAGE");},
+    authorizeExport:async()=>({authorized:false}),
+    verifyExportAssets:async()=>false,
+  });
+  await assert.rejects(service.start({
+    firebaseAuth:f.auth,quizId:f.quizId,requestId:ident("request_")}),
+    /SIMULATED_PRIVATE_STORAGE_OUTAGE/);
+  assert.equal((await db.doc(f.pp).get()).exists,false);
+  assert.equal((await db.doc(`quizzes/${f.quizId}/statistics/qrv_current`).get())
+    .exists,false);
 });
