@@ -132,7 +132,7 @@ export function createFirestorePrivateAttemptStart({
     typeof db?.doc==="function","INVALID_FIELDS",
     "Trusted Firebase transaction client required.");
   async function preflightStart({firebaseAuth,quizId,
-    sourceAttemptId=null}={}){
+    sourceAttemptId=null,requestId=null}={}){
     id(quizId,"quiz ID");
     if(sourceAttemptId!==null)id(sourceAttemptId,"retry source ID");
     assert(firebaseAuth?.uid&&firebaseAuth?.token&&
@@ -142,6 +142,27 @@ export function createFirestorePrivateAttemptStart({
       const c=new Context(db,tx,firebaseAuth,
         "bundle.attempt.preflight",startId(),Timestamp.now());
       await c.loadActor();
+      requireRole(c.actor,"verified");
+      if(requestId!==null){
+        const rid=requestKey(requestId);
+        const receipt=await c.get(
+          `operations/${c.actor.uid}/requests/${rid}`,false);
+        if(receipt){
+          const expected=fingerprint({
+            action:"startAttempt",quizId,sourceAttemptId,
+          });
+          assert(receipt.action==="startAttempt" &&
+            receipt.payloadHash===expected,
+            "INVALID_FIELDS","Start request ID was reused.");
+          const attempt=await c.get(`attempts/${receipt.attemptId}`);
+          assert(attempt.quizId===quizId&&
+            attempt.studentId===c.actor.uid,
+            "RESOURCE_UNAVAILABLE","Previous start request unavailable.");
+          return {authorized:true,actorUid:c.actor.uid,quizId,
+            existingAttemptId:receipt.attemptId,
+            revisionId:attempt.quizRevisionId};
+        }
+      }
       const state=await snapshot(c,quizId,sourceAttemptId);
       return proofOf(state,c.actor,quizId);
     });
