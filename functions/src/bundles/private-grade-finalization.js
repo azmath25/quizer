@@ -148,7 +148,7 @@ export function createFirestorePrivateGradeFinalization({
       const old=await c.get(gradePath(attemptId,itemId));
       assert(old.version===proof.oldGradeVersion &&
         fingerprint({status:old.status,awarded:old.awarded,
-          possible:old.possible,manualPoints:old.manualPoints,
+          possible:old.possible,manualPoints:old.manualPoints??null,
           version:old.version})===proof.oldGradeHash,
         "VERSION_CONFLICT","Existing grade changed.");
       const answer=await c.get("attempts/"+attemptId+"/answers/"+itemId,false);
