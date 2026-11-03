@@ -141,6 +141,7 @@ test("schema is migration-only and documents strong uniqueness/foreign keys", ()
   for (const table of ["problems","problem_revisions","problem_tags","import_receipts","activity_events","quiz_revision_mirrors"])
     assert.match(sql, new RegExp("CREATE TABLE quizer\\." + table));
   assert.match(sql, /DEFERRABLE INITIALLY DEFERRED/);
+  assert.match(sql, /BEFORE UPDATE OR DELETE ON quizer.problem_revisions/);
   assert.match(sql, /PRIMARY KEY \(job_id, import_item_key\)/);
   assert.match(sql, /event_id varchar\(128\) PRIMARY KEY/);
   assert.match(sql, /REVOKE ALL ON SCHEMA quizer FROM PUBLIC/);
