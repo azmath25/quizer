@@ -124,3 +124,8 @@ test("QN12-B author/import tabs expose labelled panels and keyboard bindings",()
   assert.match(editor,/id="import-panel" role="tabpanel"/);
   assert.match(editor,/id="quiz-preview-panel" role="tabpanel"/);
 });
+
+test("QN12-B global quiz hotkeys leave radio/keyboard controls alone",()=>{
+  assert.match(source,/"input, textarea, select, button, a, \[contenteditable\], \[role=button\], \[role=tab\], \[role=radio\]"/);
+  assert.doesNotMatch(source,/input:not\(\[type=radio\]\), textarea, select/);
+});
