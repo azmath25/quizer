@@ -3,7 +3,7 @@ import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
 import { readLegacyDeviceQuizzes } from "../migration/legacy-device.js";
 import { drafts, draftBanner } from "../services/drafts.js";
 import { api, waitForJob } from "../services/api.js";
-import { buildFinalQuizSaveRequest, changedQuizSlots } from "./quiz-save-diff.js";
+import { buildFinalQuizSaveRequest, changedQuizSlots, rememberSavedQuizSlots } from "./quiz-save-diff.js";
 import { uploadAsset
 } from "../services/assets.js";
 import { parseLatex } from "../../shared/latex-parser.js";
@@ -669,6 +669,9 @@ async function edit(root, quizId) {
           order = order.map((id) => (id === client ? itemId : id));
         }
         currentOrder = r.itemOrder;
+        // The batch is committed; advance our comparison baseline even if a
+        // later batch or the final draft refresh fails.
+        rememberSavedQuizSlots(data.items, changed.slice(i, i + 20));
         touched = true;
       }
       const finalRequest = buildFinalQuizSaveRequest({
@@ -676,7 +679,14 @@ async function edit(root, quizId) {
         order, currentOrder,
       });
       if (finalRequest) {
-        await api("saveQuizDraft", finalRequest);
+        const r = await api("saveQuizDraft", finalRequest);
+        version = r.draftVersion;
+        draft.version = version;
+        draft.itemOrder = [...r.itemOrder];
+        for (const [key, value] of Object.entries(finalRequest.patch ?? {})) {
+          if (key === "settings") draft.settings = { ...draft.settings, ...value };
+          else draft[key] = value;
+        }
         touched = true;
       }
       if (!touched) {
