@@ -165,7 +165,18 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                   visualHeight:visualViewport?.height},
                 navClearance:getComputedStyle(document.documentElement)
                   .getPropertyValue('--mobile-nav-clearance'),
-                navRect:document.querySelector('#mobile-nav')?.getBoundingClientRect().toJSON()
+                navRect:document.querySelector('#mobile-nav')?.getBoundingClientRect().toJSON(),
+                visualScale:visualViewport?.scale,
+                screenWidth:screen.width,clientWidth:document.documentElement.clientWidth,
+                offenders:[...document.querySelectorAll('body *')]
+                  .map(el=>({tag:el.tagName.toLowerCase(),name:(el.id ? '#'+el.id :
+                         el.className && typeof el.className==='string' ? '.'+
+                         el.className.split(' ').slice(0,2).join('.') : ''),
+                    w:Math.ceil(el.getBoundingClientRect().width),
+                    right:Math.ceil(el.getBoundingClientRect().right),
+                    pos:getComputedStyle(el).position}))
+                  .filter(v=>v.w>390 || v.right>390)
+                  .sort((a,b)=>b.w-a.w).slice(0,32)
               };
             }""")
             print("QN12.2 enlarged dock hit-testing: "+json.dumps(diagnostics),flush=True)
