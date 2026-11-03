@@ -27,12 +27,12 @@ Scope: QN10.2 only. Stop before QN10.3.
 
 QN10.2 modules are not imported by the active Firebase job worker or dispatch. No new live bundle-only quiz is published: current student delivery and grading still require their legacy Firestore snapshots. QN10.3 must provide server-authorized question slices, answer-key separation, release rules, attempt pinning, grader integration and legacy fallback before any live switch.
 
-The pinned source resolver is injected and tested with synthetic immutable revisions. Actual credentialed Neon read integration, least-privileged roles, upload/Neon reconciliation and frontend batching remain QN11 work. There are no live Neon or Firebase writes from this milestone.
+The pinned source resolver is injected and tested with synthetic immutable revisions. Actual credentialed Neon read integration, least-privileged roles, upload/Neon reconciliation and frontend batching remain QN11 work. The future bundle-only publisher must also retain/verify referenced original image assets before cutover; the existing worker currently retains per-item image references, and this standalone staged path must not bypass that protection. No live Firebase/Neon writes have occurred.
 
 The new 24 MiB bundle reads are bounded; real latency/concurrency and Storage costs remain a QN10.3/QN13 release gate.
 
 ## CI
 
-Work-branch test-only GitHub Actions runs Node unit/backend/static plus Firebase emulator integration/transport. Final CI run and count must be recorded after verification.
+**VERIFIED PASS:** [GitHub Actions run 41647313427](https://github.com/azmath25/quizer/actions/runs/41647313427), source/test commit ca1f3f262911a059d684f1bc36300e039961084c. Both CI jobs succeeded: 195/195 Node unit tests, 5/5 backend tests, static frontend check, Firebase emulator integration and transport suites. The emulator includes real private Storage upload/generation, Firestore atomic pointer activation, stale draft rejection, changed-lease rejection and old published-revision/attempt preservation. Later documentation-only commits do not affect the code under test.
 
 No merges, deployments, cloud mutations, production migrations, Mimo changes, deletions or QN10.3 work.
