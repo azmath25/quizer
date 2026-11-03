@@ -26,9 +26,8 @@ Scope: QN11.4 **development-only, default-OFF staging**. STOP before QN11.5.
 
 ## CI acceptance
 
-Code/test commit: *to be recorded on finalized passing code head*.
-Test-only GitHub Actions run: *pending final verification*. Required checks: all three jobs (Node unit + backend/static, Firebase emulator/transport, Chromium QN12.1+12.2). New bank tests are injected mock/port tests; CI emulator tests verify the unchanged active legacy paths, not a deployed Neon bank integration.
+**FULL CI VERIFIED GREEN, all 3 jobs passed:** [GitHub Actions run 41698964760](https://github.com/azmath25/quizer/actions/runs/41698964760), source/test commit `a81506e33e9ff8bc63bcdaec36469fc1f0355e05`. **291/291 Node unit tests**, **5/5 backend unit tests**, static/frontend verification, **41/41 Firebase emulator integration tests**, **1/1 emulator transport test**, QN12.1 Chromium mobile-runner regression, and QN12.2 real headless Chromium author QA at 320/390/430/768/844/1024 px plus 390px enlarged-text simulation. Test-only Chromium artifacts: [mobile runner](https://github.com/azmath25/quizer/actions/runs/41698964760/artifacts/13261278667) and [author UI](https://github.com/azmath25/quizer/actions/runs/41698964760/artifacts/13261008696). These check injected SQL mock/port behavior and existing Firebase emulator flows, **not** a genuine Neon database, hybrid production read, physical phone browser, or deployed cross-store integration.
 
 ## Stop
 
-**QN11.4 staged source and tests added; do not claim final verified completion until latest-code CI is green.** Stop before QN11.5. Next separately approved QN11.5 integrates private publish + authenticated student/grade/asset/export paths with immutable source pins and protected legacy fallback, but requires the identified durable coordinator and Firebase trusted port dependencies to be resolved first.
+**QN11.4 development-only staging complete, verified green in all 3 CI jobs; still NOT production-ready.** Stop before QN11.5. Next separately approved QN11.5 integrates private publish + authenticated student/grade/asset/export paths with immutable source pins and protected legacy fallback, but requires the identified durable coordinator and Firebase trusted port dependencies to be resolved first.
