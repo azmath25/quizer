@@ -124,10 +124,10 @@ export function createFutureActivityReader({
       }) : null };
   }
   return Object.freeze({
-    listAdminActivity: ({actor,...rest}) => {
+    listAdminActivity: async ({actor,...rest}) => {
       requireAdmin(actor);return read({actor,...rest});
     },
-    listAdminUserActivity: ({actor,targetUid,...rest}) => {
+    listAdminUserActivity: async ({actor,targetUid,...rest}) => {
       requireAdmin(actor);return read({actor,...rest,filter:{actorId:requireId(targetUid)}});
     },
     // Quiz ownership comes only from the trusted Firebase lookup injected at
