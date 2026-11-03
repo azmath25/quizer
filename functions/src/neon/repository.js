@@ -102,8 +102,11 @@ export function createQuizerNeonReadRepository(port) {
         where.push("p.bank_visibility = 'teachers'");
         where.push("p.lifecycle = 'active'");
       }
-      if (search.trim())
-        where.push("starts_with(p.search_title, " + bind(search.trim().toLowerCase()) + ")");
+      if (search.trim()) {
+        // Literal prefix, not a LIKE wildcard; compatible with the pattern index.
+        const prefix = search.trim().toLowerCase().replace(/[!%_]/g, (ch) => "!" + ch) + "%";
+        where.push("p.search_title LIKE " + bind(prefix) + " ESCAPE '!'");
+      }
       if (tag.trim()) {
         where.push("EXISTS (SELECT 1 FROM quizer.problem_tags ft " +
           "WHERE ft.problem_id = p.problem_id AND ft.tag = " + bind(tag.trim()) + ")");
