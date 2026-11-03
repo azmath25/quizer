@@ -50,6 +50,7 @@ export function createFirestorePrivateGradeFinalization({
 }={}){
   if(enabled!==true)return Object.freeze({
     enabled:false,finalizeGradeJob:async()=>({disabled:true}),
+    completedManualGrade:async()=>({disabled:true}),
     saveManualGrade:async()=>({disabled:true}),
     releaseResults:async()=>({disabled:true}),
   });
@@ -103,6 +104,29 @@ export function createFirestorePrivateGradeFinalization({
     });
   }
 
+  // Exact lost-ack replay is checked BEFORE protected bundle IO and
+  // before the gradeVersion preflight. A completed manual grade is returned
+  // even if a later authorized correction already changed the current mark.
+  async function completedManualGrade({firebaseAuth,attemptId,itemId,
+    points,feedback="",reason="",expectedGradeVersion,requestId}={}){
+    id(attemptId,"attempt ID");id(itemId,"question ID");
+    id(requestId,"request ID");
+    return transact(db,"bundle.grade.manual.receipt",requestId,async c=>{
+      const a=await c.get("attempts/"+attemptId);
+      ensureTeacher(c,a);
+      const receipt=await c.get(
+        "operations/"+c.actor.uid+"/requests/"+requestId,false);
+      if(!receipt)return {completed:false};
+      const inputHash=fingerprint({
+        action:"saveManualGrade",attemptId,itemId,points,feedback,
+        reason,expectedGradeVersion,
+      });
+      assert(receipt.action==="saveManualGrade" &&
+        receipt.inputHash===inputHash,
+        "INVALID_FIELDS","Request ID reused for another manual grade.");
+      return {completed:true,result:receipt.result};
+    },firebaseAuth);
+  }
   async function saveManualGrade({firebaseAuth,attemptId,itemId,
     points,feedback="",reason="",expectedGradeVersion,proof,requestId}={}){
     id(attemptId,"attempt ID");id(itemId,"question ID");
@@ -251,5 +275,5 @@ export function createFirestorePrivateGradeFinalization({
     },firebaseAuth);
   }
   return Object.freeze({enabled:true,finalizeGradeJob,
-    saveManualGrade,releaseResults});
+    completedManualGrade,saveManualGrade,releaseResults});
 }
