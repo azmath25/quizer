@@ -88,8 +88,10 @@ export function createQuizerPrivateStartAndExport({
       "RESOURCE_UNAVAILABLE","Authorized export job unavailable.");
     const quizId=id(job.quizId),revisionId=id(job.revisionId);
     const revision=await loadRevision({quizId,revisionId});
-    assert(revision?.state==="ready" && revision.bundle,
-      "RESOURCE_UNAVAILABLE","Private export revision unavailable.");
+    assert(revision?.state==="ready" && revision.bundle &&
+      revision.bundle?.sha256===job.manifest?.sha256 &&
+      revision.bundle?.generation===job.manifest?.generation,
+      "RESOURCE_UNAVAILABLE","Private export revision changed after authorization.");
     const bundle=await readPrivatePublishedBundle({
       manifest:revision.bundle,quizId,revisionId,
       authorizePinnedRead:async()=>({
@@ -105,7 +107,7 @@ export function createQuizerPrivateStartAndExport({
     // Internal protected records ONLY. Caller writes a private ZIP after a
     // separate job-lease recheck; NEVER return this from the callable API.
     return {quizId,revisionId,itemCount:bundle.itemCount,
-      records:bundle.items.map(x=>({content:x.content,grading:x.grading,
+      revision,records:bundle.items.map(x=>({content:x.content,grading:x.grading,
         itemId:x.itemId,points:x.points,
         problemId:x.problemId,problemRevisionId:x.problemRevisionId})),
       assetIds:ids};
