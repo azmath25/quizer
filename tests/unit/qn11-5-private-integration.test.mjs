@@ -108,7 +108,7 @@ function startFixture({corrupt=false,deny=false}={}){
     },
     authorizeExport:async({jobId})=>({authorized:!deny,jobId,kind:"export_quiz",
       quizId:"quiz_1",revisionId:"qrv_1",leaseOwner:"worker_1",
-      status:"running",ownerId:teacher.uid}),
+      status:"running",ownerId:teacher.uid,manifest}),
     loadRevision:async()=>revision,
     readPrivateObject:async({generation})=>{
       reads++;return {bytes:Buffer.from(corrupt?"{}":bundle.bytes),
