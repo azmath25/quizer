@@ -19,6 +19,7 @@ import {
   ref,
   uploadBytes,
   getBytes,
+  getDownloadURL,
   listAll,
   deleteObject,
 } from "firebase/storage";
@@ -168,4 +169,29 @@ test("Staging requires verified staff, matching reservation and immutable bytes"
       ),
     ),
   );
+});
+
+test("QN10.1: even an existing protected bundle denies all client access",async()=>{
+  const path="published-bundles/v1/quiz_private/qrv_old/"+
+    "a".repeat(64)+".json";
+  const bytes=new TextEncoder().encode('{"protectedGrading":"DO_NOT_EXPOSE"}');
+  // Fixture exists. Rejections below cannot be mistaken for missing objects.
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await uploadBytes(ref(ctx.storage(),path),bytes,{
+      contentType:"application/json",
+    });
+  });
+  for(const ctx of [
+    env.unauthenticatedContext(),
+    context("rule_student"),
+    context("rule_teacher"),
+  ]){
+    const obj=ref(ctx.storage(),path);
+    await assertFails(getBytes(obj));
+    await assertFails(getDownloadURL(obj));
+    await assertFails(uploadBytes(obj,bytes,{contentType:"application/json"}));
+    await assertFails(deleteObject(obj));
+    await assertFails(listAll(ref(ctx.storage(),
+      "published-bundles/v1/quiz_private/qrv_old")));
+  }
 });
