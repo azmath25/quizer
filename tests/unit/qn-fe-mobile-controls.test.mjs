@@ -44,7 +44,9 @@ test("hover scaling only applies to actual fine mouse pointers, not sticky touch
 
 test("sticky runner controls clear bottom mobile navigation and safe area",()=>{
   assert.match(layout,/#mobile-nav\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/s);
-  assert.match(css,/html\[data-input="touch"\] \.runner-footer\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*calc\(72px \+ env\(safe-area-inset-bottom\)\)/s);
+  assert.match(css,/html\[data-input="touch"\] \.runner-footer\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*var\(--runner-mobile-nav-clearance,/s);
+  assert.match(js,/new ResizeObserver\(syncMobileClearance\)/);
+  assert.match(js,/getBoundingClientRect\(\)/);
 });
 
 test("quiz timer remains server-offset-based, and aria live announcement is retained",()=>{
