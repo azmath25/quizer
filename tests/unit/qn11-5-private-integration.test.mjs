@@ -161,6 +161,10 @@ function gatewayFixture({privateOrigin=true,disabled=false}={}){
         expectedFrontier:0,expectedUiVersion:0,
         item:{itemId:"itm_1"}};},
     async resultPage(){calls.push("result");return {items:[{}]};},
+    async previewManualGrade(){calls.push("preview-manual");return {
+      verifiedManual:true,attemptId:"att_new",itemId:"itm_1",
+      pinnedRevisionId:"qrv_1",grade:{manualPoints:2},
+    };},
     async gradeBatch(){calls.push("grade");return {jobId:"job_grade",
       attemptId:"att_new",grades:[],leaseOwner:"lease"};},
     async allowedAssetIds({result}){calls.push("assets-"+result);
@@ -170,6 +174,11 @@ function gatewayFixture({privateOrigin=true,disabled=false}={}){
     async saveAnswers(){calls.push("commit-answers");return {answerVersion:2};},
     async navigate(){calls.push("commit-navigation");return {currentFrontier:1};},
     async gradeBatch(){calls.push("commit-grades");return {processed:1};},
+  };
+  const gradeFinalization={enabled:true,
+    async finalizeGradeJob(){calls.push("finalize-grades");return {attemptId:"att_new"};},
+    async saveManualGrade(){calls.push("manual");return {gradeVersion:2};},
+    async releaseResults(){calls.push("release");return {released:1};},
   };
   const startExport={enabled:true,
     async start(){calls.push("start");return {attemptId:"att_new"};},
@@ -183,7 +192,8 @@ function gatewayFixture({privateOrigin=true,disabled=false}={}){
       ?"private_bundle_v1":"firestore_legacy",
     resolveQuizOrigin:async({quizId})=>privateOrigin&&quizId==="quiz_1"
       ?"private_bundle_v1":"firestore_legacy",
-    legacy,secureAttempts,attemptCommits,startExport,publisher,
+    legacy,secureAttempts,attemptCommits,gradeFinalization,
+    startExport,publisher,
     resolveImageScope:async({attemptId})=>({
       authorized:attemptId==="att_new",itemIds:["itm_1"]}),
     signReadyAssets:async({assetIds})=>({
