@@ -4,7 +4,8 @@
 import {assert,id} from "../../shared/schema.js";
 const SAFE_IMAGE_PATH=/^assets\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,128})\/image\.(?:png|jpeg|jpg|gif|webp)$/;
 export function createQuizerPrivateImageSigner({
-  enabled=false,db,signImage,serverNow=()=>new Date(),
+  enabled=false,db,signImage,verifyRetained=null,
+  serverNow=()=>new Date(),
 }={}){
   if(enabled!==true)return Object.freeze({
     enabled:false,signReadyAssets:async()=>({disabled:true}),
@@ -12,7 +13,9 @@ export function createQuizerPrivateImageSigner({
   assert(db?.doc && typeof signImage==="function" &&
     typeof serverNow==="function",
     "INVALID_FIELDS","Trusted asset metadata and signing ports required.");
-  async function signReadyAssets({firebaseAuth,assetIds}={}){
+  async function signReadyAssets({
+    firebaseAuth,assetIds,attemptId=null,context=null,
+  }={}){
     assert(firebaseAuth?.uid && firebaseAuth?.token,
       "AUTH_REQUIRED","Verified Firebase identity required.");
     assert(Array.isArray(assetIds) && assetIds.length<=20 &&
@@ -32,6 +35,14 @@ export function createQuizerPrivateImageSigner({
         asset.storagePath.match(SAFE_IMAGE_PATH)?.[2]===assetId &&
         /^[1-9][0-9]{0,22}$/.test(String(asset.generation??"")),
         "RESOURCE_UNAVAILABLE","The selected image is not ready.");
+      if(["attempt","result"].includes(context?.kind)){
+        assert(typeof verifyRetained==="function" &&
+          await verifyRetained({
+            firebaseAuth,attemptId:id(attemptId,"attempt ID"),
+            context,assetId,asset,
+          })===true,
+          "RESOURCE_UNAVAILABLE","Private question image is not retained.");
+      }
       const url=await signImage({
         assetId,storagePath:asset.storagePath,
         generation:String(asset.generation),expiresAt,
