@@ -52,6 +52,27 @@ function parseCursor(secret,token,scope){
     fail("INVALID_FIELDS","Invalid bank cursor title.");
   return data.after;
 }
+function revisionAfter(secret,token,scope){
+  if(!token)return null;
+  if(typeof token!=="string"||token.length>3000 ||
+    !/^[\\w-]+\\.[\\w-]+$/.test(token))
+    fail("INVALID_FIELDS","Invalid revision cursor.");
+  const [msg,mac]=token.split(".");
+  const expected=createHmac("sha256",secret).update(msg).digest();
+  const supplied=Buffer.from(mac,"base64url");
+  if(supplied.length!==expected.length||
+    !timingSafeEqual(supplied,expected))
+    fail("INVALID_FIELDS","Invalid revision cursor.");
+  let data;
+  try{data=JSON.parse(Buffer.from(msg,"base64url").toString("utf8"));}
+  catch{fail("INVALID_FIELDS","Invalid revision cursor.");}
+  if(data?.v!==1||data.scope!==scope||
+    typeof data.after?.createdAt!=="string"||
+    !Number.isFinite(Date.parse(data.after.createdAt)))
+    fail("INVALID_FIELDS","Revision cursor scope or time changed.");
+  requireId(data.after.revisionId,"revision cursor ID");
+  return data.after;
+}
 function normalizedList(r){
   const view=r.view??"mine",lifecycle=r.lifecycle??"active";
   if(!["mine","shared"].includes(view) ||
@@ -163,10 +184,16 @@ export function createQuizerBankCompatibility({
       if(origin==="firestore_legacy")return legacy.handle(action,auth,r);
       if(action==="getProblem")return neonReader.getProblemForTeacher({
         actor,problemId:r.problemId,revisionId:r.revisionId??null});
+      const limit=r.limit??25;
+      if(!Number.isInteger(limit)||limit<1||limit>100)
+        fail("INVALID_FIELDS","Invalid revision page size.");
+      const scope=fingerprint({
+        actorUid:actor.uid,action,problemId:r.problemId,limit});
       const page=await neonReader.listProblemRevisions({
-        actor,problemId:r.problemId,limit:r.limit??25,
-        after:r.cursor??null});
-      return {items:page.items,nextCursor:page.next??null};
+        actor,problemId:r.problemId,limit,
+        after:revisionAfter(cursorSecret,r.cursor,scope)});
+      return {items:page.items,nextCursor:page.next?secureCursor(
+        cursorSecret,{v:1,scope,after:page.next}):null};
     }
     if(MUTATIONS.has(action)){
       if(action!=="createProblem"){
