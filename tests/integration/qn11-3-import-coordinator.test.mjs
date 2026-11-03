@@ -120,7 +120,7 @@ test("QN11.3 emulator: role revocation after SQL blocks Firebase publication",as
   await assert.rejects(c.finalize({action:req.action,auth,
     requestId:req.requestId,payloadHash:hash,token:prepared.token,jobId,result}),
     e=>e.reason==="ROLE_REQUIRED");
-  assert.equal((await call("getJob",{jobId})).progress.processed,0);
+  assert.equal((await doc("jobs/"+jobId).get()).data().progress.processed,0);
   assert.equal((await doc("jobs/"+jobId+"/mappings/problem_0").get()).exists,false);
 });
 test("QN11.3 emulator: fenced concurrent chunks and persisted operation conflict",async()=>{
