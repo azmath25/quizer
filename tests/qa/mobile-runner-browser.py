@@ -104,13 +104,19 @@ def viewport_check(browser, width, height, touch, attempt_id):
             loc.scroll_into_view_if_needed()
             original = rect(loc)
             state = loc.get_attribute("aria-pressed")
-            loc.click(timeout=12000)
+            if touch:
+                loc.tap(timeout=12000)
+            else:
+                loc.click(timeout=12000)
             page.wait_for_function(
                 """args => document.querySelector(args.sel)
                        ?.getAttribute('aria-pressed') !== args.prior""",
                 arg={"sel": "#" + name, "prior": state}, timeout=15000)
             after = rect(loc)
             same_geometry(original, after, name, width)
+            if touch:
+                require(page.evaluate("document.documentElement.dataset.input") == "touch",
+                        f"touch input was misclassified after {name} at {width}px")
         old = rect(timer)
         page.wait_for_timeout(1200)
         new = rect(timer)
