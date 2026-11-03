@@ -1,6 +1,7 @@
 -- QN4 only: run on newly created localhost database
 -- quizer_qn4_disposable_* with separate explicit approval.
 -- Assumes db/quizer/001_initial_schema.sql was already applied.
+BEGIN;
 
 INSERT INTO quizer.problems
   (problem_id,owner_uid,title,latest_revision_id,revision_number,version)
@@ -131,3 +132,5 @@ BEGIN
         AND (updated_at,problem_id) <= (now(),'zzzz')) <> 1 THEN
     RAISE EXCEPTION 'keyset paging predicate incorrect'; END IF;
 END $$;
+
+COMMIT;
