@@ -42,6 +42,7 @@
   gap: 24px;
   align-items: start;
 }
+.runner-layout > div { min-width: 0; }
 .runner-top {
   display: flex;
   align-items: center;
@@ -79,9 +80,15 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+.timer > span {
+  display: inline-block;
+  min-width: 7ch; /* Preserve clock geometry across 10:00 → 09:59. */
+  text-align: end;
+}
 .runner-question {
   padding: 26px;
   min-height: 390px;
+  scroll-margin-top: 82px; /* Questions clear the sticky site header. */
 }
 .question-meta {
   display: flex;
@@ -101,6 +108,7 @@
 .question-meta #star {
   min-height: 44px;
   min-width: 84px;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .runner-question > .math-content {
@@ -162,6 +170,24 @@
   align-items: center;
   gap: 12px;
   margin-top: 22px;
+  min-width: 0;
+}
+.runner-save-feedback {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.runner-save-feedback .actions {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.runner-save-feedback [hidden] {
+  display: none;
 }
 .question-grid {
   display: grid;
@@ -173,7 +199,8 @@
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: var(--radius-sm);
-  min-height: 40px;
+  min-height: 44px;
+  min-width: 0;
   font-size: 0.8rem;
 }
 .question-grid button.answered {
@@ -221,6 +248,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 .save-indicator .icon {
   width: 15px;
@@ -474,20 +504,48 @@ fieldset.choices {
 @media (max-width: 760px) {
   html[data-input="touch"] .runner-footer {
     position: sticky;
-    /* Keep Previous/Next above the fixed mobile navigation. */
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    /* Actual nav height is measured at runtime for zoom and safe-area changes. */
+    bottom: var(--runner-mobile-nav-clearance, calc(72px + env(safe-area-inset-bottom)));
     z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
     margin: 16px -16px 0;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    padding: 10px 16px;
     background: var(--surface);
     border-top: 1px solid var(--border);
   }
-  html[data-input="touch"] .runner-footer .button {
-    flex: 1;
-    justify-content: center;
+  html[data-input="touch"] .runner-save-feedback {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 22px;
+    flex-direction: column;
+    gap: 4px;
   }
-  html[data-input="touch"] .runner-footer .save-indicator {
-    display: none;
+  html[data-input="touch"] .runner-footer #previous {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  html[data-input="touch"] .runner-footer #next {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  html[data-input="touch"] .runner-footer > .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    overflow-wrap: anywhere;
+  }
+  html[data-input="touch"] .runner-save-feedback .save-indicator {
+    display: flex;
+    max-width: 100%;
+  }
+  html[data-input="touch"] .runner-save-feedback .actions {
+    width: 100%;
+  }
+  html[data-input="touch"] .runner-save-feedback .actions .button {
+    min-height: 44px;
   }
 }
 
@@ -501,6 +559,8 @@ fieldset.choices {
   .question-meta .actions {
     width: 100%;
     justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .question-meta .actions > span:first-child {
     margin-right: auto;
@@ -512,5 +572,11 @@ fieldset.choices {
   }
   .runner-sidebar .question-grid button {
     min-height: 44px;
+  }
+  .runner-top {
+    flex-wrap: wrap;
+  }
+  .timer {
+    margin-left: auto;
   }
 }
