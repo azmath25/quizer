@@ -134,3 +134,16 @@
   .ai-snip-fab, .ai-pixel-fab { min-width: 44px; min-height: 44px; }
   .ai-pixel-fab { display: none; } /* Visual tab capture not supported on most phones. */
 }
+
+.ai-clip-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: min(40vh, 360px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+}
