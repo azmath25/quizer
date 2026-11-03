@@ -35,7 +35,7 @@ const makeFixture=(n=3,{legacy=false,allowBack=false,
     difficulty:"Practice",settings:{...settings,allowBack,scoreRelease,solutionRelease},
     itemOrder:order,itemCount:n,totalPoints:n*2,items:order.map((_,i)=>item(i)),
   });
-  const manifest=makePublishedBundleManifest(bundle,"9812345");
+  let manifest=makePublishedBundleManifest(bundle,"9812345");
   const attempt={
     quizId:"quiz_syn",quizRevisionId:"qrv_old",quizTitle:"Quiz",
     quizOwnerId:teacher.uid,studentId:student.uid,
@@ -103,6 +103,7 @@ const makeFixture=(n=3,{legacy=false,allowBack=false,
   });
   return {
     svc,attempt,bundle,manifest,auth,
+    setManifest:next=>{manifest=next;},
     get reads(){return reads},
     get legacyReads(){return legacyReads},
     get keyReads(){return keyReads},
@@ -292,7 +293,7 @@ test("corrupt protected bytes stop every answer before exposure",async()=>{
   const f=makeFixture();
   // Retained fixture has same bytes, but signed hash is wrong. Validation
   // rejects its malformed document before Storage read.
-  f.manifest.sha256="0".repeat(64);
+  f.setManifest({...f.manifest,sha256:"0".repeat(64)});
   await assert.rejects(f.svc.questions({firebaseAuth:student.uid,
     attemptId:"att_syn",itemIds:["itm_0"]}),
     isReason("INVALID_FIELDS"));
