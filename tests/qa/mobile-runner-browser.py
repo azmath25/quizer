@@ -154,6 +154,17 @@ def viewport_check(browser, width, height, touch, attempt_id, scale=False):
                        ?.querySelector('button[aria-current="step"]') ===
                     document.activeElement"""),
                     "Rerendering the numbered grid discarded keyboard focus")
+                radios=page.locator('#question-panel input[type="radio"][name="answer"]')
+                if radios.count()>1:
+                    # ArrowRight belongs to the radio group (native keyboard
+                    # selection), not to the runner's global shortcut.
+                    before=page.locator(
+                        '#question-grid button[aria-current="step"]').get_attribute("data-index")
+                    radios.first.focus()
+                    radios.first.press("ArrowRight")
+                    require(page.locator(
+                        '#question-grid button[aria-current="step"]').get_attribute("data-index")==before,
+                        "Radio arrow key mistakenly navigated to another question")
         footer = page.locator(".runner-footer")
         footer.scroll_into_view_if_needed()
         if width <= 760:
