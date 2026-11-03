@@ -18,7 +18,7 @@ Scope: **QN8 only.** No merges, deployments, Firebase production migrations, cha
 
 - **tests/unit/qn8-neon-write.test.mjs**: unit tests using transactional SQL/asset-port doubles: default-off behavior, verified restricted role refusal, duplicate-safe create, metadata-only updates, immutable revisions and version conflicts, 100-question import in five 20-item transactions, 500-question import in 25 transactions, concurrent identical replay, input limits, all-or-nothing rollback, missing asset permissions and bound SQL parameters.
 - **tests/unit/qn8-action-gateway.test.mjs**: seven action-contract and Firebase identity/job boundary tests.
-- CI is the work-branch-only GitHub Actions workflow at .github/workflows/quizer-verify.yml (unit/backend/static, Firebase emulator integration/transport).
+- **Verified CI success:** [GitHub Actions run 41638681670](https://github.com/azmath25/quizer/actions/runs/41638681670), on QN8 code commit `6ad0a5c05155a0222b5dfec4bd839329771c9243`. Both jobs concluded success: **149/149 Node unit tests**, **5/5 backend tests**, static frontend verification, Firebase emulator integration and transport checks. The run includes the 100- and 500-question QN8 import mocks. Follow-on changes are documentation-only; CI filters ignore documentation-only pushes.
 - Earlier QN4R proved the schema, trigger, idempotent receipts and index/privilege behavior on *real PostgreSQL 17* using a disposable Neon child branch, and removed that branch afterward. This QN8 module has **not** been connected to a live Neon SQL client or tested end to end against an authenticated Firebase callable.
 
 ## Important limitations / QN9-QN11 dependencies
@@ -32,4 +32,4 @@ Scope: **QN8 only.** No merges, deployments, Firebase production migrations, cha
 
 ## Stop gate
 
-QN8 repo-only staged writer and regression checks. Stop before QN9. Reassess any failing CI results before marking the milestone complete.
+**QN8 repository implementation completed and CI green; active Neon integration intentionally not enabled.** Stop before QN9. Actual SQL driver and authenticated cross-store import/legacy migration require their separate later milestones, and production remains unchanged.
