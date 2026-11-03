@@ -70,8 +70,6 @@ export function createFutureActivityReader({
     const upper = to ? asIso(to) : null;
     const resultHeader = { historyStartsAt:start, historicalBackfill:false,
       source:"neon_future_only" };
-    if (upper && upper < lower)
-      return { ...resultHeader, items:[],nextCursor:null };
     const filters = {};
     if (filter.actorId !== undefined) filters.actorId = requireId(filter.actorId);
     if (filter.quizId !== undefined) filters.quizId = requireId(filter.quizId);
@@ -86,6 +84,8 @@ export function createFutureActivityReader({
           (actor.role !== "admin" && ownership.ownerId !== actor.uid))
         throw new NeonContractError("RESOURCE_UNAVAILABLE", "Quiz unavailable");
     }
+    if (upper && upper < lower)
+      return { ...resultHeader, items:[],nextCursor:null };
     const scope = scopeHash({uid:actor.uid,role:actor.role,filters,
       ownership,lower,upper,start});
     const after = cursor ? decode(cursor,scope) : null;
