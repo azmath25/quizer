@@ -79,7 +79,7 @@ jobs:
 
 
   chromium-mobile-qa:
-    name: Chromium mobile runner QA
+    name: Chromium mobile runner + author QA
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -106,13 +106,24 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check playwright==1.58.0
           command -v google-chrome || command -v chromium || command -v chromium-browser
-      - name: QN12.1 responsive browser geometry and saving checks
+      - name: QN12.1 responsive quiz runner geometry and saving checks
         run: python tests/qa/mobile-runner-browser.py
+      - name: QN12.2 author editor, import, bank and enlarged-text geometry
+        run: python tests/qa/mobile-author-browser.py
       - name: Keep only synthetic browser QA screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: quizer-qn12-1-chromium
           path: tests/qa/generated-qn12-1/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Keep synthetic QN12.2 author screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quizer-qn12-2-author-chromium
+          path: tests/qa/generated-qn12-2/
           retention-days: 7
           if-no-files-found: ignore
