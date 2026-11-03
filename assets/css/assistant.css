@@ -78,3 +78,59 @@
 .snip-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
 .snip-box { position: absolute; border: 2px solid var(--accent); background: transparent; box-shadow: 0 0 0 9999px var(--overlay); }
 .snip-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 0.85rem; }
+
+
+/* Separate browser-only content clipping from permissioned tab pixel capture. */
+.ai-pixel-fab { padding: 12px 14px; }
+.ai-head .icon-button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.ai-capture-in-progress #ai-assistant { visibility: hidden !important; }
+.snip-page-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  background: rgba(15, 23, 42, 0.16);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.snip-page-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--accent, #0281af);
+  background: rgba(2, 129, 175, 0.10);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.7);
+  border-radius: 3px;
+}
+.snip-page-hint {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  max-width: calc(100% - 78px);
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: .85rem;
+  text-align: center;
+}
+.snip-page-cancel {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  .ai-dock { gap: 6px; }
+  .ai-snip-fab, .ai-pixel-fab { min-width: 44px; min-height: 44px; }
+  .ai-pixel-fab { display: none; } /* Visual tab capture not supported on most phones. */
+}
