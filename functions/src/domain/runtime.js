@@ -430,10 +430,11 @@ export async function dispatch(
       return prior.result;
     }
     const result = await def.fn(c, request);
-    // A verified no-op quiz draft save has no state change to deduplicate.
-    // Do not create even an idempotency receipt for this one action.
-    // Other mutation actions retain their normal receipts.
-    if (receipt && !(request.action === "saveQuizDraft" && result?.unchanged === true))
+    // Genuine no-op quiz/problem saves have no state change to deduplicate.
+    // Keep idempotency receipts for all other mutations and changed saves.
+    const readonlySave = ["saveQuizDraft", "saveProblemRevision"].includes(request.action)
+      && result?.unchanged === true;
+    if (receipt && !readonlySave)
       c.set(receipt, {
         action: request.action,
         inputHash,
