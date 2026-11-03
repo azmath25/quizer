@@ -191,7 +191,8 @@
 }
 .question-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Never squeeze circular problem targets below 44px in the desktop sidebar. */
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   gap: 8px;
   margin: 18px 0;
 }
@@ -361,7 +362,7 @@
 .question-grid button {
   border-radius: 50%;
   aspect-ratio: 1;
-  min-height: 0;
+  min-height: 44px;
   transition: transform 0.12s;
 }
 /* Touchscreen hover emulation must not leave quiz buttons enlarged. */
