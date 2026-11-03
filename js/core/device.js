@@ -27,3 +27,26 @@ addEventListener("mousemove", (event) => {
     performance.now() - lastTouchAt <= 1200) return;
   if (event.movementX || event.movementY) sync("mouse");
 }, { passive: true });
+
+// Shared author-page clearance: fixed mobile nav moves with safe areas,
+// viewport resize and larger text. No assumptions about its pixel height.
+const mobileNav = document.querySelector("#mobile-nav");
+function updateMobileClearance() {
+  if (!mobileNav) return;
+  const rect = mobileNav.getBoundingClientRect();
+  if (rect.height < 1) {
+    root.style.removeProperty("--mobile-nav-clearance");
+  } else {
+    root.style.setProperty(
+      "--mobile-nav-clearance",
+      `${Math.ceil(Math.max(0, window.innerHeight - rect.top) + 8)}px`,
+    );
+  }
+}
+if (mobileNav) {
+  if (typeof ResizeObserver === "function")
+    new ResizeObserver(updateMobileClearance).observe(mobileNav);
+  addEventListener("resize", updateMobileClearance, { passive: true });
+  window.visualViewport?.addEventListener("resize", updateMobileClearance, { passive: true });
+  updateMobileClearance();
+}
