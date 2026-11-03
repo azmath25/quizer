@@ -200,8 +200,10 @@ test("QN11.6.2 stale grade CAS, changed answer and student grading are rejected"
   await assert.rejects(f.api.saveManualGrade(input),error("VERSION_CONFLICT"));
   await db.doc("attempts/"+f.attemptId+"/answers/itm_b").update({
     value:"Reasoned answer"});
+  // A student with someone else's trusted server proof is denied even
+  // before the teacher-only Firebase transaction.
   await assert.rejects(f.api.saveManualGrade({...input,
-    firebaseAuth:f.studentAuth}),error("ROLE_REQUIRED"));
+    firebaseAuth:f.studentAuth}),error("FAILED_PRECONDITION"));
   await f.api.saveManualGrade(input);
   await assert.rejects(f.api.saveManualGrade({...input,
     requestId:uid("req_")}),error("VERSION_CONFLICT"));
