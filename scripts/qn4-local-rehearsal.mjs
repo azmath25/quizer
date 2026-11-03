@@ -26,20 +26,28 @@ export function assertDisposableTarget(connection, approval) {
     password: decodeURIComponent(u.password), database };
 }
 
-function psql(file, target) {
+function executeSql(args, target) {
   const env = {
     ...process.env,
     PGHOST: target.host, PGPORT: target.port, PGUSER: target.user,
     PGDATABASE: target.database, PGPASSWORD: target.password,
     PGSSLMODE: "disable", PGOPTIONS: "",
   };
-  const run = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1",
-    "-q", "-f", file], { env, encoding: "utf8", timeout: 120000 });
+  const run = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", ...args],
+    { env, encoding: "utf8", timeout: 120000 });
   if (run.error || run.status !== 0)
     throw new Error("Local psql rehearsal failed (" +
       (run.error?.code || run.status) + "): " +
       (run.stderr || "").replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[REDACTED]").slice(-1000));
+  return run.stdout;
 }
+function psql(file, target) { return executeSql(["-q", "-f", file], target); }
+function refuseExistingSchema(target) {
+  const count = executeSql(["-A", "-t", "-c",
+    "SELECT count(*) FROM pg_namespace WHERE nspname = 'quizer'"], target).trim();
+  if (count !== "0") throw new Error("QN4 refuses a database with an existing quizer schema");
+}
+
 
 export function runQn4LocalRehearsal(connection, approval) {
   const target = assertDisposableTarget(connection, approval);
@@ -49,6 +57,7 @@ export function runQn4LocalRehearsal(connection, approval) {
   const rollback = path.join(root, "db/quizer/001_rollback_DISPOSABLE_ONLY.sql");
   // Cleanup even if the SQL tests fail. This target must be a fresh disposable
   // database with no quizer schema before this command starts.
+  refuseExistingSchema(target);
   let started = false;
   try {
     started = true;
