@@ -8,7 +8,7 @@ import { getStorage } from "../../functions/node_modules/firebase-admin/lib/esm/
 import {
   BUNDLE_FORMAT,BUNDLE_CONTENT_TYPE,preparePublishedBundle,makePublishedBundleManifest,
 } from "../../functions/src/bundles/published-bundle.js";
-import { createSecureBundleAttemptService } from "../../functions/src/bundles/secure-attempt-service.js";
+import { createFirestoreSecureBundleService } from "../../functions/src/bundles/firestore-attempt-service.js";
 import { createPrivateBundleStoragePort } from "../../functions/src/bundles/private-storage.js";
 
 assert(process.env.FIRESTORE_EMULATOR_HOST &&
@@ -135,38 +135,19 @@ before(async()=>{
     version:1,manualPoints:null,
   });
   batch.set(db.doc("jobs/"+jobId),{kind:"grade_attempt",
-    targetId:attemptId,status:"running",leaseOwner:"worker_qn103"});
+    targetId:attemptId,status:"running",leaseOwner:"worker_qn103",
+    leaseExpiresAt:Timestamp.fromMillis(Date.now()+600000)});
   await batch.commit();
 });
-const service=createSecureBundleAttemptService({
-  enabled:true,
-  resolveFirebaseActor:async trustedAuth=>{
-    if(!trustedAuth?.uid)return null;
-    const u=await auth.getUser(trustedAuth.uid);
-    const role=(await db.doc("roles/"+u.uid).get()).data();
-    return {uid:u.uid,role:role?.role??"student",
-      accountStatus:role?.accountStatus??"active",
-      emailVerified:u.emailVerified,email:u.email};
+const service=createFirestoreSecureBundleService({
+  enabled:true,db,
+  privateStorage:{
+    enabled:true,
+    readExact:async args=>{objects++;return storage.readExact(args);},
   },
-  loadAttempt:async id=>(await db.doc("attempts/"+id).get()).data(),
-  loadRevision:async({quizId,revisionId})=>
-    (await db.doc("quizzes/"+quizId+"/revisions/"+revisionId).get()).data(),
-  readPrivateObject:async args=>{objects++;return storage.readExact(args);},
-  loadLegacyItem:async({quizId,revisionId,itemId})=>
-    (await db.doc("quizzes/"+quizId+"/revisions/"+revisionId+
-      "/items/"+itemId).get()).data(),
-  loadLegacyGrading:async({quizId,revisionId,itemId})=>
-    (await db.doc("quizzes/"+quizId+"/revisions/"+revisionId+
-      "/grading/"+itemId).get()).data(),
-  loadAnswer:async({attemptId,itemId})=>
-    (await db.doc("attempts/"+attemptId+"/answers/"+itemId).get()).data(),
-  loadGrade:async({attemptId,itemId})=>
-    (await db.doc("attempts/"+attemptId+"/grades/"+itemId).get()).data(),
-  authorizeGradeJob:async({jobId})=>
-    (await db.doc("jobs/"+jobId).get()).data(),
-  serverNow:()=>new Date(),
 });
-const user=uid=>({uid});
+const user=uid=>({uid,token:{email_verified:true,
+  email:uid+"@synthetic.invalid",name:uid}});
 const why=reason=>e=>e.reason===reason;
 
 test("QN10.3: real private Storage bundle serves only frontier, without grading",async()=>{
