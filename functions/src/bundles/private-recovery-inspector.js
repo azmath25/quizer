@@ -8,6 +8,10 @@ import {bundleStoragePath,validatePublishedBundleManifest}
 const fail=(reason,message)=>assert(false,reason,message);
 const isSha=x=>typeof x==="string"&&/^[0-9a-f]{64}$/.test(x);
 const isGen=x=>/^[1-9][0-9]{0,22}$/.test(String(x??""));
+const deadlineMs=x=>typeof x==="number"?x:
+  typeof x?.toMillis==="function"?x.toMillis():
+  x instanceof Date?x.getTime():
+  typeof x==="string"?Date.parse(x):NaN;
 const result=(kind,jobId,state,reason,details={})=>Object.freeze({
   kind,jobId,state,reason,automaticCleanupAllowed:false,
   ...details,
@@ -83,7 +87,7 @@ export function createQuizerRecoveryInspector({
         "Ready revision exists without a succeeded publication job",
         {storagePath});
     const active=job.status==="running"&&
-      job.leaseExpiresAt&&Number(job.leaseExpiresAt)>now();
+      job.leaseExpiresAt&&deadlineMs(job.leaseExpiresAt)>now();
     if(active)return result("publication",jobId,"in_flight",
       "Worker lease is active; leave the private object unchanged",
       {storagePath});
@@ -120,7 +124,7 @@ export function createQuizerRecoveryInspector({
     const meta=await inspectObject({
       kind:"export",storagePath:path,maxBytes:128*1024*1024});
     const active=job.status==="running"&&
-      job.leaseExpiresAt&&Number(job.leaseExpiresAt)>now();
+      job.leaseExpiresAt&&deadlineMs(job.leaseExpiresAt)>now();
     if(active)return result("export",jobId,"in_flight",
       "Export lease is active; no cleanup permitted",{storagePath:path});
     return result("export",jobId,
