@@ -35,6 +35,13 @@ The standalone unit suite `tests/unit/stg1-offline-migration-gate.test.mjs` chec
 3. **Cost and cleanup:** obtain an explicit staging budget ceiling from the owner and verify actual alerts and quota settings before enabling billable Functions or Storage. Confirm the isolated Neon disposable branch's compute is suspended when idle and do not delete it without explicit consent. Record who can terminate staging jobs.
 4. **Final STG1-F check:** verify GitHub CI, protected branches, role proof, backups, stage-only Firebase+Neon scope, budget alerts, secret handling, read-only recovery inspection and rollback plan. Give an explicit pass/fail decision and wait for STG2 approval.
 
+
+## Final offline-gate CI verification
+
+**All 3/3 GitHub Actions jobs passed** on migration-gate source/test SHA `dccdd12a8002a1de822440325d8471a356d50d7a`: [run 41738680042](https://github.com/azmath25/quizer/actions/runs/41738680042). Results: **364/364 Node unit tests**, **5/5 backend tests**, Firebase emulator regressions and Chromium mobile/author QA all green. These tests do not connect to live Firebase or Neon. This documentation-only update follows the tested source commit.
+
+**Plugin clarification:** The discovered Firebase integration is offered as an app plugin, not verified access to the user's Google Cloud/Firebase project. Its Connect UI did not complete for the user; do not depend on it for STG1-C. A separately authorized cloud connection/operator path is still required.
+
 ## Invariants
 
 - No Mimo, production, protected `main`/`main-backup`, deployed `sat-quiz-fd317`, or isolated AI/snipping branch changes.
