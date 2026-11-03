@@ -96,8 +96,10 @@ export function createQuizerImportCoordinator({
       if(old && (old.ownerId!==uid || old.payloadHash!==payloadHash ||
         old.action!==action || fingerprint(old.items)!==fingerprint(items)))
         fail("VERSION_CONFLICT","Request ID was reused for another import.");
-      if(old?.status==="complete")
-        return {status:"complete",result:old.result};
+      if(old?.status==="complete") {
+        if(!old.reply)fail("FAILED_PRECONDITION","Completed import lacks a reply.");
+        return {status:"complete",result:old.reply};
+      }
       const stamp=now();
       const claim=job.importClaim;
       if(claim && claim.requestId!==requestId && claim.until>stamp)
