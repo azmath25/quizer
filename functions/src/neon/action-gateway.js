@@ -19,7 +19,7 @@ export function createQuizerNeonActionGateway({
     throw new Error("QN8 requires trusted Firebase identity/job loaders and enabled Neon writer.");
 
   return Object.freeze({
-    enabled: true,
+    enabled: true, replaySafeEdits: writer.replaySafeEdits === true,
     async handle(action, trustedFirebaseAuth, request) {
       assert(Object.hasOwn(ACTION_FIELDS, action),
         "INVALID_FIELDS", "Unsupported Neon bank action.");
