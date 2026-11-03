@@ -21,7 +21,7 @@ export function assertDisposableTarget(connection, approval) {
     throw new Error("QN4 refuses URL parameters/overrides");
   if (!u.username)
     throw new Error("QN4 local database user required");
-  return { host: u.hostname, port: u.port || "5432",
+  return { host: u.hostname === "[::1]" ? "::1" : u.hostname, port: u.port || "5432",
     user: decodeURIComponent(u.username),
     password: decodeURIComponent(u.password), database };
 }
@@ -31,7 +31,7 @@ function executeSql(args, target) {
     ...process.env,
     PGHOST: target.host, PGPORT: target.port, PGUSER: target.user,
     PGDATABASE: target.database, PGPASSWORD: target.password,
-    PGSSLMODE: "disable", PGOPTIONS: "",
+    PGSSLMODE: "disable", PGOPTIONS: "", PGHOSTADDR: "", PGSERVICE: "",
   };
   const run = spawnSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", ...args],
     { env, encoding: "utf8", timeout: 120000 });
