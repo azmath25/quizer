@@ -9,7 +9,8 @@ CREATE TABLE quizer.mutation_receipts (
   request_id varchar(128) NOT NULL
     CHECK (request_id ~ '^[A-Za-z0-9_-]+$'),
   action text NOT NULL
-    CHECK (action IN ('saveProblemRevision')),
+    CHECK (action IN ('saveProblemRevision','setProblemSharing',
+      'trashProblem','restoreProblem','bulkUpdateProblems','forkProblem')),
   payload_hash char(64) NOT NULL
     CHECK (payload_hash ~ '^[0-9a-f]{64}$'),
   result_json jsonb NOT NULL
