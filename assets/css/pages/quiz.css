@@ -308,9 +308,11 @@
   border-width: 2px;
   transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
-.choice:hover {
-  border-color: var(--accent);
-  transform: translateX(3px);
+@media (hover: hover) and (pointer: fine) {
+  .choice:hover {
+    border-color: var(--accent);
+    transform: translateX(3px);
+  }
 }
 .choice:has(input:checked) {
   background: var(--grad-soft);
@@ -332,8 +334,11 @@
   min-height: 0;
   transition: transform 0.12s;
 }
-.question-grid button:hover:not(:disabled) {
-  transform: scale(1.1);
+/* Touchscreen hover emulation must not leave quiz buttons enlarged. */
+@media (hover: hover) and (pointer: fine) {
+  .question-grid button:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
 }
 .question-grid button.current {
   background: var(--grad);
@@ -503,7 +508,7 @@ fieldset.choices {
 }
 @media (max-width: 420px) {
   .runner-sidebar .question-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   }
   .runner-sidebar .question-grid button {
     min-height: 44px;
