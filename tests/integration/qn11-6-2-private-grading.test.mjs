@@ -268,3 +268,23 @@ test("QN11.6.2 retry-incorrect grades never inflate regular revision statistics"
   assert.equal((await db.doc(
     "quizzes/"+f.quizId+"/statistics/qrv_new").get()).exists,false);
 });
+
+test("QN11.6.2 zero-point manual mark retains configured incorrect penalty",async()=>{
+  const f=await fixture();
+  await db.doc("attempts/"+f.attemptId).update({
+    "settingsSnapshot.penalty":1});
+  await f.api.finalizeGradeJob({jobId:f.jobId,attemptId:f.attemptId,
+    leaseOwner:"worker_good"});
+  const initial=manualProof(f,0,"Incorrect","");
+  const proof={...initial,grade:{...initial.grade,status:"incorrect",
+    awarded:-1,manualPoints:0}};
+  const result=await f.api.saveManualGrade({
+    firebaseAuth:f.teacherAuth,attemptId:f.attemptId,
+    itemId:"itm_b",points:0,feedback:"Incorrect",reason:"",
+    expectedGradeVersion:1,requestId:uid("req_"),proof,
+  });
+  assert.equal(result.grade.status,"incorrect");
+  assert.equal(result.grade.awarded,-1);
+  assert.equal(result.totals.score,2);
+  assert.equal((await f.fetchAttempt()).gradeState,"final");
+});
