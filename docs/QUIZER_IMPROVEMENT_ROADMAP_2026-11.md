@@ -61,7 +61,7 @@ or the archive worker is unavailable.
 | Phase | Small deliverable | Gate |
 | --- | --- | --- |
 | **QN0 — audit** | Read-only current-code audit, unmerged diff-only branch review, connected Neon inventory, new architecture decisions. | **Documented**; running tests and production timings not claimed. |
-| **QN1 — draft diff-only** | Review/port frontend/backend `saveQuizDraft` field/item/order diffing and no-op detection. **Test rename of a 100-question quiz:** one small metadata save, zero `importProblemBatch`, zero Neon calls, zero source-file reads/uploads, zero publication jobs, no per-question writes; validate measured payload/write counts. | Stop for approval. |
+| **QN1 — draft diff-only** | Review/port frontend/backend `saveQuizDraft` field/item/order diffing and no-op detection. Test unchanged saves, 100/500-question renames, settings/points/order changes and zero TeX reimports/problem writes. | **Code and tests committed on work branch; local pure-helper tests 9 pass, editor check skipped locally, emulator pending**. Stop before QN2. |
 | **QN2 — problem save efficiency** | Review/port unchanged-content and metadata-only behavior from unmerged optimization branch; preserve immutable changed-content revisions, references and assets; add tests. | Stop for approval. |
 | **QN3 — contracts and schema** | Define independent Quizer Neon SQL schema (problems, revisions, ownership, tags, audit log, outbox receipts, optional quiz mirrors) and typed server adapter; create synthetic fixtures and migration SQL in repo. No live Neon changes. | Stop for approval. |
 | **QN4 — local/disposable schema tests** | Rehearse reversible schema changes on an explicitly authorized disposable PostgreSQL/Neon dev branch; verify uniqueness, foreign keys, indexes, pagination, idempotency, rollback. Never touch Mimo or production. | Stop for approval. |
@@ -74,7 +74,8 @@ or the archive worker is unavailable.
 | **QN10.2 — publish bundle writer** | Refactor publishing to pin validated Neon revisions, stage **one private Firebase Storage bundle per published revision**, and atomically switch a Firestore pointer only after successful verification; retain old published revisions and legacy paths. Tests/fixtures; no deployment. | Stop for approval. |
 | **QN10.3 — secure bundle reader/grading** | Adapt existing Firebase delivery and grading functions to read pinned bundles **server-side** without exposing keys/future questions; preserve `allowBack:false`, attempt version pinning, timers, results and release policy; add stress/security tests and latency/read-cost measurements. | Stop for approval. |
 | **QN11 — editor/import integration** | Keep the existing source `.tex` → preview → upload-to-Firebase → **Neon-only problem bank** → Firebase draft flow. Change the frontend from one `importProblemBatch` call per question to bounded multi-question batches; preserve resumability, idempotency, image assets, optional Mimo draft import, mobile behavior, authentication and performance. | Stop for approval. |
-| **QN12 — full verification & readiness** | Unit/backend/emulator/transport/static/browser verification; preservation manifests and recovery tests for **past quizzes**; performance/cost comparison; future-log cutover plan and optional old-test-log cleanup procedure. No actual cleanup, production migration, merge or deploy. | Stop for explicit future decision. |
+| **QN12 — frontend improvement & UX audit** | Dedicated mobile-first frontend audit and improvements after backend/schema integration: editor, upload progress/resume, error recovery, preview, batch actions, accessibility, responsive layout, author/student navigation, perceived performance, loading states and API-request counts. Add targeted browser/playwright-style and accessibility regressions; **no frontend deployment**. | Stop for approval. |
+| **QN13 — overall system check & readiness** | Whole-app security, schema/legacy parity, unit/backend/emulator/transport/static/browser tests, end-to-end import → edit → publish → student attempt → grading → reporting, 10/100/500-question performance and cost comparisons, Firestore/Neon outage recovery, preserved historical quiz manifests, rollback and optional old-test-log cleanup runbook. **No cleanup, production migration, merge or deploy**. | Stop for explicit future decision. |
 
 ## Acceptance criteria
 
@@ -146,9 +147,9 @@ approval.
 
 - QN0: static GitHub inspection and Neon project/table inventory completed;
   documentation only. Local verification and live timing have **not** been run.
-- QN1–QN12: not started. Historical test logs will **not** be migrated; preservation of all existing quizzes is mandatory. The problem bank should reuse existing authenticated operations without new public APIs. No logs have been deleted.
+- QN1: frontend diff-only helper/handler, backend no-op detection and no-op receipt suppression, unit and emulator regression tests committed on the isolated branch. Locally, **9 pure-helper tests passed and 1 editor-source check was skipped** (full repo unavailable); the emulator suite and all-repo CI have not been executed in this environment. See `docs/QUIZER_QN1_CHECKPOINT_2026-11.md`.
+- QN2–QN13: not started. Historical test logs will **not** be migrated; existing quizzes remain mandatory preservation targets. Problem bank reuses existing authenticated operations; no new public API. No logs deleted.
 - The unmerged `feature/diff-only-quiz-and-problem-saves` remains untouched.
   Review and selectively transplant its code/tests into this branch for QN1/QN2
   after owner approval; **do not merge it**.
-- No deployment, migration, DB change, Pages change or app-code edit has
-  occurred as part of this roadmap.
+- No merge, deployment, migration, production DB, Pages or live cloud changes have occurred; **QN1 work-branch app-code edits exist and are not deployed**.
