@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
-import { changedQuizSlots, buildFinalQuizSaveRequest } from "../../js/pages/quiz-save-diff.js";
+import { changedQuizSlots, buildFinalQuizSaveRequest, rememberSavedQuizSlots } from "../../js/pages/quiz-save-diff.js";
 
 const draft = {
   title: "Original quiz", description: "Description", subject: "Math", difficulty: "Olympiad",
@@ -64,4 +64,28 @@ test("editor save handler remains separate from TeX imports and publish", {
   assert.match(save, /buildFinalQuizSaveRequest/);
   assert.match(save, /changedQuizSlots/);
   assert.doesNotMatch(save, /importProblemBatch|createImportJob|finishImportJob|uploadAsset|publishQuiz|parseLatex/);
+});
+
+test("partial 500-question save retries only the remaining unsaved slots", () => {
+  const baseline = items(500);
+  const changed = baseline.map((slot) => ({ ...slot, points: 2 }));
+  const order = changed.map((slot) => slot.itemId);
+  assert.equal(changedQuizSlots(changed, baseline, order).length, 500);
+  rememberSavedQuizSlots(baseline, changed.slice(0, 20));
+  const retry = changedQuizSlots(changed, baseline, order);
+  assert.equal(retry.length, 480);
+  assert.equal(retry[0].itemId, "itm_20");
+  rememberSavedQuizSlots(baseline, changed.slice(20, 40));
+  assert.equal(changedQuizSlots(changed, baseline, order).length, 460);
+});
+
+test("new slots use server IDs in the retry baseline", () => {
+  const baseline = items(2);
+  const committed = { itemId:"itm_server", problemId:"prb_new",
+    problemRevisionId:"prv_new", points:3 };
+  rememberSavedQuizSlots(baseline, [committed]);
+  assert.equal(baseline.length, 3);
+  assert.equal(changedQuizSlots([committed], baseline, ["itm_server"]).length, 0);
+  committed.points = 5;
+  assert.equal(changedQuizSlots([committed], baseline, ["itm_server"]).length, 1);
 });
