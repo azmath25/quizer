@@ -350,7 +350,9 @@ test("QN11.5 preview refuses expired attempts and missing private objects",async
     attemptId:"att_syn",targetIndex:1}),isReason("ATTEMPT_EXPIRED"));
   assert.equal(f.reads,0);
   f.attempt.deadlineAt=null;
-  f.setManifest({...f.manifest,sha256:"e".repeat(64)});
+  const wrongHash="e".repeat(64);
+  f.setManifest({...f.manifest,sha256:wrongHash,
+    storagePath:f.manifest.storagePath.replace(f.manifest.sha256,wrongHash)});
   await assert.rejects(f.svc.navigationPreview({firebaseAuth:student.uid,
     attemptId:"att_syn",targetIndex:1}),isReason("RESOURCE_UNAVAILABLE"));
 });
