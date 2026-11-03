@@ -52,6 +52,18 @@ CREATE TABLE quizer.problem_revisions (
   UNIQUE (problem_id, revision_number)
 );
 
+-- Revision bodies/answer keys are append-only; old quizzes may reference
+-- any earlier revision. Refuse UPDATE/DELETE even if an app bug tries it.
+CREATE FUNCTION quizer.reject_revision_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  RAISE EXCEPTION 'Problem revisions are immutable';
+END;
+$;
+CREATE TRIGGER quizer_problem_revision_immutable
+BEFORE UPDATE OR DELETE ON quizer.problem_revisions
+FOR EACH ROW EXECUTE FUNCTION quizer.reject_revision_mutation();
+
 -- The newest revision is guaranteed to belong to this very problem.
 -- Deferred FK allows parent+first revision to be created in ONE transaction.
 ALTER TABLE quizer.problems
