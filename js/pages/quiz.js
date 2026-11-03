@@ -1,6 +1,8 @@
 import { scrollBehavior } from "../core/device.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
+import {prefetchQuestionBatches,saveBeforeNavigate}
+  from "../services/runner-scheduling.js";
 import {
   loadStars,
   isStarred,
@@ -164,12 +166,18 @@ async function runner(root, initial, session) {
   function grid() {
     root.querySelector("#answered-count").textContent =
       `${a.answeredCount} of ${a.order.length} saved answers`;
-    root.querySelector("#question-grid").innerHTML = a.order
+    const gridNode = root.querySelector("#question-grid");
+    // Rebuilding this grid must not discard keyboard/switch focus.
+    const focused = gridNode.contains(document.activeElement)
+      ? Number(document.activeElement.dataset.index) : null;
+    gridNode.innerHTML = a.order
       .map(
         (itemId, i) =>
-          `<button type="button" data-index="${i}" class="${i === index ? "current " : ""}${answers.get(itemId)?.value?.trim() || a.answeredItemIds?.includes(itemId) ? "answered " : ""}${flagged.has(itemId) ? "flagged" : ""}" aria-label="Problem ${i + 1}${flagged.has(itemId) ? ", flagged" : ""}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${i + 1}</button>`,
+          `<button type="button" data-index="${i}" class="${i === index ? "current " : ""}${answers.get(itemId)?.value?.trim() || a.answeredItemIds?.includes(itemId) ? "answered " : ""}${flagged.has(itemId) ? "flagged" : ""}" ${i === index ? 'aria-current="step"' : ""} aria-label="Problem ${i + 1}${flagged.has(itemId) ? ", flagged" : ""}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${i + 1}</button>`,
       )
       .join("");
+    if(focused !== null && Number.isInteger(focused))
+      gridNode.querySelectorAll("button")[focused]?.focus({preventScroll:true});
     const flagList = root.querySelector("#flag-list");
     flagList.hidden = !flagged.size;
     flagList.innerHTML = flagged.size
@@ -232,7 +240,8 @@ async function runner(root, initial, session) {
       itemCache.set(id, p);
     }
   }
-  // Fetch every other problem in a few batched calls, then download their images in the background.
+  // Warm question JSON in bounded 20-item pages, at most two RPCs
+  // concurrently. Figures load on display, avoiding 500 image downloads.
   let warming = false;
   async function warmAll() {
     if (warming || !a.settings.allowBack) return;
@@ -242,25 +251,10 @@ async function runner(root, initial, session) {
       .sort((x, y) => x[1] - y[1])
       .map(([id]) => id);
     const missing = near.filter((id) => !itemCache.has(id));
-    for (let i = 0; i < missing.length; i += 20)
-      fetchBatch(missing.slice(i, i + 20));
-    const queue = [...near];
-    const worker = async () => {
-      while (queue.length && !stopped) {
-        const id = queue.shift();
-        try {
-          const item = await fetchItem(id);
-          if (
-            Object.keys(item.questionAssetBindings).length &&
-            !imagesReady.has(id)
-          ) {
-            await loadImages(item.questionAssetBindings, ctx);
-            imagesReady.add(id);
-          }
-        } catch {}
-      }
-    };
-    await Promise.all([worker(), worker()]);
+    await prefetchQuestionBatches(missing, async (ids) => {
+      fetchBatch(ids);
+      await Promise.allSettled(ids.map((id) => fetchItem(id)));
+    }, {shouldStop: () => stopped || getSession().epoch !== epoch});
   }
   async function showQuestion() {
     if (stopped) return;
@@ -466,10 +460,10 @@ async function runner(root, initial, session) {
   let syncChain = Promise.resolve();
   function syncNavigation(target) {
     const run = async () => {
-      const [, state] = await Promise.all([
-        flush(),
-        api("navigateAttempt", { attemptId, targetIndex: target }),
-      ]);
+      // Never permit server navigation to overtake an answer save.
+      const state = await saveBeforeNavigate(
+        flush, () => api("navigateAttempt", { attemptId, targetIndex: target }),
+      );
       a.currentFrontier = state.currentFrontier;
       a.uiState = { ...state.uiState, flaggedItemIds: [...flagged] };
       if (state.item) seedItem(state.item);
