@@ -174,8 +174,8 @@ export function createQuizerStagedPrivateRuntime({
   });
   const authorAssets=authorImagePorts
     ? createQuizerAuthorImageScope({
-      enabled:true,resolveActor:resolveFirebaseActor,
-      neonReader,...authorImagePorts,
+      enabled:true,...authorImagePorts,
+      resolveActor:resolveFirebaseActor,neonReader,
     }).authorize
     : null;
   const resolveExportOrigin=async ({jobId})=>{
