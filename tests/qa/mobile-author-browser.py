@@ -73,11 +73,10 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
         errors=[]
         page.on("pageerror",lambda error:errors.append(str(error)))
         if scale:
-            page.add_init_script("""() => {
-              document.addEventListener('DOMContentLoaded', () => {
+            page.add_init_script("""document.addEventListener(
+              'DOMContentLoaded', () => {
                 document.documentElement.style.fontSize='200%';
-              }, {once:true});
-            }""")
+              }, {once:true});""")
 
         # Edit an EXISTING synthetic quiz draft; do not save/publish.
         open_page(page,"upload.html?id="+quiz_id,".slot-row")
