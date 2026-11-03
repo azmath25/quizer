@@ -49,7 +49,8 @@ has been superseded by the owner's 2026-11-03 storage split.
 7. `snapshotSource` and `sourceContent` in `quizzes.js` directly dereference
    Firestore problem revisions; publication, image ownership and legacy quiz
    snapshots must be refactored for Neon-authored problems.
-8. Prior November changes on `main` already batch-prefetch quiz content and
+8. Current **whole-file import** (`js/pages/quiz-editor.js`): browser parses the `.tex`, uploads its **original source file once** to Firebase Storage (plus image assets), creates an import job, then sends each extracted problem via a **separate sequential** `importProblemBatch` request with `records: [singleProblem]`, and finally creates a Firebase draft referencing imported Firestore problems. The backend already accepts **1–20 problems per `importProblemBatch`** and up to 500 per import. The target changes the destination of new extracted problem records to **Neon only** and batches records, retaining the original source in Firebase Storage. It does **not** imply that the source is presently uploaded 100 times.
+9. Prior November changes on `main` already batch-prefetch quiz content and
    improve image signing. Verify on tests; do not assume October request counts.
 
 ## Neon inventory
@@ -65,8 +66,9 @@ the existing Mimo project. No Neon project was created or changed.
 | Domain | Authority | Notes |
 | --- | --- | --- |
 | Auth identity and canonical roles | Firebase Auth / Firestore | Firebase UID is stable external identity in Neon; server verifies role on sensitive requests |
-| Quiz catalog, policies, drafts and slots | Firestore | Diff-only saves; preserve access/ownership/version guards |
-| Frozen published revisions, grading keys, delivery | Firestore + Firebase Storage | Publish once from validated problem revisions, pin attempts; no Neon in quiz session path |
+| Quiz catalog, policies, drafts and slots | Firestore | Keep quiz draft lightweight: IDs, ordering, settings, per-slot references; no duplicated problem content on new import |
+| Original uploaded `.tex` source | Firebase Storage | **One source file per import**, persisted independently of individual extracted Neon problems; legacy sources preserved |
+| Frozen published revisions, grading keys, delivery | Firestore + Firebase Storage | **Only at publish** materialize the full protected frozen question-and-key snapshot from Neon revisions; no Neon in quiz session path |
 | Attempts, answers, grades, results, deadlines | Firestore | Server authoritative, stable under Neon outage |
 | Reusable problem bank and immutable problem revisions | **Dedicated Quizer Neon database** after safe cutover | Metadata, statement, options, grading, tags, ownership and provenance; no browser DB credential |
 | Image bytes and derived files | Firebase Storage | Neon holds immutable asset identifiers and provenance, never image bytes by default |
@@ -75,6 +77,22 @@ the existing Mimo project. No Neon project was created or changed.
 | Mimo jobs and workflow execution | Existing Mimo project | Keep isolated; integration only through approved versioned APIs |
 
 ## Desired request paths
+
+### Import a whole LaTeX quiz
+
+Browser parses/validates the **single** uploaded `.tex` source. Upload the original
+file **once** to Firebase Storage; images, if any, also stay in Firebase Storage.
+The existing authenticated server actions create an import job and insert
+**individual extracted problem/revision/grading records into Quizer Neon** in
+bounded idempotent multi-problem batches. **Do not** create Firestore problem-bank
+records for these new imports. Firebase holds lightweight draft metadata,
+ordered references, source asset ID and recoverable checkpoint metadata.
+A 100-problem import targets ~5 backend requests at the current max of 20 per
+batch, subject to measured payload and transaction limits. Keep the original
+source file for future import/rebuild/reference. Failed Neon batches must not
+silently yield a partial usable draft; retries must not duplicate imports.
+Previously existing Firebase quizzes/problem records remain readable during
+transition and are not deleted.
 
 ### Edit a quiz draft
 
