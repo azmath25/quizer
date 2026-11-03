@@ -90,3 +90,11 @@ test("QN12.2 problem bank selection label is 44px at phone and tablet widths",()
   assert.match(cards,/\.prob-select\s*\{[^}]*display:\s*inline-grid;[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
   assert.match(cards,/\.prob-select input\s*\{[^}]*width:\s*22px;[^}]*height:\s*22px;/s);
 });
+
+test("QN12.2 mobile selection portal escapes animated author stacking contexts",()=>{
+  assert.match(bank,/const panelHome = panel\.parentElement,\s*mobileDock = matchMedia/);
+  assert.match(bank,/document\.body\.append\(panel\)/);
+  assert.match(bank,/panelHome\.append\(panel\)/);
+  assert.match(bank,/onLeave\(\(\) => \{\s*mobileDock\.removeEventListener\?\.\("change", placePanel\)/);
+  assert.match(bank,/panel\.parentElement === document\.body\) panel\.remove\(\)/);
+});
