@@ -9,7 +9,10 @@ export function activityOutboxEnabled(env = process.env) {
 }
 
 export function canonicalActivityEvent(eventId, audit) {
-  if (!ID.test(eventId) || !ID.test(audit.actorId) ||
+  if (typeof eventId !== "string" || typeof audit.actorId !== "string" ||
+      typeof audit.targetId !== "string" || typeof audit.action !== "string" ||
+      typeof audit.targetType !== "string" ||
+      !ID.test(eventId) || !ID.test(audit.actorId) ||
       !ID.test(audit.targetId) || !/^[a-zA-Z0-9_.-]{1,120}$/.test(audit.action) ||
       !/^[a-zA-Z0-9_-]{1,40}$/.test(audit.targetType))
     throw new Error("Invalid audit event metadata");
