@@ -11,6 +11,7 @@ import {createPrivateBundlePublisher} from "./publish-writer.js";
 import {createFirestoreSecureBundleService} from "./firestore-attempt-service.js";
 import {createFirestorePrivateAttemptCommits} from "./private-attempt-commits.js";
 import {createQuizerPrivateStartAndExport} from "./private-start-export.js";
+import {createFirestorePrivateAttemptStart} from "./private-attempt-start.js";
 import {createQuizerPrivateImageSigner} from "./private-image-signer.js";
 import {createQuizerPrivateIntegration} from "./private-integration.js";
 
@@ -28,9 +29,12 @@ export function createQuizerStagedPrivateRuntime({
   assert(db?.doc&&db?.runTransaction&&bucket?.file&&
     typeof authFor==="function"&&
     typeof neonReader?.getProblemForTeacher==="function"&&
-    [resolvePublicationActor,verifyPublicationAssets,preflightStart,
-      commitStart,authorizeExport,verifyExportAssets,
-      resolveImageScope,signImage,legacyHandle].every(x=>typeof x==="function"),
+    [resolvePublicationActor,verifyPublicationAssets,
+      authorizeExport,verifyExportAssets,
+      resolveImageScope,signImage,legacyHandle].every(x=>typeof x==="function") &&
+    ((preflightStart===undefined && commitStart===undefined) ||
+      (typeof preflightStart==="function" &&
+        typeof commitStart==="function")),
     "INVALID_FIELDS","Verified QN11.5 integration ports required.");
   const get=async path=>{
     const ref=await db.doc(path).get();
@@ -105,8 +109,12 @@ export function createQuizerStagedPrivateRuntime({
   const secureAttempts=createFirestoreSecureBundleService({
     enabled:true,db,privateStorage:storage});
   const attemptCommits=createFirestorePrivateAttemptCommits({enabled:true,db});
+  const trustedStart=(preflightStart&&commitStart)
+    ? {preflightStart,commitStart}
+    : createFirestorePrivateAttemptStart({enabled:true,db});
   const startExport=createQuizerPrivateStartAndExport({
-    enabled:true,preflightStart,commitStart,
+    enabled:true,preflightStart:trustedStart.preflightStart,
+    commitStart:trustedStart.commitStart,
     authorizeExport,verifyExportAssets,
     loadRevision:({quizId,revisionId})=>get(
       "quizzes/"+id(quizId)+"/revisions/"+id(revisionId)),
