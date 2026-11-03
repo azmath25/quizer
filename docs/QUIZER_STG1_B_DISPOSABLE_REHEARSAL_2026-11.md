@@ -61,7 +61,7 @@ New files on the isolated Quizer work branch:
 - `tests/sql/stg1b_mutation_receipts_DISPOSABLE_ONLY.sql`: exact self-cleaning live SQL receipt/security fixture.
 - `tests/unit/stg1b-sql-rehearsal.test.mjs`: four static source-contract tests of the two migrations, explicit NOLOGIN grants, protected rollback and disposable fixture. A false-positive regex initially matched a SQL *comment*; this was corrected to match executable statement starts. The corrected source/test head is `4a19f4994a7896b9ca86ed46d934ef09fff6f2d8`.
 
-[GitHub Actions run 41737127845](https://github.com/azmath25/quizer/actions/runs/41737127845) provides Node/backend/static, disposable Firebase emulator and Chromium mobile/author QA; **GitHub Actions itself never connects to live Neon, and the live-Neon evidence comes from the separate, explicitly scoped transactions above**.
+**All three GitHub Actions jobs passed** on corrected test/source SHA `4a19f4994a7896b9ca86ed46d934ef09fff6f2d8`: [run 41737127845](https://github.com/azmath25/quizer/actions/runs/41737127845). Counts: **359/359 Node unit tests, 5/5 backend tests, 88/88 Firebase demo-emulator integration tests, 1/1 transport test**; Chromium runner and author QA passed at phone/tablet/desktop widths and enlarged text. The earlier static assertion's comment-matching false positive was corrected before the final green run. **GitHub Actions itself did not connect to live Neon; the live SQL/permission tests were executed exclusively against `br-sweet-rice-b9ehdv9i` as recorded above.**
 
 ## Remaining gates
 
