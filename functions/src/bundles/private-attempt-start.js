@@ -109,6 +109,7 @@ function proofOf(state,actor,quizId){
     revisionId:state.revisionId,selectedItemIds:state.selected,
     settingsSnapshot:state.settings,
     sourceGradeVersion:state.sourceGradeVersion,
+    sourceAttemptId:state.sourceAttemptId,
     sourceRevisionId:state.sourceRevisionId,
     quizVersion:state.quizVersion,
     participantVersion:state.participantVersion,
@@ -160,16 +161,36 @@ export function createFirestorePrivateAttemptStart({
       requireRole(c.actor,"verified");
       assert(c.actor.uid===proof.actorUid,"AUTH_REQUIRED",
         "Preflight actor changed.");
+      const receiptPath=`operations/${c.actor.uid}/requests/${rid}`;
+      const payloadHash=fingerprint({
+        action:"startAttempt",quizId,sourceAttemptId,
+      });
+      const priorReceipt=await c.get(receiptPath,false);
+      if(priorReceipt){
+        assert(priorReceipt.action==="startAttempt" &&
+          priorReceipt.payloadHash===payloadHash,
+          "INVALID_FIELDS","Start request ID reused with another quiz/retry.");
+        const original=await c.get(`attempts/${priorReceipt.attemptId}`);
+        assert(original.studentId===c.actor.uid&&original.quizId===quizId,
+          "RESOURCE_UNAVAILABLE","Previous start request unavailable.");
+        return attemptDTO(c,original,priorReceipt.attemptId);
+      }
       const quiz=await c.get(`quizzes/${quizId}`);
       const pp=pPart(quizId,c.actor.uid);
       let part=await c.get(pp,false);
+      const initialParticipantVersion=part?.version??0;
       if(part?.activeAttemptId){
         let existing=await c.get(`attempts/${part.activeAttemptId}`,false);
         if(existing?.status==="active"){
           assert(existing.studentId===c.actor.uid&&existing.quizId===quizId,
             "RESOURCE_UNAVAILABLE","Participant attempt does not match.");
-          if(!hasDeadlinePassed(existing,c.now))
+          if(!hasDeadlinePassed(existing,c.now)){
+            c.set(receiptPath,{
+              action:"startAttempt",payloadHash,
+              attemptId:part.activeAttemptId,createdAt:c.now,
+            });
             return attemptDTO(c,existing,part.activeAttemptId);
+          }
           // Preserve the legacy expiry/job/statistics semantics atomically.
           existing=await expire(c,part.activeAttemptId,existing);
         }
@@ -181,7 +202,7 @@ export function createFirestorePrivateAttemptStart({
       // can change between preflight and private Storage read.
       admission(quiz,part,c.actor,c.now);
       assert(quiz.version===proof.quizVersion &&
-        (part?.version??0)===proof.participantVersion,
+        initialParticipantVersion===proof.participantVersion,
         "VERSION_CONFLICT","Quiz or participant changed during admission.");
       assert(!!plan && plan.revisionId===proof.revisionId &&
         plan.bundleHash===proof.bundleHash &&
@@ -195,9 +216,8 @@ export function createFirestorePrivateAttemptStart({
         assert(quiz.publishedRevisionId===revisionId,
           "VERSION_CONFLICT","Quiz was republished during admission.");
       else
-        assert(sourceAttemptId===proof.sourceAttemptId ||
-          // Older preflight DTOs are not accepted in this staged adapter.
-          false,"VERSION_CONFLICT","Retry source changed.");
+        assert(sourceAttemptId===proof.sourceAttemptId,
+          "VERSION_CONFLICT","Retry source changed.");
       const latest=await c.get(pRevision(quizId,quiz.publishedRevisionId));
       assert(latest.state==="ready"&&latest.bundle,
         "RESOURCE_UNAVAILABLE","Current publication unavailable.");
@@ -270,6 +290,9 @@ export function createFirestorePrivateAttemptStart({
       };
       await updateStatistics(c,null,a);
       c.set(`attempts/${attemptId}`,a);
+      c.set(receiptPath,{
+        action:"startAttempt",payloadHash,attemptId,createdAt:c.now,
+      });
       c.set(pp,{
         ...(part??participant(c,quizId,quiz)),
         displayName:a.studentDisplayName,email:a.studentEmail,
