@@ -4,7 +4,7 @@ import {assert,id} from "../../shared/schema.js";
 import {createHash} from "node:crypto";
 import {MAX_PRIVATE_EXPORT_BYTES} from "./private-export-store.js";
 const SHA=/^[0-9a-f]{64}$/;
-const SAFE=/^exports\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,128})-([A-Za-z0-9_-]{1,128})\.zip$/;
+const SAFE=/^exports\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,128})\.zip$/;
 const digest=bytes=>createHash("sha256").update(bytes).digest("hex");
 export function createPrivateZipStoragePort({enabled=false,bucket}={}){
   if(enabled!==true)return Object.freeze({enabled:false,
@@ -17,10 +17,8 @@ export function createPrivateZipStoragePort({enabled=false,bucket}={}){
     assert(typeof storagePath==="string"&&SAFE.test(storagePath),
       "INVALID_FIELDS","Unsafe private export path.");
     const m=storagePath.match(SAFE);
-    assert(m[3]===m[1],
-      "INVALID_FIELDS","Invalid ZIP filename quiz ID.");
-    assert(m[4]===m[2],"INVALID_FIELDS",
-      "Export filename job mismatch.");
+    assert(m[3]===m[1]+"-"+m[2],
+      "INVALID_FIELDS","Export filename does not match quiz and job.");
     return storagePath;
   }
   async function createOnly({storagePath,bytes}={}){
