@@ -196,6 +196,17 @@ function gatewayFixture({privateOrigin=true,disabled=false}={}){
       ?"private_bundle_v1":"firestore_legacy",
     legacy,secureAttempts,attemptCommits,gradeFinalization,
     startExport,publisher,
+    authorizeAuthorAssets:async({context})=>({
+      route:context.id==="prb_old"?"legacy":"private",
+      assetIds:["ast_picture"],
+    }),
+    resolveExportOrigin:async({jobId})=>
+      jobId==="job_old"?"firestore_legacy":"private_bundle_v1",
+    exportStore:{enabled:true,async getLink({jobId}){
+      calls.push("export-link");return {filename:jobId+".zip",
+        url:"https://files.example/owned-export.zip"};}},
+    zipWorker:{enabled:true,async exportJob({jobId}){
+      calls.push("export-job");return {jobId};}},
     resolveImageScope:async({attemptId})=>({
       authorized:attemptId==="att_new",itemIds:["itm_1"]}),
     signReadyAssets:async({assetIds})=>({
@@ -362,4 +373,30 @@ test("QN11.6.2 private release does not mix legacy and private attempts",async()
   await assert.rejects(f.facade.finalizeGradeJob({
     jobId:"job_grade",attemptId:"att_old",leaseOwner:"worker_1"}),
     why("FAILED_PRECONDITION"));
+});
+
+test("QN11.6.3 author asset scopes protect hybrid images and preserve old routes",async()=>{
+  const f=gatewayFixture();
+  assert.equal((await f.call("getAssetLinks",teacher,{
+    context:{kind:"source",id:"ast_source"},assetIds:["ast_source"]})).legacy,true);
+  assert.equal((await f.call("getAssetLinks",teacher,{
+    context:{kind:"problem",id:"prb_old"},assetIds:["ast_picture"]})).legacy,true);
+  const actual=await f.call("getAssetLinks",teacher,{
+    context:{kind:"problem",id:"prb_new",revisionId:"prv_1"},
+    assetIds:["ast_picture"]});
+  assert.equal(actual.links[0].assetId,"ast_picture");
+  await assert.rejects(f.call("getAssetLinks",teacher,{
+    context:{kind:"quiz_draft",id:"quiz_new"},
+    assetIds:["ast_solution"]}),why("RESOURCE_UNAVAILABLE"));
+});
+test("QN11.6.3 private ZIP links are routed by persisted origin, never by URL",async()=>{
+  const f=gatewayFixture();
+  assert.equal((await f.call("getExportLink",teacher,{
+    jobId:"job_old"})).legacy,true);
+  const signed=await f.call("getExportLink",teacher,{jobId:"job_new"});
+  assert.equal(signed.filename,"job_new.zip");
+  assert.equal(f.calls.filter(x=>x==="export-link").length,1);
+  const privateJob=await f.facade.exportJob({jobId:"job_new"});
+  assert.equal(privateJob.jobId,"job_new");
+  assert(f.calls.includes("export-job"));
 });
