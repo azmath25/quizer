@@ -1,0 +1,73 @@
+name: AI browser-only clipping verification
+
+on:
+  push:
+    branches:
+      - feat/ai-browser-snip-ask
+    paths:
+      - "js/**"
+      - "assets/css/assistant.css"
+      - "tests/unit/ai-browser-snip.test.mjs"
+      - "tests/qa/ai-snip-*"
+      - ".github/workflows/ai-browser-snip-verify.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-syntax:
+    name: Snip contracts + syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JavaScript syntax
+        run: |
+          for file in \
+            js/components/page-snip.js \
+            js/components/snip.js \
+            js/components/assistant.js \
+            js/pages/ai.js \
+            js/pages/quiz.js \
+            js/pages/problems.js \
+            js/pages/problem-edit.js \
+            js/services/chats.js
+          do
+            node --check "$file"
+          done
+      - name: Browser snip + role-gated Ask AI contracts
+        run: node --test tests/unit/ai-browser-snip.test.mjs
+      - name: Static file and route checks
+        run: npm run verify:static
+
+  in-browser-rectangle:
+    name: Actual Chromium clip geometry
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test-only browser bindings
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.58.0
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: Verify in-page drag snip without capture permissions
+        run: python tests/qa/ai-snip-browser.py
+      - name: Save synthetic browser snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-browser-only-snip-qa
+          path: tests/qa/generated-ai-snip/
+          retention-days: 7
+          if-no-files-found: ignore
