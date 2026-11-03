@@ -101,6 +101,7 @@ export function createSecureBundleAttemptService({
     gradeBatch:async()=>({disabled:true}),
     validateAnswers:async()=>({disabled:true}),
     allowedAssetIds:async()=>({disabled:true}),
+    navigationPreview:async()=>({disabled:true}),
   });
   assert([resolveFirebaseActor,loadAttempt,loadRevision,readPrivateObject,
     loadLegacyItem,loadLegacyGrading,loadAnswer,loadGrade,authorizeGradeJob,
@@ -220,6 +221,29 @@ export function createSecureBundleAttemptService({
     return {attemptId:c.attemptId,pinnedRevisionId:c.a.quizRevisionId,
       itemIds:ids,validated:true};
   }
+  async function navigationPreview({firebaseAuth,attemptId,targetIndex}={}) {
+    const c=await caller(firebaseAuth,attemptId);
+    assert(c.actor.uid===c.a.studentId,"RESOURCE_UNAVAILABLE",
+      "Only the student may navigate their attempt.");
+    live(c.a,c.now);
+    const index=number(targetIndex,"Problem number",
+      0,c.a.order.length-1,true);
+    assert(c.a.settingsSnapshot.allowBack ||
+      index===c.a.currentFrontier || index===c.a.currentFrontier+1,
+      "INVALID_FIELDS","You can only continue to the next problem.");
+    const itemId=c.a.order[index];
+    const s=await source(c.a,true);
+    const item=await s.getItem(itemId);
+    const answer=await loadAnswer({attemptId:c.attemptId,itemId});
+    const student={...studentItem(item),answer:sanitizedAnswer(answer)};
+    assert(byteSize(student)<=MAX_RESPONSE_BYTES,"RESOURCE_UNAVAILABLE",
+      "Single question exceeds the response size limit.");
+    // The later Firebase transaction MUST recheck status, deadline, frontier,
+    // pinned revision, position and UI version before committing navigation.
+    return {attemptId:c.attemptId,pinnedRevisionId:c.a.quizRevisionId,
+      targetIndex:index,expectedFrontier:c.a.currentFrontier,
+      expectedUiVersion:c.a.uiState?.version??0,item:student};
+  }
   async function resultPage({firebaseAuth,attemptId,offset=0,limit=10,
     staffOnly=false}={}) {
     const c=await caller(firebaseAuth,attemptId,{staffOnly});
@@ -306,6 +330,7 @@ export function createSecureBundleAttemptService({
     return {assetIds:[...allowed].sort()};
   }
   return Object.freeze({
-    enabled:true,questions,validateAnswers,resultPage,gradeBatch,allowedAssetIds,
+    enabled:true,questions,validateAnswers,navigationPreview,
+    resultPage,gradeBatch,allowedAssetIds,
   });
 }
