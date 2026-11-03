@@ -70,7 +70,7 @@ the existing Mimo project. No Neon project was created or changed.
 | Attempts, answers, grades, results, deadlines | Firestore | Server authoritative, stable under Neon outage |
 | Reusable problem bank and immutable problem revisions | **Dedicated Quizer Neon database** after safe cutover | Metadata, statement, options, grading, tags, ownership and provenance; no browser DB credential |
 | Image bytes and derived files | Firebase Storage | Neon holds immutable asset identifiers and provenance, never image bytes by default |
-| Historical activity/audit analytics | Neon as long-term searchable copy | Retain minimal durable Firebase event/outbox until Neon acknowledgment; critical security history cannot be silently lost |
+| Future activity/audit analytics | Neon after a separately approved cutover | **Do not migrate historical test logs.** A minimal durable Firebase outbox for new events is held until Neon acknowledgment; old log deletion is a future optional cleanup, not part of the current work |
 | Published quiz archive copy | Optional Neon mirror | Async, versioned, hash-verified, no raw image bytes; never blocks publish or starting attempt |
 | Mimo jobs and workflow execution | Existing Mimo project | Keep isolated; integration only through approved versioned APIs |
 
@@ -103,9 +103,12 @@ A committed Firebase operation writes a small durable outbox/event in its
 own transaction. A separate bounded worker transfers safe event metadata to
 Neon via idempotent `event_id` uniqueness; retries are safe under reordered
 or duplicated triggers. Neon dashboards read Neon only after role authorization.
-Preserve a Firebase fallback (or explicit 'unavailable') until backfill,
-reconciliation and cutover acceptance. Avoid student answer text, secrets,
-tokens or signed URLs in logs.
+No historical test-log backfill is planned. For new events, preserve a Firebase
+fallback (or explicit 'unavailable') until new-event reconciliation and cutover
+acceptance. Reports must clearly display the start date of available history.
+Avoid student answer text, secrets, tokens or signed URLs in logs. Any
+historical test-log deletion is separately approved only after verifying no
+needed diagnostic or security evidence; it must not delete quiz records.
 
 After a successful publication, enqueue optional archive of a versioned
 JSON metadata/content snapshot to Neon. De-duplicate by
@@ -128,8 +131,15 @@ before enabling the mirror. Disable or rate-limit archival if expensive.
 - Teacher-owned/shared problems must be authorized using current Firestore
   roles and server-side ownership policy; revocation and stale role changes
   need tests.
-- No snapshot deletion, retention cleanup, destructive migration or irreversible
-  source switch until a separate later approval and tested rollback.
+- Preserve **all previously created quizzes**: IDs, links, drafts, published and older
+  frozen revisions, questions, grading keys, image/asset bindings, and their
+  referenced problem revision content. Existing attempts/results are also retained
+  by default. Inventory and verify backups before any future cutover.
+- Historical **test logs** are disposable and need no backfill to Neon, but
+  old logs are not being deleted during this audit. Any optional cleanup needs
+  a separate explicit authorization and scoped deletion plan.
+- No quiz snapshot deletion, destructive migration or irreversible source
+  switch until a separate later approval and tested rollback.
 - Mimo credentials and budget must not become Quizer dependencies.
 
 ## Risks and evidence still needed
@@ -151,6 +161,7 @@ before enabling the mirror. Disable or rate-limit archival if expensive.
 First integrate **reviewed diff-only editing** and its tests on the isolated
 working branch (this reduces unnecessary writes immediately without moving
 data). Next design the Quizer-specific Neon adapter and schema using synthetic
-fixtures. Next implement log mirroring, optional archive benchmarking, staged
-problem-bank data migration, and publish materialization. Readiness review is
+fixtures. Next implement **new-event-only** log delivery, optional archive benchmarking,
+**preservation-first** staged problem-bank migration, and publish materialization.
+A separate cleanup procedure may later remove old test logs, never quizzes. Readiness review is
 the final milestone; live migration and deployment remain explicitly excluded.
