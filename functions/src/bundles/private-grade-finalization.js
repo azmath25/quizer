@@ -223,6 +223,8 @@ export function createFirestorePrivateGradeFinalization({
           a.status!=="active" && a.gradeState==="final" &&
           a.gradeVersion>=1,
           "RESOURCE_UNAVAILABLE","Attempt is not ready for release.");
+        assert(!score || a.settingsSnapshot?.scoreRelease!=="never",
+          "INVALID_FIELDS","Scores are never released for this revision.");
         assert(!solutions ||
           a.settingsSnapshot?.solutionRelease!=="never",
           "INVALID_FIELDS","Solutions are never released for this revision.");
