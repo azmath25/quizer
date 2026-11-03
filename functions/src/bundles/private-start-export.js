@@ -106,8 +106,13 @@ export function createQuizerPrivateStartAndExport({
       "Export asset was not retained or ready.");
     // Internal protected records ONLY. Caller writes a private ZIP after a
     // separate job-lease recheck; NEVER return this from the callable API.
+    // Backups preserve the immutable revision pins, but never embed internal
+    // published-bundles object paths or Storage download capabilities.
+    const {storagePath:ignoredPath,...safeBundle}=revision.bundle;
+    const backupRevision={...revision,bundle:safeBundle};
     return {quizId,revisionId,itemCount:bundle.itemCount,
-      revision,records:bundle.items.map(x=>({content:x.content,grading:x.grading,
+      revision:backupRevision,
+      records:bundle.items.map(x=>({content:x.content,grading:x.grading,
         itemId:x.itemId,points:x.points,
         problemId:x.problemId,problemRevisionId:x.problemRevisionId})),
       assetIds:ids};
