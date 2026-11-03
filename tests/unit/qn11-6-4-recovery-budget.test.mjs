@@ -48,7 +48,7 @@ function harness({kind="publication",status="succeeded",hasObject=true,
       if(kind==="publication")return {
         exists:true,generation:corrupt?"99":"17",
         byteLength:man.byteLength,
-        contentType:"application/json"};
+        contentType:"application/json",sha256:man.sha256};
       return {exists:true,generation:corrupt?"23":"22",
         byteLength:123,contentType:"application/zip",sha256:sha};
     },
