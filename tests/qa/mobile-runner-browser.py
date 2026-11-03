@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -186,7 +187,15 @@ def main():
         try:
             wait_for_seed()
             with sync_playwright() as p:
+                # The GitHub Ubuntu 26.04 runner ships system Chrome/Chromium.
+                # Playwright 1.58 cannot download its own Chromium on 26.04.
+                installed_browser = next((path for name in
+                    ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser")
+                    if (path := shutil.which(name))), None)
+                require(installed_browser,
+                        "No system Chrome/Chromium found on the QA runner")
                 browser = p.chromium.launch(headless=True,
+                                            executable_path=installed_browser,
                                             args=["--no-sandbox",
                                                   "--disable-dev-shm-usage"])
                 try:
