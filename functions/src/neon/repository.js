@@ -51,12 +51,18 @@ export function createQuizerNeonReadRepository(port) {
       const problemRow = permitted[0];
       const rid = revisionId ?? problemRow.latest_revision_id;
       requireId(rid, "revision ID");
+      // Recheck sharing and ownership in the SAME statement as protected
+      // content/grading access, so a revocation between the header read and
+      // revision read cannot expose protected keys.
       const revision = rows(await query(
-        "SELECT revision_id, revision_number, content_json, grading_json, " +
-        "source_json, content_hash, created_by_uid, created_at " +
-        "FROM quizer.problem_revisions " +
-        "WHERE problem_id = $1 AND revision_id = $2 LIMIT 1",
-        [problemId, rid],
+        "SELECT r.revision_id,r.revision_number,r.content_json,r.grading_json," +
+        "r.source_json,r.content_hash,r.created_by_uid,r.created_at " +
+        "FROM quizer.problem_revisions r JOIN quizer.problems p " +
+        "ON p.problem_id=r.problem_id " +
+        "WHERE r.problem_id=$1 AND r.revision_id=$2 AND " +
+        "(p.owner_uid=$3 OR $4='admin' OR " +
+        "(p.bank_visibility='teachers' AND p.lifecycle='active')) LIMIT 1",
+        [problemId, rid, actor.uid, actor.role],
       ))[0];
       if (!revision)
         throw new NeonContractError("RESOURCE_UNAVAILABLE", "Revision unavailable.");
@@ -166,22 +172,25 @@ export function createQuizerNeonReadRepository(port) {
         [problemId,actor.uid,actor.role]));
       if (!visible.length)
         throw new NeonContractError("RESOURCE_UNAVAILABLE","Problem unavailable.");
-      const values=[problemId];
+      const values=[problemId,actor.uid,actor.role];
       let cursor="";
       if(after!==null){
         if(!after || typeof after!=="object")
           throw new NeonContractError("INVALID_FIELDS","Invalid revision cursor.");
         const at=asIso(after.createdAt);
         const rid=requireId(after.revisionId,"cursor revision ID");
-        cursor=" AND (created_at,revision_id)<($2::timestamptz,$3::varchar)";
+        cursor=" AND (r.created_at,r.revision_id)<($4::timestamptz,$5::varchar)";
         values.push(at,rid);
       }
       values.push(limit+1);
       const found=rows(await query(
-        "SELECT revision_id,revision_number,created_by_uid,created_at " +
-        "FROM quizer.problem_revisions WHERE problem_id=$1"+cursor+
-        " ORDER BY created_at DESC,revision_id DESC LIMIT $"+values.length,
-        values));
+        "SELECT r.revision_id,r.revision_number,r.created_by_uid,r.created_at " +
+        "FROM quizer.problem_revisions r JOIN quizer.problems p " +
+        "ON p.problem_id=r.problem_id WHERE r.problem_id=$1 AND " +
+        "(p.owner_uid=$2 OR $3='admin' OR " +
+        "(p.bank_visibility='teachers' AND p.lifecycle='active'))"+
+        cursor+" ORDER BY r.created_at DESC,r.revision_id DESC LIMIT $"+
+        values.length,values));
       const items=found.slice(0,limit).map(row=>({
         id:row.revision_id,revisionNumber:Number(row.revision_number),
         createdAt:asIso(row.created_at),createdBy:row.created_by_uid,
