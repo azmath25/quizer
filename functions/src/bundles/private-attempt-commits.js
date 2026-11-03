@@ -36,7 +36,13 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
     return transact(db,"bundle.answer.save",requestId,async c=>{
       const path="attempts/"+attemptId;
       const attempt=await c.get(path);
-      assertActive(c,attempt,firebaseAuth?.uid);
+      // Authenticate and authorize the original owner before receipt lookup,
+      // but return an identical committed receipt even if the attempt became
+      // submitted after the original Firebase transaction succeeded.
+      requireRole(c.actor,"verified");
+      assert(attempt?.studentId===firebaseAuth?.uid &&
+        c.actor.uid===firebaseAuth.uid,"RESOURCE_UNAVAILABLE",
+        "Attempt unavailable.");
       const receiptPath="operations/"+c.actor.uid+"/requests/"+requestId;
       const inputHash=fingerprint({action:"saveAnswers",attemptId,
         expectedAnswerVersion,changes});
@@ -47,6 +53,7 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
           "Request ID reused with different answers.");
         return priorReceipt.result;
       }
+      assertActive(c,attempt,firebaseAuth?.uid);
       assert(attempt.quizRevisionId===proof.pinnedRevisionId,
         "VERSION_CONFLICT","Attempt publication changed.");
       version(attempt.answerVersion,expectedAnswerVersion);
@@ -108,7 +115,10 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
     return transact(db,"bundle.attempt.navigate",requestId,async c=>{
       const path="attempts/"+attemptId;
       const a=await c.get(path);
-      assertActive(c,a,firebaseAuth?.uid);
+      requireRole(c.actor,"verified");
+      assert(a?.studentId===firebaseAuth?.uid &&
+        c.actor.uid===firebaseAuth.uid,"RESOURCE_UNAVAILABLE",
+        "Attempt unavailable.");
       const receiptPath="operations/"+c.actor.uid+"/requests/"+requestId;
       const inputHash=fingerprint({action:"navigateAttempt",attemptId,
         targetIndex});
@@ -119,6 +129,7 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
           "Request ID reused with another navigation.");
         return priorReceipt.result;
       }
+      assertActive(c,a,firebaseAuth?.uid);
       assert(a.quizRevisionId===proof.pinnedRevisionId &&
         a.currentFrontier===proof.expectedFrontier &&
         a.uiState.version===proof.expectedUiVersion,
