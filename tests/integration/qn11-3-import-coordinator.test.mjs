@@ -133,7 +133,7 @@ test("QN11.3 emulator: fenced concurrent chunks and persisted operation conflict
   assert.equal(one.status,"prepared");
   await assert.rejects(c.prepare({action:r2.action,auth,requestId:r2.requestId,
     payloadHash:fingerprint(r2),expectedItems:{jobId,items:[{
-      importItemKey:"problem_2",payloadHash:fingerprint(item(2)),points:1}]}),
+      importItemKey:"problem_2",payloadHash:fingerprint(item(2)),points:1}]}}),
     e=>e.reason==="FAILED_PRECONDITION");
   assert.equal((await doc("jobs/"+jobId+"/mappings/problem_2").get()).exists,false);
 });
