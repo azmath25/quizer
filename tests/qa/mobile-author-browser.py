@@ -106,7 +106,20 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
         page.screenshot(path=str(OUTPUT/f"{width}px-{tag}-editor.png"),
                         full_page=False)
         if width<=900:
+            edit=page.locator('[data-editor-tab="edit"]')
             preview=page.locator('[data-editor-tab="preview"]')
+            require(edit.get_attribute("role")=="tab" and
+                    preview.get_attribute("aria-controls")=="quiz-preview-panel",
+                    "Quiz editor tabs lack accessible panel association")
+            edit.focus()
+            edit.press("ArrowRight")
+            require(preview.get_attribute("aria-selected")=="true",
+                    "Keyboard Right did not select quiz preview")
+            require(page.locator("#quiz-preview-panel").is_visible(),
+                    "Keyboard quiz preview was not revealed")
+            preview.press("Home")
+            require(edit.get_attribute("aria-selected")=="true",
+                    "Home did not return to quiz editing")
             tap_or_click(preview,touch)
             require(page.locator(".editor-preview").is_visible(),
                     "Mobile editor preview tab does not open")
@@ -114,6 +127,29 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
 
         # Import/preview view; no import API or storage upload.
         open_page(page,"upload.html","#import-status")
+        if width<=900:
+            creation=page.locator("#create-import-tab")
+            blank=page.locator("#create-blank-tab")
+            creation.focus()
+            creation.press("End")
+            require(blank.get_attribute("aria-selected")=="true" and
+                    page.locator("#blank-panel").is_visible(),
+                    "Keyboard End did not reveal the empty-quiz form")
+            blank.press("Home")
+            require(creation.get_attribute("aria-selected")=="true" and
+                    page.locator("#import-panel").is_visible(),
+                    "Keyboard Home did not restore the import form")
+            import_edit=page.locator("#import-edit-tab")
+            import_preview=page.locator("#import-preview-tab")
+            import_edit.focus()
+            import_edit.press("ArrowRight")
+            require(import_preview.get_attribute("aria-selected")=="true" and
+                    page.locator("#import-preview-panel").is_visible(),
+                    "Keyboard import preview failed")
+            import_preview.press("Home")
+            require(import_edit.get_attribute("aria-selected")=="true" and
+                    page.locator("#import-edit-panel").is_visible(),
+                    "Keyboard import editor was not restored")
         require(page.locator("#import-status").get_attribute("role")=="status",
                 "Import progress not announced")
         require(page.locator("#latex-source").is_visible(),
