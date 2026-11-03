@@ -21,7 +21,8 @@ const now=new Date("2026-11-04T12:00:00Z");
 function fixture({answer="A complete proof",mode="manual",status="pending_manual",
   oldManual=null}={}){
   let reads=0;
-  const chosen={...item,content:{...item.content,answerMode:mode}};
+  const chosen={...item,content:{...item.content,answerMode:mode},
+    grading:mode==="auto"?{...grading,acceptedAnswers:["2"]}:grading};
   const b=preparePublishedBundle({format:BUNDLE_FORMAT,quizId:"quiz_1",
     revisionId:"qrv_1",revisionNumber:1,title:"Quiz",
     description:"",subject:"Math",difficulty:"",settings,
