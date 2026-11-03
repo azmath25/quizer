@@ -48,6 +48,7 @@ function requirePinnedPlan(plan, jobId) {
 
 export function createPrivateBundlePublisher({
   enabled = false, publicationStore, resolvePinnedRevision, storage,
+  retainPublishedAssets=null,
 } = {}) {
   if (enabled !== true) {
     return Object.freeze({enabled:false,
@@ -151,7 +152,14 @@ export function createPrivateBundlePublisher({
         return stored;
       },
     });
-    const result = await publicationStore.activate({plan,manifest});
+    // Publication image refs are created in bounded Firebase-only batches
+    // after bytes are verified but BEFORE the publication pointer can move.
+    // Nothing here places Storage or Neon calls inside Firestore retries.
+    const assetRetention=retainPublishedAssets
+      ? await retainPublishedAssets({plan,items})
+      : null;
+    const result = await publicationStore.activate({
+      plan,manifest,assetRetention});
     assert(result && (result.activated===true || result.alreadyPublished===true),
       "RESOURCE_UNAVAILABLE", "Publication activation was not confirmed.");
     return {quizId,revisionId,manifest,...result};
