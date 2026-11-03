@@ -14,7 +14,8 @@ export function createQuizerPrivateStartAndExport({
     readPrivateObject,verifyExportAssets].every(x=>typeof x==="function"),
     "INVALID_FIELDS","Trusted start, export and Storage ports required.");
 
-  async function start({firebaseAuth,quizId,sourceAttemptId=null}={}){
+  async function start({firebaseAuth,quizId,sourceAttemptId=null,
+    requestId=null}={}){
     id(quizId,"quiz ID");
     if(sourceAttemptId!==null)id(sourceAttemptId,"source attempt ID");
     assert(firebaseAuth?.uid && firebaseAuth?.token,
@@ -23,6 +24,13 @@ export function createQuizerPrivateStartAndExport({
     // attempt count, role, visibility, deadline and retry eligibility.
     const proof=await preflightStart({
       firebaseAuth,quizId,sourceAttemptId});
+    // Resume an already-active attempt without unnecessarily downloading a
+    // protected bundle. The transaction rechecks ownership/status/deadline.
+    if(proof?.authorized===true && proof.actorUid===firebaseAuth.uid &&
+      proof.quizId===quizId && proof.existingAttemptId){
+      return commitStart({firebaseAuth,quizId,sourceAttemptId,requestId,
+        proof,plan:null});
+    }
     assert(proof?.authorized===true &&
       proof.actorUid===firebaseAuth.uid &&
       proof.quizId===quizId && proof.revisionId &&
@@ -61,9 +69,10 @@ export function createQuizerPrivateStartAndExport({
     // duplicate active attempt, attempt count and frozen revision manifest.
     // It persists orders, deadlines and attempts; no Storage/Neon inside it.
     const result=await commitStart({
-      firebaseAuth,quizId,sourceAttemptId,proof,
+      firebaseAuth,quizId,sourceAttemptId,requestId,proof,
       plan:{revisionId,bundleHash:revision.bundle.sha256,
-        itemOrder:revision.itemOrder,selected,settings:revision.settings},
+        itemOrder:revision.itemOrder,selected,
+        settings:proof.settingsSnapshot??revision.settings},
     });
     assert(result?.attemptId && result.quizRevisionId===revisionId,
       "FAILED_PRECONDITION","Attempt commit did not confirm pinned revision.");
