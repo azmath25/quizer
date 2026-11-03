@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - work/quizer-audit-optimization-2026-11
+    paths:
+      - ".github/workflows/quizer-verify.yml"
+      - "functions/**"
+      - "js/**"
+      - "shared/**"
+      - "db/**"
+      - "scripts/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - "firebase.json"
   workflow_dispatch:
 
 permissions:
