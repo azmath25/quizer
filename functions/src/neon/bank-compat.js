@@ -151,7 +151,9 @@ export function createQuizerBankCompatibility({
   async function route(action,actor,auth,r){
     if(action==="listProblems"){
       const p=normalizedList(r);
-      const scope=fingerprint({actor:actor.uid,...p,limit:undefined});
+      // Page size is part of the signed scope: a cursor cannot be replayed
+      // under a wider result window or a different user/filter combination.
+      const scope=fingerprint({actorUid:actor.uid,...p});
       const after=parseCursor(cursorSecret,r.cursor,scope);
       const opts={actor,...p,after,limit:p.limit+1};
       // Two independently authorized stores, both must support the same
