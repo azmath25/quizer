@@ -596,8 +596,12 @@ async function runner(root, initial, session) {
   const keys = (event) => {
     if (stopped || event.metaKey || event.ctrlKey || event.altKey) return;
     if (document.querySelector("dialog[open]")) return;
-    if (event.target.closest?.("input:not([type=radio]), textarea, select"))
-      return;
+    // Let form fields, radio groups, links and buttons keep their native
+    // Arrow/number keys. In particular, ArrowRight on a focused choice
+    // must NOT move to another problem instead of selecting an answer.
+    if (event.target.closest?.(
+      "input, textarea, select, button, a, [contenteditable], [role=button], [role=tab], [role=radio]",
+    )) return;
     const k = event.key.toLowerCase();
     if (k === "arrowright") press("#next");
     else if (k === "arrowleft") press("#previous");
