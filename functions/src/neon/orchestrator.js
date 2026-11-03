@@ -37,11 +37,21 @@ export function createQuizerNeonOrchestrator({
       // This digest is an opaque equality check, never the original protected
       // grading/source data. Never log an envelope or token.
       const payloadHash=fingerprint(request);
+      // QN11.3: only non-sensitive per-item digests/points cross the Firebase
+      // coordinator boundary. Problem content and protected grading remain in
+      // the external Neon effect, never in coordinator documents.
+      const expectedItems = action==="importProblemBatch" ? {
+        jobId:request.jobId,
+        items:request.records.map(row=>({
+          importItemKey:row.importItemKey,payloadHash:fingerprint(row),
+          points:row.points ?? row.content?.defaultPoints,
+        })),
+      } : undefined;
       // prepare MUST run a short Firebase transaction, verify actor, current
       // ownership/job/version and claim a durable operation keyed by UID+ID.
       const claim=await coordinator.prepare({
         action, auth:verifiedFirebaseAuth, requestId:request.requestId,
-        payloadHash,
+        payloadHash, expectedItems,
       });
       assert(claim && typeof claim==="object" && 
         (claim.status==="prepared" || claim.status==="complete"),
@@ -63,12 +73,14 @@ export function createQuizerNeonOrchestrator({
       await coordinator.recordEffect({
         action, auth:verifiedFirebaseAuth, requestId:request.requestId,
         payloadHash, token:claim.token, result,
+        jobId:action==="importProblemBatch" ? request.jobId : undefined,
       });
       // Finalize MUST recheck actor, job/quiz/draft versions and fence inside
       // Firebase transaction; never activate a stale/unauthorized operation.
       return coordinator.finalize({
         action, auth:verifiedFirebaseAuth, requestId:request.requestId,
         payloadHash, token:claim.token, result,
+        jobId:action==="importProblemBatch" ? request.jobId : undefined,
       });
     },
   });
