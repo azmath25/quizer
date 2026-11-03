@@ -16,6 +16,8 @@ archive copy **only if measurements justify the writes, storage and latency**.
 
 **Test-stage retention policy:** historical test logs are disposable and require **no historical backfill** to Neon. Previously created quizzes are **not** disposable: preserve quiz IDs, drafts, published and older immutable revisions, questions, grading keys, image/asset bindings, permissions and usable links. Preserve existing attempt/result records unless separately approved for cleanup. Validate inventory and backups before any later cutover; no live deletion is authorized by this document.
 
+**Explicit .tex import contract:** upload the original whole `.tex` file **once** to Firebase Storage, parse/validate it locally, and persist extracted individual problems (including answer keys and revision metadata) **only in the dedicated Quizer Neon database**. Firebase keeps the original source asset and lightweight draft metadata/slot references; it does **not** create one Firestore bank problem for each newly imported question. **Upon publish only**, materialize the complete immutable, protected question/answer snapshot to Firebase for quiz-taking and grading. Preserve existing Firebase-based legacy quizzes as-is until an independently approved safe transition. Firebase Storage also holds image bytes; Neon only stores asset IDs.
+
 **A single small edit must never re-upload/rewrite an entire quiz.** Preserve
 existing partial slot saves and implement zero-write no-ops, metadata-only
 updates and conditional problem revision creation. Do not confuse a new
@@ -62,10 +64,10 @@ or the archive worker is unavailable.
 | **QN5 — future-only activity log relay** | Design/implement trusted Firebase outbox → Neon log relay for **new events only**; retry/idempotency tests, no old-log backfill. Disabled by default. | Stop for approval. |
 | **QN6 — future logs and reports** | Implement teacher/admin Neon log readers for events after cutover, with pagination, authorization and clear pre-cutover boundary. Define optional old-test-log cleanup runbook **without executing it**. | Stop for approval. |
 | **QN7 — optional quiz mirror benchmark** | Implement feature-flagged, async, hash-deduplicated archive of published revision JSON (not image bytes) into Neon; measure fixture bytes, lag, overhead, failure and growth. Owner separately approves whether to enable it at all. | Stop for approval. |
-| **QN8 — minimal Neon data access** | Keep existing authenticated problem-bank actions and UI contracts; replace their Firestore storage access with a small server-only Neon repository for necessary CRUD/filter/version operations. Avoid new public endpoints, extra backend service, and redundant requests unless tests demonstrate a technical need. Feature-disabled until cutover. | Stop for approval. |
+| **QN8 — minimal Neon data access** | Keep existing authenticated problem-bank operations; implement a small server-only Neon repository and **bulk import of extracted questions**. Upload **one original .tex** to Firebase Storage; insert per-question records only into Neon in bounded, idempotent batches (existing `importProblemBatch` supports up to 20 records/request); no extra public API or backend service. Feature-disabled until cutover. | Stop for approval. |
 | **QN9 — preservation-first migration rehearsal** | Inventory **all prior quizzes/drafts/published revisions/asset links** and their referenced problems; test sanitized problem migration to disposable Neon with checksums, IDs, revision/ownership parity, legacy quiz readability, and rollback. No real data movement or log backfill. | Stop for approval. |
-| **QN10 — publish materialization** | Stage and verify pinned Neon problem revisions; create immutable Firebase published snapshot with stable hashes, safe partial failures, concurrency guards, legacy Firestore fallback. Test active attempts unchanged. | Stop for approval. |
-| **QN11 — editor/bank integration** | Update problem bank/import/editor to use the guarded Neon adapter, preserve image uploads, optional Mimo draft import contract, mobile usability; test server identity boundaries and latency. | Stop for approval. |
+| **QN10 — publish materialization** | Validate pinned Neon problem revisions and materialize the complete **published quiz snapshot** (including protected grading content) to Firebase *only on publish/republish*, not per problem at upload time. Preserve original .tex in Firebase Storage; test atomic visibility, versioning, failures, concurrency, legacy fallback, and active attempt continuity. | Stop for approval. |
+| **QN11 — editor/import integration** | Keep the existing source `.tex` → preview → upload-to-Firebase → **Neon-only problem bank** → Firebase draft flow. Change the frontend from one `importProblemBatch` call per question to bounded multi-question batches; preserve resumability, idempotency, image assets, optional Mimo draft import, mobile behavior, authentication and performance. | Stop for approval. |
 | **QN12 — full verification & readiness** | Unit/backend/emulator/transport/static/browser verification; preservation manifests and recovery tests for **past quizzes**; performance/cost comparison; future-log cutover plan and optional old-test-log cleanup procedure. No actual cleanup, production migration, merge or deploy. | Stop for explicit future decision. |
 
 ## Acceptance criteria
@@ -79,6 +81,14 @@ or the archive worker is unavailable.
 - Problem content change -> one immutable revision; no duplicate image upload.
 - Measured request bytes, number of reads/writes, and real browser outcomes
   are reported, not inferred.
+
+**Whole LaTeX upload / import**
+- For a 100-question `.tex`, Firebase Storage receives **one original source file** (and any image assets), not 100 separately uploaded question files; Neon receives **100 individual problem/revision rows** in bounded batches.
+- Importing does **not** create 100 Firestore bank-problem documents; Firebase holds only a lightweight quiz draft, references and job/checkpoint metadata before publication.
+- Existing backend `importProblemBatch` can accept up to 20 records per request; target five calls for 100 questions, bounded further if payload size/transaction limits demand it. No assumption of measured speedup until tests.
+- Upload retry/resume must avoid duplicate problem IDs, duplicate source asset uploads and partially visible quizzes; malformed/failed imports remain recoverable and must not delete the original source.
+- On publish, Firebase receives a frozen quiz revision containing the necessary student-facing questions and protected grading keys. No live quiz reads from Neon.
+- Existing quizzes and published Firestore snapshots are preserved, with safe legacy behavior during the transition.
 
 **Data ownership and liveness**
 - Neon down -> active quiz start, navigation, submit, grading/results function
