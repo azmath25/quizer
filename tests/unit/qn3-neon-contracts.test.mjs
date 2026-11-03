@@ -53,7 +53,8 @@ test("owner read returns protected grading and original source references", asyn
   assert.equal(r.grading.correctOptionId, "b");
   assert.equal(port.queries.length, 2);
   assert.deepEqual(port.queries[0].values, [fixture.header.problem_id, owner.uid, "teacher"]);
-  assert.deepEqual(port.queries[1].values, [fixture.header.problem_id, fixture.revision.revision_id]);
+  assert.deepEqual(port.queries[1].values, [fixture.header.problem_id, fixture.revision.revision_id, owner.uid, owner.role]);
+  assert.match(port.queries[1].sql, /p.bank_visibility='teachers'/);
 });
 test("shared teacher sees problem and grading, but never original TeX source asset", async () => {
   const port = fakePort(), repo = createQuizerNeonReadRepository(port);
@@ -77,7 +78,7 @@ test("missing or private bank row never triggers a grading query", async () => {
 test("missing historical revision is unavailable without revealing other records", async () => {
   const port = fakePort({ revision: null }), repo = createQuizerNeonReadRepository(port);
   await assert.rejects(repo.getProblemForTeacher({ actor: owner, problemId: fixture.header.problem_id, revisionId: "prv_missing" }), reason("RESOURCE_UNAVAILABLE"));
-  assert.deepEqual(port.queries[1].values, [fixture.header.problem_id, "prv_missing"]);
+  assert.deepEqual(port.queries[1].values, [fixture.header.problem_id, "prv_missing", owner.uid, owner.role]);
 });
 test("SQL injection strings are never interpolated into a query", async () => {
   const port = fakePort({ listRows: [] }), repo = createQuizerNeonReadRepository(port);
