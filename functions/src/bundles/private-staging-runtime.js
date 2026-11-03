@@ -10,6 +10,7 @@ import {createPinnedNeonPublicationResolver} from "./pinned-neon-source.js";
 import {createPrivateBundlePublisher} from "./publish-writer.js";
 import {createFirestoreSecureBundleService} from "./firestore-attempt-service.js";
 import {createFirestorePrivateAttemptCommits} from "./private-attempt-commits.js";
+import {createFirestorePrivateGradeFinalization} from "./private-grade-finalization.js";
 import {createQuizerPrivateStartAndExport} from "./private-start-export.js";
 import {createFirestorePrivateAttemptStart} from "./private-attempt-start.js";
 import {createQuizerPrivateImageSigner} from "./private-image-signer.js";
@@ -25,6 +26,7 @@ export function createQuizerStagedPrivateRuntime({
     handle:async()=>({disabled:true}),
     publishJob:async()=>({disabled:true}),
     gradeJobBatch:async()=>({disabled:true}),
+    finalizeGradeJob:async()=>({disabled:true}),
     exportSource:async()=>({disabled:true})});
   assert(db?.doc&&db?.runTransaction&&bucket?.file&&
     typeof authFor==="function"&&
@@ -109,6 +111,8 @@ export function createQuizerStagedPrivateRuntime({
   const secureAttempts=createFirestoreSecureBundleService({
     enabled:true,db,privateStorage:storage});
   const attemptCommits=createFirestorePrivateAttemptCommits({enabled:true,db});
+  const gradeFinalization=createFirestorePrivateGradeFinalization({
+    enabled:true,db});
   const trustedStart=(preflightStart&&commitStart)
     ? {preflightStart,commitStart}
     : createFirestorePrivateAttemptStart({enabled:true,db});
@@ -125,7 +129,7 @@ export function createQuizerStagedPrivateRuntime({
   const facade=createQuizerPrivateIntegration({
     enabled:true,resolveFirebaseActor,resolveAttemptOrigin,
     resolveQuizOrigin,legacy:{handle:legacyHandle},
-    secureAttempts,startExport,attemptCommits,publisher,
+    secureAttempts,startExport,attemptCommits,gradeFinalization,publisher,
     resolveImageScope,signReadyAssets:images.signReadyAssets,
   });
   return Object.freeze({...facade,enabled:true});
