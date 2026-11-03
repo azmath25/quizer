@@ -16,7 +16,9 @@ archive copy **only if measurements justify the writes, storage and latency**.
 
 **Test-stage retention policy:** historical test logs are disposable and require **no historical backfill** to Neon. Previously created quizzes are **not** disposable: preserve quiz IDs, drafts, published and older immutable revisions, questions, grading keys, image/asset bindings, permissions and usable links. Preserve existing attempt/result records unless separately approved for cleanup. Validate inventory and backups before any later cutover; no live deletion is authorized by this document.
 
-**Explicit .tex import contract:** upload the original whole `.tex` file **once** to Firebase Storage, parse/validate it locally, and persist extracted individual problems (including answer keys and revision metadata) **only in the dedicated Quizer Neon database**. Firebase keeps the original source asset and lightweight draft metadata/slot references; it does **not** create one Firestore bank problem for each newly imported question. **Upon publish only**, materialize the complete immutable, protected question/answer snapshot to Firebase for quiz-taking and grading. Preserve existing Firebase-based legacy quizzes as-is until an independently approved safe transition. Firebase Storage also holds image bytes; Neon only stores asset IDs.
+**Final storage contract:** For each imported quiz, Firebase Storage keeps **one original `.tex` source object**, uploaded once. Individual parsed problems, answers, tags and immutable revisions live **only in the dedicated Quizer Neon database**; no separate Firestore problem-bank documents for new uploads. Firebase Firestore keeps lightweight quiz/access/draft metadata and ordered problem IDs or revision references (not problem text). **At publish/republish only**, create **one private, immutable compiled quiz bundle per published revision in Firebase Storage** and a small Firestore manifest pointing to that object. Preserve earlier bundles while attempts depend on them, and preserve legacy Firestore-based quizzes/links during transition. The original `.tex` source and a published bundle are distinct objects with different purposes. Image bytes remain in Firebase Storage; Neon stores asset IDs.
+
+**Private bundle security:** the compiled bundle may contain protected answer keys. Never give a student a direct download URL, signed URL or read permission for the whole bundle. Firebase Functions read the pinned private bundle server-side and enforce attempt ownership, question-frontier/no-backtracking, shuffle/order and answer/solution release before returning **only permitted question slices**. Grading reads protected keys server-side. Test memory use, Storage reads, cold/warm latency and costs; a one-file design is not acceptable unless these checks pass.
 
 **A single small edit must never re-upload/rewrite an entire quiz.** Preserve
 existing partial slot saves and implement zero-write no-ops, metadata-only
@@ -65,10 +67,12 @@ or the archive worker is unavailable.
 | **QN4 — local/disposable schema tests** | Rehearse reversible schema changes on an explicitly authorized disposable PostgreSQL/Neon dev branch; verify uniqueness, foreign keys, indexes, pagination, idempotency, rollback. Never touch Mimo or production. | Stop for approval. |
 | **QN5 — future-only activity log relay** | Design/implement trusted Firebase outbox → Neon log relay for **new events only**; retry/idempotency tests, no old-log backfill. Disabled by default. | Stop for approval. |
 | **QN6 — future logs and reports** | Implement teacher/admin Neon log readers for events after cutover, with pagination, authorization and clear pre-cutover boundary. Define optional old-test-log cleanup runbook **without executing it**. | Stop for approval. |
-| **QN7 — optional quiz mirror benchmark** | Implement feature-flagged, async, hash-deduplicated archive of published revision JSON (not image bytes) into Neon; measure fixture bytes, lag, overhead, failure and growth. Owner separately approves whether to enable it at all. | Stop for approval. |
+| **QN7 — optional quiz mirror benchmark** | Benchmark feature-flagged, asynchronous, deduplicated metadata/compact published-bundle copies in Neon (never re-upload raw images or block publishing). Keep disabled unless independently approved after byte/latency/cost measurements. | Stop for approval. |
 | **QN8 — minimal Neon data access** | Keep existing authenticated problem-bank operations; implement a small server-only Neon repository and **bulk import of extracted questions**. Upload **one original .tex** to Firebase Storage; insert per-question records only into Neon in bounded, idempotent batches (existing `importProblemBatch` supports up to 20 records/request); no extra public API or backend service. Feature-disabled until cutover. | Stop for approval. |
 | **QN9 — preservation-first migration rehearsal** | Inventory **all prior quizzes/drafts/published revisions/asset links** and their referenced problems; test sanitized problem migration to disposable Neon with checksums, IDs, revision/ownership parity, legacy quiz readability, and rollback. No real data movement or log backfill. | Stop for approval. |
-| **QN10 — publish materialization** | Validate pinned Neon problem revisions and materialize the complete **published quiz snapshot** (including protected grading content) to Firebase *only on publish/republish*, not per problem at upload time. Preserve original .tex in Firebase Storage; test atomic visibility, versioning, failures, concurrency, legacy fallback, and active attempt continuity. | Stop for approval. |
+| **QN10.1 — private bundle format** | Define deterministic versioned bundle schema, integrity hash, Firestore manifest, restricted Storage permissions, release policy, maximum size and backward-compatible reader interface. Synthetic fixtures/tests only. | Stop for approval. |
+| **QN10.2 — publish bundle writer** | Refactor publishing to pin validated Neon revisions, stage **one private Firebase Storage bundle per published revision**, and atomically switch a Firestore pointer only after successful verification; retain old published revisions and legacy paths. Tests/fixtures; no deployment. | Stop for approval. |
+| **QN10.3 — secure bundle reader/grading** | Adapt existing Firebase delivery and grading functions to read pinned bundles **server-side** without exposing keys/future questions; preserve `allowBack:false`, attempt version pinning, timers, results and release policy; add stress/security tests and latency/read-cost measurements. | Stop for approval. |
 | **QN11 — editor/import integration** | Keep the existing source `.tex` → preview → upload-to-Firebase → **Neon-only problem bank** → Firebase draft flow. Change the frontend from one `importProblemBatch` call per question to bounded multi-question batches; preserve resumability, idempotency, image assets, optional Mimo draft import, mobile behavior, authentication and performance. | Stop for approval. |
 | **QN12 — full verification & readiness** | Unit/backend/emulator/transport/static/browser verification; preservation manifests and recovery tests for **past quizzes**; performance/cost comparison; future-log cutover plan and optional old-test-log cleanup procedure. No actual cleanup, production migration, merge or deploy. | Stop for explicit future decision. |
 
@@ -92,12 +96,16 @@ or the archive worker is unavailable.
 - Importing does **not** create 100 Firestore bank-problem documents; Firebase holds only a lightweight quiz draft, references and job/checkpoint metadata before publication.
 - Existing backend `importProblemBatch` can accept up to 20 records per request; target five calls for 100 questions, bounded further if payload size/transaction limits demand it. No assumption of measured speedup until tests.
 - Upload retry/resume must avoid duplicate problem IDs, duplicate source asset uploads and partially visible quizzes; malformed/failed imports remain recoverable and must not delete the original source.
-- On publish, Firebase receives a frozen quiz revision containing the necessary student-facing questions and protected grading keys. No live quiz reads from Neon.
+- Publishing creates **one private, immutable compiled quiz-bundle Storage object per published revision** plus a Firestore manifest; it does **not** create individual Firebase question documents for new quizzes.
+- The original `.tex` file is stored once per import and is **not** rewritten for a title, settings, points, order or question edit.
+- Changing the visible quiz title updates Firestore catalog/draft metadata only; previously frozen questions do not need to be rebuilt just to rename the quiz.
+- Students never receive a URL or read grant to the complete bundle. Authorized server code returns only permitted question slices and never leaks grading keys or locked future questions.
+- No live quiz reads from Neon. Test full-bundle reads, compression, in-memory bounded cache (if safe), concurrent students and warm/cold latency before accepting one-file publishing.
 - Existing quizzes and published Firestore snapshots are preserved, with safe legacy behavior during the transition.
 
 **Data ownership and liveness**
 - Neon down -> active quiz start, navigation, submit, grading/results function
-  from Firebase using published snapshot (not degraded).
+  from the private, version-pinned Firebase Storage bundle plus Firestore attempt metadata (not degraded).
 - Quizer Neon unavailable -> authors see a clear bank/edit availability
   warning; quizzes remain live.
 - Existing authenticated problem-bank actions continue to work with the same frontend request shapes; no extra API surface or separate service is added without a demonstrated need.
@@ -109,9 +117,14 @@ or the archive worker is unavailable.
   ordered display by trustworthy timestamp/sequence; reconciliation detects
   gaps, temporary Firebase outbox held until acknowledgment. No old-log replay.
 - **Existing quiz IDs, drafts, frozen published revision history, answer keys, image bindings, access policies and links remain available and unchanged.** Preserve referenced problem revision content, including where an old quiz points to Firestore.
-- Legacy active attempts, grades, assets and published revisions remain valid.
+- Legacy active attempts, grades, assets and published revisions remain valid; a compatibility reader continues to serve existing per-question Firestore revisions without deleting or rewriting them.
 - Log cleanup cannot cascade to quizzes, problems, attempts or grades; post-cleanup admin views explicitly explain the historical boundary.
 - Mimo cannot read Quizer SQL data via its existing database credentials.
+
+**Bundle-read performance and security gate**
+- Compare one private Storage bundle against current per-item Firestore delivery on 10/100/500 questions, multiple simultaneous students, cold/warm request latency, backend memory/CPU, Storage reads, egress and generated bills. Stop design if unacceptable; reassess format or safe server-side chunking while preserving no separate *problem-bank* records.
+- Firebase Storage rules and server responses prevent clients from downloading whole bundles, solutions or locked future questions. `allowBack:false` and results-release security tests are blocking.
+- Only the latest ready revision pointer changes at publish; active attempts pin their original immutable bundle, and old revision references never disappear.
 
 **Storage/latency decision**
 - Archive uses only compact JSON plus references, never reuploads images.
