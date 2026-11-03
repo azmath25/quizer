@@ -88,9 +88,25 @@ export async function mount(root, session) {
   };
   const panel = root.querySelector("#selection-panel"),
     mine = (p) => p.row.ownerId === session.user.uid;
-  // A compact, expandable selection dock keeps the bank usable on phones.
-  // Preserve this state when card selections or ordering refresh the panel.
-  let collapsed = matchMedia("(max-width: 760px)").matches;
+  // Mobile dock lives at the document top layer rather than inside animated
+  // page/card stacking contexts. Otherwise 200% text size can put a toolbar
+  // OVER the visible Expand button, making it untappable.
+  const panelHome = panel.parentElement,
+    mobileDock = matchMedia("(max-width: 760px)");
+  const placePanel = () => {
+    if (mobileDock.matches && panel.parentElement !== document.body)
+      document.body.append(panel);
+    else if (!mobileDock.matches && panel.parentElement !== panelHome)
+      panelHome.append(panel);
+  };
+  mobileDock.addEventListener?.("change", placePanel);
+  placePanel();
+  onLeave(() => {
+    mobileDock.removeEventListener?.("change", placePanel);
+    if (panel.parentElement === document.body) panel.remove();
+  });
+  // Preserve the selection state when its contents are collapsed/reordered.
+  let collapsed = mobileDock.matches;
   const total = () =>
     [...selected.values()].reduce((sum, p) => sum + (Number(p.points) || 0), 0);
   function updateTotal() {
