@@ -6,7 +6,7 @@ import {assert,fields,id} from "../../shared/schema.js";
 import {requireRole} from "../domain/runtime.js";
 const ORIGINS=new Set(["private_bundle_v1","firestore_legacy"]);
 const ALLOWED=Object.freeze({
-  startAttempt:["quizId","sourceAttemptId"],
+  startAttempt:["quizId","sourceAttemptId","requestId"],
   getAttemptQuestions:["attemptId","itemIds"],
   saveAnswers:["attemptId","expectedAnswerVersion","changes","requestId"],
   navigateAttempt:["attemptId","targetIndex","requestId"],
@@ -127,7 +127,8 @@ export function createQuizerPrivateIntegration({
       return source==="firestore_legacy"
         ? callLegacy(action,firebaseAuth,request)
         : startExport.start({firebaseAuth,quizId:request.quizId,
-            sourceAttemptId:request.sourceAttemptId??null});
+            sourceAttemptId:request.sourceAttemptId??null,
+            requestId:request.requestId??null});
     }
     const source=await originForAttempt(firebaseAuth,request.attemptId);
     if(source==="firestore_legacy")
