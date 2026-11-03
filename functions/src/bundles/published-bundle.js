@@ -170,15 +170,20 @@ export function validatePublishedBundleManifest(manifest,quizId,revisionId) {
 }
 
 // Trusted backend helper only, NOT an HTTP endpoint.
-// The caller must authorize actor + attempt/quiz before invoking it, using
-// Firestore's pinned published revision and release policy.
-// readObject must use Admin SDK with EXACT generation and bounded bytes.
+// authorizePinnedRead MUST inspect trusted Firebase auth/role or attempt state.
+// It must never be derived from browser-provided flags or version IDs.
+// readObject MUST use Admin SDK with EXACT generation and bounded bytes.
 export async function readPrivatePublishedBundle({
-  manifest,quizId,revisionId,readObject,
+  manifest,quizId,revisionId,readObject,authorizePinnedRead,
 }={}) {
   const m=validatePublishedBundleManifest(manifest,quizId,revisionId);
-  assert(typeof readObject==="function",
-    "INVALID_FIELDS","Trusted private Storage reader required.");
+  assert(typeof readObject==="function" &&
+    typeof authorizePinnedRead==="function",
+    "INVALID_FIELDS","Trusted authorization and private Storage reader required.");
+  const permission=await authorizePinnedRead({quizId:m.quizId,revisionId:m.revisionId});
+  assert(permission?.authorized===true &&
+    permission.pinnedRevisionId===m.revisionId,
+    "RESOURCE_UNAVAILABLE","Access to this pinned revision denied.");
   const object=await readObject({storagePath:m.storagePath,
     generation:m.generation,maxBytes:MAX_BUNDLE_BYTES});
   assert(object && Buffer.isBuffer(object.bytes) &&
