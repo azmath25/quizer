@@ -5,14 +5,15 @@ import { readFileSync } from "node:fs";
 const js=readFileSync(new URL("../../js/pages/quiz.js",import.meta.url),"utf8");
 const css=readFileSync(new URL("../../assets/css/pages/quiz.css",import.meta.url),"utf8");
 const layout=readFileSync(new URL("../../assets/css/layout.css",import.meta.url),"utf8");
+const device=readFileSync(new URL("../../js/core/device.js",import.meta.url),"utf8");
 
 test("QN12.1 saving, errors and retry feedback remain visible on touch",()=>{
   assert.match(js,/class="runner-save-feedback"/);
   assert.match(js,/id="save-status" role="status" aria-live="polite"/);
   assert.match(js,/id="retry-save"/);
   assert.match(js,/id="resolve-conflict"/);
-  assert.match(css,/html\[data-input="touch"\] \.runner-save-feedback \.save-indicator\s*\{[^}]*display:\s*flex;/s);
-  assert.doesNotMatch(css,/html\[data-input="touch"\] \.runner-footer \.save-indicator\s*\{\s*display:\s*none/s);
+  assert.match(css,/\.runner-save-feedback \.save-indicator\s*\{[^}]*display:\s*flex;/s);
+  assert.doesNotMatch(css,/\.runner-footer \.save-indicator\s*\{\s*display:\s*none/s);
   assert.match(js,/saveStatus\.textContent !== text/);
 });
 
@@ -25,10 +26,10 @@ test("QN12.1 retry and conflict controls follow actual save-state",()=>{
 });
 
 test("QN12.1 mobile footer separates status and navigation into stable grid rows",()=>{
-  assert.match(css,/html\[data-input="touch"\] \.runner-footer\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
-  assert.match(css,/html\[data-input="touch"\] \.runner-save-feedback\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*grid-row:\s*1;/s);
-  assert.match(css,/html\[data-input="touch"\] \.runner-footer #previous\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*2;/s);
-  assert.match(css,/html\[data-input="touch"\] \.runner-footer #next\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*2;/s);
+  assert.match(css,/\.runner-footer\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(css,/\.runner-save-feedback\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*grid-row:\s*1;/s);
+  assert.match(css,/\.runner-footer #previous\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*2;/s);
+  assert.match(css,/\.runner-footer #next\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*2;/s);
   assert.match(layout,/#mobile-nav\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0/s);
 });
 
@@ -67,4 +68,12 @@ test("QN12.1 44px grid targets, narrow timer wrap and long-title bounds",()=>{
   assert.match(css,/\.runner-top\s*\{[^}]*flex-wrap:\s*wrap;/s);
   assert.match(css,/\.runner-title h1\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
   assert.match(css,/\.runner-question\s*\{[^}]*scroll-margin-top:\s*82px;/s);
+});
+
+test("QN12.1 hybrid input detection rejects synthetic mousemove after touch",()=>{
+  assert.match(device,/lastTouchAt/);
+  assert.match(device,/event\.sourceCapabilities\?\.firesTouchEvents/);
+  assert.match(device,/performance\.now\(\) - lastTouchAt <= 1200/);
+  assert.match(device,/event\.pointerType === "touch"/);
+  assert.match(device,/event\.pointerType === "mouse"/);
 });
