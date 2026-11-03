@@ -256,7 +256,9 @@ export function createFirestorePrivateAttemptStart({
           bundle:revision.bundle})===proof.revisionHash&&
         fingerprint(settings)===fingerprint(plan.settings),
         "VERSION_CONFLICT","Pinned private revision or retry eligibility changed.");
-      let total=0;const optionOrder=Object.create(null);
+      // Firestore deserializes maps as ordinary objects; use the same shape
+      // in the first response so resume/replay DTOs are structurally equal.
+      let total=0;const optionOrder={};
       for(const item of plan.selected){
         const itemId=id(item.itemId,"selected item ID");
         assert(revision.itemOrder.includes(itemId) &&
