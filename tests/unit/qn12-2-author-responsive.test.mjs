@@ -10,6 +10,8 @@ const bank=read("js/pages/problems.js");
 const quiz=read("js/pages/quiz-editor.js");
 const form=read("js/components/problem-form.js");
 const device=read("js/core/device.js");
+const layout=read("assets/css/layout.css");
+const shell=read("js/components/shell.js");
 const cards=read("assets/css/problem-card.css");
 
 test("QN12.2 removes original 26px selected-problem buttons everywhere",()=>{
@@ -97,4 +99,11 @@ test("QN12.2 mobile selection portal escapes animated author stacking contexts",
   assert.match(bank,/panelHome\.append\(panel\)/);
   assert.match(bank,/onLeave\(\(\) => \{\s*mobileDock\.removeEventListener\?\.\("change", placePanel\)/);
   assert.match(bank,/panel\.parentElement === document\.body\) panel\.remove\(\)/);
+});
+
+test("QN12.2 mobile header prevents large-text min-content width and preserves profile accessibility",()=>{
+  assert.match(layout,/\.header-inner\s*\{[^}]*min-width:\s*0;[^}]*gap:\s*10px;/s);
+  assert.match(layout,/\.brand\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*0 1 auto;[^}]*overflow:\s*hidden;/s);
+  assert.match(layout,/#account-link > span:last-child\s*\{\s*display:\s*none;/s);
+  assert.match(shell,/account\.setAttribute\("aria-label", s\.authResolved && !s\.user \? "Sign in" : "Profile"\)/);
 });
