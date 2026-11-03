@@ -12,6 +12,7 @@ const expected = {
   authDomain: "quizer-staging-az26.firebaseapp.com",
   storageBucket: "quizer-staging-az26.firebasestorage.app",
   messagingSenderId: "509423933910",
+  apiKey: "AIzaSyBlJRy2cpdVu4WJD_XqzFAtsxlElBR27vU",
 };
 for (const [key,value] of Object.entries(expected)) {
   if (firebaseConfig[key] !== value) {
