@@ -170,7 +170,7 @@ test("corrupted bytes, wrong content type and path tampering are rejected",async
 test("noncanonical JSON encoding is rejected even when its hash matches",async()=>{
   const p=prepared(),m=makePublishedBundleManifest(p,"987654321");
   const obj=JSON.parse(p.bytes.toString());
-  const wrongBytes=Buffer.from(JSON.stringify(obj));
+  const wrongBytes=Buffer.from(JSON.stringify(obj,null,2));
   assert(!wrongBytes.equals(p.bytes));
   // This is a different, valid content-addressed object, but it is not
   // canonical and is therefore refused even with a recomputed SHA.
