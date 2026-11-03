@@ -32,7 +32,8 @@ test("quiz action buttons stay 44px high and stable with narrow mobile header",(
 
 test("numbered navigation buttons have at least 44px targets on narrow and zoomed screens",()=>{
   assert.match(css,/@media \(max-width: 420px\)\s*\{[^}]*\.runner-sidebar \.question-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(44px,\s*1fr\)\)/s);
-  assert.match(css,/@media \(max-width: 420px\)\s*\{[^}]*\.runner-sidebar \.question-grid button\s*\{[^}]*min-height:\s*44px/s);
+  const narrow = css.slice(css.lastIndexOf("@media (max-width: 420px)"));
+  assert.match(narrow,/\.runner-sidebar \.question-grid button\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css,/\.question-grid button\s*\{[^}]*aspect-ratio:\s*1/s);
 });
 
