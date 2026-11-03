@@ -2,8 +2,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
-import {initializeApp,getApps} from "firebase-admin/app";
-import {getFirestore,Timestamp} from "firebase-admin/firestore";
+import {initializeApp,getApps} from "../../functions/node_modules/firebase-admin/lib/esm/app/index.js";
+import {getFirestore,Timestamp} from "../../functions/node_modules/firebase-admin/lib/esm/firestore/index.js";
 import {createFirestorePrivateAttemptCommits} from "../../functions/src/bundles/private-attempt-commits.js";
 assert(process.env.FIRESTORE_EMULATOR_HOST,
   "QN11.5 tests must NEVER reach live Firestore");
