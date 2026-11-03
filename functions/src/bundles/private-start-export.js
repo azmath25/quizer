@@ -23,7 +23,7 @@ export function createQuizerPrivateStartAndExport({
     // This trusted Firebase preflight MUST check admission, participant,
     // attempt count, role, visibility, deadline and retry eligibility.
     const proof=await preflightStart({
-      firebaseAuth,quizId,sourceAttemptId});
+      firebaseAuth,quizId,sourceAttemptId,requestId});
     // Resume an already-active attempt without unnecessarily downloading a
     // protected bundle. The transaction rechecks ownership/status/deadline.
     if(proof?.authorized===true && proof.actorUid===firebaseAuth.uid &&
