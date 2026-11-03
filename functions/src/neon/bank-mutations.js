@@ -86,6 +86,23 @@ export function createQuizerNeonBankMutations({
       return result;
     });
   }
+  // Retry lookup before external asset-copy preflight. A fork that already
+  // committed must replay its receipt even if sharing was revoked afterward.
+  async function completedMutation(actor,action,requestId,body){
+    requireTeacher(actor);requireId(requestId,"request ID");
+    const digest=changedHash(actor,action,body);
+    return sql.transaction(async tx=>{
+      validateRole(first(await tx.query(CURRENT_ROLE,[])));
+      const receipt=first(await tx.query(
+        "SELECT action,payload_hash,result_json FROM quizer.mutation_receipts "+
+        "WHERE actor_uid=$1 AND request_id=$2",[actor.uid,requestId]));
+      if(!receipt)return null;
+      if(receipt.action!==action||receipt.payload_hash.trim()!==digest)
+        fail("VERSION_CONFLICT","Request ID was reused with different content.");
+      return typeof receipt.result_json==="string"?
+        JSON.parse(receipt.result_json):receipt.result_json;
+    });
+  }
   async function header(tx,actor,problemId){
     const row=first(await tx.query(HEADER,[requireId(problemId,"problem ID")]));
     owner(actor,row);return row;
@@ -182,6 +199,10 @@ export function createQuizerNeonBankMutations({
         requireId(request.revisionId,"revision ID");
       const title=request.title===undefined?null:
         text(request.title,"Title",200,true);
+      const earlier=await completedMutation(actor,action,requestId,{
+        problemId,revisionId,title,
+      });
+      if(earlier)return earlier;
       // The verifier MUST authorize a shared source's image references for
       // this actor, not blindly require every shared asset to be actor-owned.
       const preflight=await sql.transaction(async tx=>{
