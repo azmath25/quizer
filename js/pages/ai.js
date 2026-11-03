@@ -287,9 +287,16 @@ export async function mount(root) {
       try {
         const clipped = await snipPageContent();
         if (clipped) {
-          const question = main.querySelector("textarea")?.value.trim() ||
-            "Explain this selected material.";
-          await send(question + "\n\nSelected from this page:\n" + clipped);
+          const approved = await dialog({
+            title: "Send selected page content to AI?",
+            body: `<p class="muted small">Review exactly what will be sent. No screenshot or computer snipping tool was used.</p><pre class="ai-clip-preview">${e(clipped)}</pre>`,
+            confirm: "Send to AI",
+          });
+          if (approved) {
+            const question = main.querySelector("textarea")?.value.trim() ||
+              "Explain this selected material.";
+            await send(question + "\n\nSelected from this page:\n" + clipped);
+          }
         } else toast("Nothing readable selected. Try Visual snip for a diagram.", { tone: "info" });
       } catch (error) {
         toast(error.message || "Could not snip page content.", { tone: "error" });
