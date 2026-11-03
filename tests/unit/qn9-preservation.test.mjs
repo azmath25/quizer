@@ -92,7 +92,9 @@ test("100/500 historical problems are fully inventoried without truncation",()=>
     assert.equal(p.counts.problemRevisions,n*2);
     assert.equal(p.counts.publishedSnapshots,n*2);
     assert.equal(p.migrationRows.length,n);
-    assert.equal(p.migrationRows[n-1].problemId,"prb_synth_"+(n-1));
+    const ids=new Set(p.migrationRows.map(row=>row.problemId));
+    assert.equal(ids.size,n);
+    for(let i=0;i<n;i++)assert(ids.has("prb_synth_"+i));
   }
 });
 test("deterministic manifest and source remain byte-for-byte unchanged",()=>{
