@@ -88,7 +88,7 @@ export async function problemForm(
       ["solution", "Solution / rubric"],
     ],
     "question",
-  )}<label class="field"><span>Image file · up to 4 MB</span><input id="problem-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><div class="image-list" id="image-list"></div><div data-image-status></div></section><section class="panel stack"><h2>Problem bank</h2>${field("Tags · comma separated", "tags", "text", m.tags.join(", "), 'maxlength="732"')}${select(
+  )}<label class="field"><span>Image file · up to 4 MB</span><input id="problem-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><div class="image-list" id="image-list"></div><div data-image-status role="status" aria-live="polite"></div></section><section class="panel stack"><h2>Problem bank</h2>${field("Tags · comma separated", "tags", "text", m.tags.join(", "), 'maxlength="732"')}${select(
     "Sharing",
     "bankVisibility",
     [
@@ -96,7 +96,7 @@ export async function problemForm(
       ["teachers", "Shared with teachers"],
     ],
     m.bankVisibility,
-  )}<p class="muted small">Sharing lets other teachers reuse this problem. They cannot edit your original.</p></section></div><aside class="panel editor-preview"><div class="panel-title"><h2>Preview</h2></div><div id="problem-preview"></div></aside></div><div class="editor-actions"><span class="save-state" id="save-state">${initial.problemId ? "Saved revision " + initial.revisionNumber : "New problem"}</span><div class="actions"><button type="submit" class="button primary" ${readOnly ? "disabled" : ""}>Save problem</button></div></div><div data-message></div></form>`;
+  )}<p class="muted small">Sharing lets other teachers reuse this problem. They cannot edit your original.</p></section></div><aside class="panel editor-preview"><div class="panel-title"><h2>Preview</h2></div><div id="problem-preview"></div></aside></div><div class="editor-actions"><span class="save-state" id="save-state" role="status" aria-live="polite" aria-atomic="true">${initial.problemId ? "Saved revision " + initial.revisionNumber : "New problem"}</span><div class="actions"><button type="submit" class="button primary" ${readOnly ? "disabled" : ""}>Save problem</button></div></div><div data-message></div></form>`;
   const form = root.querySelector("#problem-form");
   let dirty = false;
   function collect() {
