@@ -37,7 +37,7 @@ def login_teacher(context):
 
 def open_page(page,route,locator):
     page.goto(BASE+"/"+route,wait_until="domcontentloaded",timeout=30000)
-    page.locator(locator).wait_for(state="visible",timeout=55000)
+    page.locator(locator).first.wait_for(state="visible",timeout=55000)
 
 def no_horizontal_overflow(page,label,width):
     layout=page.evaluate("""() => ({
