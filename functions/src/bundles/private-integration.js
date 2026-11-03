@@ -14,6 +14,7 @@ const ALLOWED=Object.freeze({
   getTeacherAttempt:["attemptId","offset","limit"],
   getAdminAttempt:["attemptId","offset","limit"],
   getAssetLinks:["context","assetIds"],
+  getExportLink:["jobId"],
   saveManualGrade:["attemptId","itemId","points","feedback","reason",
     "expectedGradeVersion","requestId"],
   releaseResults:["quizId","attemptIds","score","solutions","requestId"],
@@ -23,12 +24,15 @@ export function createQuizerPrivateIntegration({
   enabled=false,resolveFirebaseActor,resolveAttemptOrigin,
   resolveQuizOrigin,legacy,secureAttempts,startExport,
   attemptCommits,gradeFinalization,publisher,resolveImageScope,signReadyAssets,
+  authorizeAuthorAssets=null,resolveExportOrigin=null,
+  exportStore=null,zipWorker=null,
 }={}){
   if(enabled!==true)return Object.freeze({enabled:false,
     handle:async()=>({disabled:true}),publishJob:async()=>({disabled:true}),
     gradeJobBatch:async()=>({disabled:true}),
     finalizeGradeJob:async()=>({disabled:true}),
-    exportSource:async()=>({disabled:true})});
+    exportSource:async()=>({disabled:true}),
+    exportJob:async()=>({disabled:true})});
   const checks=[resolveFirebaseActor,resolveAttemptOrigin,resolveQuizOrigin,
     legacy?.handle,secureAttempts?.questions,secureAttempts?.validateAnswers,
     secureAttempts?.navigationPreview,secureAttempts?.resultPage,
@@ -71,14 +75,42 @@ export function createQuizerPrivateIntegration({
   async function imageLinks(firebaseAuth,request){
     const {context,assetIds}=request;
     assert(context && typeof context==="object" &&
-      ["attempt","result"].includes(context.kind) &&
+      ["attempt","result","problem","quiz_draft","source","owned_upload"]
+        .includes(context.kind) &&
       typeof context.id==="string",
-      "INVALID_FIELDS","Authorized attempt image context required.");
+      "INVALID_FIELDS","Authorized image context required.");
     fields(context,["kind","id","revisionId"],"image context");
     assert(Array.isArray(assetIds) && assetIds.length<=20 &&
       new Set(assetIds).size===assetIds.length,
       "INVALID_FIELDS","Request at most 20 distinct images.");
-    const attemptId=id(context.id);
+    const targetId=id(context.id);
+    if(["source","owned_upload"].includes(context.kind))
+      return callLegacy("getAssetLinks",firebaseAuth,request);
+    if(["problem","quiz_draft"].includes(context.kind)){
+      assert(typeof authorizeAuthorAssets==="function",
+        "RESOURCE_UNAVAILABLE",
+        "Trusted hybrid author image access not configured.");
+      const auth=await authorizeAuthorAssets({firebaseAuth,context});
+      assert(auth?.route==="legacy"||auth?.route==="private",
+        "RESOURCE_UNAVAILABLE","Unknown author image provenance.");
+      if(auth.route==="legacy")
+        return callLegacy("getAssetLinks",firebaseAuth,request);
+      assert(Array.isArray(auth.assetIds),
+        "RESOURCE_UNAVAILABLE","Authorized author image set unavailable.");
+      const allowed=new Set(auth.assetIds.map(v=>id(v)));
+      for(const raw of assetIds)
+        assert(allowed.has(id(raw)),"RESOURCE_UNAVAILABLE",
+          "Image does not belong to the authorized author content.");
+      // Recheck the draft/owner and exact allowed assets after cross-store
+      // reads, before issuing any irrevocable short-lived signatures.
+      const fresh=await authorizeAuthorAssets({firebaseAuth,context});
+      assert(fresh?.route==="private" &&
+        Array.isArray(fresh.assetIds) &&
+        assetIds.every(v=>fresh.assetIds.includes(v)),
+        "VERSION_CONFLICT","Author content changed before image signing.");
+      return signReadyAssets({firebaseAuth,context,assetIds});
+    }
+    const attemptId=targetId;
     const origin=await originForAttempt(firebaseAuth,attemptId);
     if(origin==="firestore_legacy")
       return callLegacy("getAssetLinks",firebaseAuth,request);
@@ -105,8 +137,17 @@ export function createQuizerPrivateIntegration({
       assert(allowed.has(assetId),"RESOURCE_UNAVAILABLE",
         "Image is not in the authorized question or released solution.");
     }
-    // The signing callback must recheck ready/generation and refuse all
-    // published-bundles/ Storage paths, with short-lived per-asset URLs only.
+    // Recheck the verified attempt's frontier and revision after the
+    // protected bundle was scanned. No-back changes fail closed.
+    const fresh=await resolveImageScope({firebaseAuth,attemptId,
+      kind:context.kind});
+    assert(fresh?.authorized===true &&
+      fresh.pinnedRevisionId===scope.pinnedRevisionId &&
+      fresh.itemIds?.length===scope.itemIds.length &&
+      fresh.itemIds.every((v,i)=>v===scope.itemIds[i]) &&
+      fresh.solutionVisible===scope.solutionVisible,
+      "VERSION_CONFLICT","Attempt image scope changed before signing.");
+    // The signer rechecks ready/generation and retained references.
     const signed=await signReadyAssets({firebaseAuth,attemptId,
       context,assetIds});
     assert(signed && Array.isArray(signed.links) &&
@@ -132,6 +173,21 @@ export function createQuizerPrivateIntegration({
     assert(actor.uid===firebaseAuth.uid,"AUTH_REQUIRED",
       "Authenticated actor mismatch.");
     if(action==="getAssetLinks")return imageLinks(firebaseAuth,request);
+    if(action==="getExportLink"){
+      assert(typeof resolveExportOrigin==="function",
+        "RESOURCE_UNAVAILABLE","Trusted export origin unavailable.");
+      const origin=await resolveExportOrigin({
+        firebaseAuth,jobId:id(request.jobId,"export job ID")});
+      assert(ORIGINS.has(origin),"RESOURCE_UNAVAILABLE",
+        "Export provenance unavailable.");
+      if(origin==="firestore_legacy")
+        return callLegacy(action,firebaseAuth,request);
+      assert(exportStore?.enabled===true &&
+        typeof exportStore.getLink==="function",
+        "RESOURCE_UNAVAILABLE","Private export link service unavailable.");
+      return exportStore.getLink({
+        firebaseAuth,jobId:request.jobId});
+    }
     if(action==="releaseResults"){
       assert(typeof request.requestId==="string" &&
         /^[A-Za-z0-9_-]{16,100}$/.test(request.requestId),
@@ -244,5 +300,11 @@ export function createQuizerPrivateIntegration({
   return Object.freeze({enabled:true,handle,
     publishJob:({jobId})=>publisher.publish({jobId}),
     gradeJobBatch,finalizeGradeJob,
-    exportSource:({jobId})=>startExport.exportSource({jobId})});
+    exportSource:({jobId})=>startExport.exportSource({jobId}),
+    exportJob:async({jobId})=>{
+      assert(zipWorker?.enabled===true &&
+        typeof zipWorker.exportJob==="function",
+        "RESOURCE_UNAVAILABLE","Trusted ZIP writer unavailable.");
+      return zipWorker.exportJob({jobId});
+    }});
 }
