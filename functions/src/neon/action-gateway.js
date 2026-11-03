@@ -44,8 +44,17 @@ export function createQuizerNeonActionGateway({
       // before the Neon transaction. QN11 still must persist safe progress
       // and reconcile partial cross-store completion before live cutover.
       const job = await readFirebaseImportJob({ jobId, actor });
+      // Existing Firebase jobs store sourceAssetId inside input. Do not trust
+      // a browser-supplied source/owner; normalize only the privileged lookup.
+      assert(job?.kind==="import" && job.requestedBy===actor.uid &&
+        job.status==="running",
+        "RESOURCE_UNAVAILABLE","Import job unavailable.");
+      const sourceAssetId=job.input?.sourceAssetId ?? job.sourceAssetId ?? null;
       return writer.importProblemBatch({
-        actor,job:{ ...job, jobId },
+        actor,job:{
+          jobId,kind:"import",status:job.status,requestedBy:job.requestedBy,
+          sourceAssetId,
+        },
         records:request.records,
       });
     },
