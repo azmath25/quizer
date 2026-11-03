@@ -129,8 +129,9 @@ export function createQuizerImportCoordinator({
       const job=await get(tx,jobPath(jid));
       if(!op || op.ownerId!==uid || op.token!==token ||
         op.payloadHash!==payloadHash || !job ||
-        job.importClaim?.token!==token)
-        fail("VERSION_CONFLICT","Import fence no longer owns this effect.");
+        job.importClaim?.token!==token ||
+        job.importClaim?.until<=now() || op.until<=now())
+        fail("VERSION_CONFLICT","Import fence expired or no longer owns this effect.");
       const rows=responseRows(result,op.items);
       if(op.status==="complete")return {alreadyRecorded:true};
       if(op.result && fingerprint(op.result)!==fingerprint(rows))
@@ -152,8 +153,9 @@ export function createQuizerImportCoordinator({
         fail("VERSION_CONFLICT","Operation fingerprint changed.");
       if(op.status==="complete")return op.reply;
       checkJob(job,uid);
-      if(op.token!==token || job.importClaim?.token!==token)
-        fail("VERSION_CONFLICT","Import operation fencing token changed.");
+      if(op.token!==token || job.importClaim?.token!==token ||
+        job.importClaim?.until<=now() || op.until<=now())
+        fail("VERSION_CONFLICT","Import operation fence expired or changed.");
       if(op.status!=="effect_recorded" || !op.result)
         fail("FAILED_PRECONDITION","SQL effect was not durably recorded.");
       const rows=responseRows(result,op.items);
