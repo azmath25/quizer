@@ -63,6 +63,8 @@ test("QN12.1 gesture navigation excludes inputs, buttons and horizontally scroll
 });
 
 test("QN12.1 44px grid targets, narrow timer wrap and long-title bounds",()=>{
+  assert.match(css,/\.question-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(44px,\s*1fr\)\)/s);
+  assert.doesNotMatch(css,/\.question-grid button\s*\{[^}]*min-height:\s*0\s*;/s);
   assert.match(css,/\.question-grid button\s*\{[^}]*min-height:\s*44px;[^}]*min-width:\s*0;/s);
   assert.match(css,/repeat\(auto-fill,\s*minmax\(44px,\s*1fr\)\)/);
   assert.match(css,/\.runner-top\s*\{[^}]*flex-wrap:\s*wrap;/s);
