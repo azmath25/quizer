@@ -27,7 +27,8 @@ api=helpers["api"]
 wait_for_seed=helpers["wait_for_seed"]
 
 VIEWPORTS=[(320,720,True),(390,844,True),
-           (430,932,True),(768,1024,True),(1024,768,False)]
+           (430,932,True),(768,1024,True),(844,390,True),
+           (1024,768,False)]
 
 def login_teacher(context):
     reply=context.request.post(BASE+"/__qa/login",data={
@@ -140,6 +141,9 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                 "Selection toggle lacks accessible controlled region")
         require(rect(toggle)["height"]>=43.5 and
                 rect(toggle)["width"]>=43.5,"Selection toggle too small")
+        if width==320:
+            page.screenshot(path=str(OUTPUT/"320px-selected-collapsed.png"),
+                            full_page=False)
         if width<=760:
             require(toggle.get_attribute("aria-expanded")=="false",
                     "Phone selection should start compact")
