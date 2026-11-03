@@ -419,7 +419,7 @@ async function importPage(root) {
       progress("Saved to Firebase");
       go(bankOnly?"problems.html":`upload.html?id=${q.quizId}`);
     } catch(error) {
-      progress("Import paused — reselect the same files to resume safely");
+      progress("Import paused — retry to continue from the last saved problem. Re-select the same files after reloading.");
       throw error;
     }
   });
