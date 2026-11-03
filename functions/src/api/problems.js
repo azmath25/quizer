@@ -187,12 +187,54 @@ define(
       "RESOURCE_UNAVAILABLE",
       "Restore the problem before editing.",
     );
-    const metadata = validateMetadata(r.metadata),
-      { content, grading } = validateProblem(r.content, r.grading);
+    // A metadata-only save can omit the statement and grading payload entirely.
+    // Both must be present together if content is intentionally edited.
+    const metadata = validateMetadata(r.metadata);
+    const hasContent = r.content !== undefined || r.grading !== undefined;
+    assert(
+      !hasContent || (r.content !== undefined && r.grading !== undefined),
+      "INVALID_FIELDS",
+      "Problem content and grading must be supplied together.",
+    );
+    const sameMetadata = Object.entries(metadata).every(
+      ([key, value]) => JSON.stringify(old[key]) === JSON.stringify(value),
+    );
+    let content, grading, previous;
+    let sameContent = !hasContent;
+    if (hasContent) {
+      ({ content, grading } = validateProblem(r.content, r.grading));
+      previous = await c.get(`${p}/revisions/${old.latestRevisionId}`);
+      sameContent = previous.contentHash === hash({ content, grading });
+    }
+    // No-op: do not create a revision, touch the parent or write an audit event.
+    if (sameContent && sameMetadata)
+      return {
+        problemId: r.problemId,
+        revisionId: old.latestRevisionId,
+        version: old.version,
+        unchanged: true,
+      };
+    // Metadata-only: update the searchable problem root, not its immutable
+    // statement, grading record, asset references or revision number.
+    if (sameContent) {
+      c.set(p, {
+        ...old,
+        ...metadata,
+        searchTitle: metadata.title.toLowerCase(),
+        version: old.version + 1,
+        updatedAt: c.now,
+      });
+      c.audit("problem.metadata_updated", "problem", r.problemId);
+      return {
+        problemId: r.problemId,
+        revisionId: old.latestRevisionId,
+        version: old.version + 1,
+        metadataOnly: true,
+      };
+    }
     const revisionId = c.key("prv_", r.problemId);
     // Existing images on the previous revision remain valid after a fork.
-    const previous = await c.get(`${p}/revisions/${old.latestRevisionId}`),
-      key = await c.get(`${p}/revisions/${old.latestRevisionId}/grading/main`);
+    const key = await c.get(`${p}/revisions/${old.latestRevisionId}/grading/main`);
     const priorIds = new Set(assetIds(previous, key));
     const ids = assetIds(content, grading);
     await retainAssets(
