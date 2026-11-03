@@ -68,15 +68,17 @@ BEGIN
      (SELECT count(*) FROM quizer.activity_events) <> 0 THEN
     RAISE EXCEPTION 'QN9 must not copy published quizzes or historical audit logs';
   END IF;
-  -- Protected revision rows may not be rewritten by an accidental adapter.
+  -- A successful UPDATE is an error: only the trigger may stop it.
+  DECLARE blocked boolean := false;
   BEGIN
-    UPDATE quizer.problem_revisions SET grading_json='{}'
-      WHERE revision_id='prv_0_1';
-    RAISE EXCEPTION 'QN9 revision immutability test unexpectedly allowed UPDATE';
-  EXCEPTION WHEN raise_exception THEN
-    IF EXISTS(SELECT 1 FROM quizer.problem_revisions
-      WHERE revision_id='prv_0_1' AND grading_json='{}'::jsonb) THEN
-      RAISE EXCEPTION 'QN9 old grading content was changed';
+    BEGIN
+      UPDATE quizer.problem_revisions SET grading_json='{}'
+        WHERE revision_id='prv_0_1';
+    EXCEPTION WHEN raise_exception THEN
+      blocked := true;
+    END;
+    IF NOT blocked THEN
+      RAISE EXCEPTION 'QN9 immutable revision UPDATE unexpectedly succeeded';
     END IF;
   END;
 END;
