@@ -23,6 +23,8 @@ existing partial slot saves and implement zero-write no-ops, metadata-only
 updates and conditional problem revision creation. Do not confuse a new
 immutable publish snapshot with an ordinary draft edit.
 
+**Ordinary editing must never restart the original import.** The 1-to-20-problem `importProblemBatch` requests are for initial imports, not quiz rename/settings/points/reorder changes. A title-only edit on a 100- or 500-question quiz sends just `{title}` to the existing authenticated draft mutation and performs only bounded Firebase metadata updates: **zero Neon calls, zero per-problem operations, zero source .tex reads/uploads, and zero publish jobs**. Settings-only edits follow the same principle. Points-only edits update the selected draft slot, while a genuine problem-content change stores only that changed problem's Neon revision and updates the relevant reference. A new Firebase frozen question/answer snapshot is created only when the teacher separately publishes changes. Keep older published revisions and in-progress attempts untouched.
+
 Mimo's existing Neon project remains isolated. The Quizer backend uses
 server-side credentials only. Quizer must work normally for students if Neon
 or the archive worker is unavailable.
@@ -57,7 +59,7 @@ or the archive worker is unavailable.
 | Phase | Small deliverable | Gate |
 | --- | --- | --- |
 | **QN0 — audit** | Read-only current-code audit, unmerged diff-only branch review, connected Neon inventory, new architecture decisions. | **Documented**; running tests and production timings not claimed. |
-| **QN1 — draft diff-only** | Review/port just frontend and backend `saveQuizDraft` no-op/field/item/order detection; ensure one title edit writes only needed records; add tests and baseline byte/write counters. | Stop for approval. |
+| **QN1 — draft diff-only** | Review/port frontend/backend `saveQuizDraft` field/item/order diffing and no-op detection. **Test rename of a 100-question quiz:** one small metadata save, zero `importProblemBatch`, zero Neon calls, zero source-file reads/uploads, zero publication jobs, no per-question writes; validate measured payload/write counts. | Stop for approval. |
 | **QN2 — problem save efficiency** | Review/port unchanged-content and metadata-only behavior from unmerged optimization branch; preserve immutable changed-content revisions, references and assets; add tests. | Stop for approval. |
 | **QN3 — contracts and schema** | Define independent Quizer Neon SQL schema (problems, revisions, ownership, tags, audit log, outbox receipts, optional quiz mirrors) and typed server adapter; create synthetic fixtures and migration SQL in repo. No live Neon changes. | Stop for approval. |
 | **QN4 — local/disposable schema tests** | Rehearse reversible schema changes on an explicitly authorized disposable PostgreSQL/Neon dev branch; verify uniqueness, foreign keys, indexes, pagination, idempotency, rollback. Never touch Mimo or production. | Stop for approval. |
@@ -73,6 +75,9 @@ or the archive worker is unavailable.
 ## Acceptance criteria
 
 **Small edits**
+- Renaming an existing 100-question (and separately 500-question) quiz does **not** call `importProblemBatch`, load all problem content, parse/read/reupload the original `.tex`, call Neon, mutate individual problem records, or republish. Only the quiz title fields and expected metadata/version/audit bookkeeping may change.
+- A settings-only edit does not reimport or mutate questions; a one-slot points edit updates only that slot and minimal required draft bookkeeping.
+- Editing one problem updates exactly one Neon problem revision/reference, with no changed unrelated problem content. Existing published snapshots stay frozen until explicitly republished.
 - Unchanged Save -> 0 write, 0 version increment, no new audit event.
 - Title/settings edit -> only changed patch, no unrelated item content upload.
 - One point or revision change -> update only the matching slot, preserve all
