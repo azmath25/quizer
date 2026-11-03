@@ -85,3 +85,8 @@ test("QN12.2 selected-problem dock sits above card and assistant overlays",()=>{
   assert.match(editor,/\.selection-panel\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*70;[^}]*pointer-events:\s*auto;/s);
   assert.match(editor,/\.sel-head #toggle-selection\s*\{[^}]*order:\s*-1;/s);
 });
+
+test("QN12.2 problem bank selection label is 44px at phone and tablet widths",()=>{
+  assert.match(cards,/\.prob-select\s*\{[^}]*display:\s*inline-grid;[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
+  assert.match(cards,/\.prob-select input\s*\{[^}]*width:\s*22px;[^}]*height:\s*22px;/s);
+});
