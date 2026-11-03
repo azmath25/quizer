@@ -147,3 +147,30 @@ test("QN11.5: stale grading lease, pinned revision or active attempt blocks grad
     why("VERSION_CONFLICT"));
   assert.equal((await db.doc("attempts/"+f.attemptId+"/grades/itm_a").get()).exists,false);
 });
+
+test("QN11.5: lost ACK replays old committed answer/navigation after submission",async()=>{
+  const f=await seeded();
+  const saved={firebaseAuth:f.actor,attemptId:f.attemptId,
+    expectedAnswerVersion:0,changes:[change("itm_a","4")],
+    proof:proof(f.attemptId,["itm_a"]),requestId:requestId()};
+  const answer=await f.svc.saveAnswers(saved);
+  const navigation={firebaseAuth:f.actor,attemptId:f.attemptId,
+    targetIndex:1,requestId:requestId(),proof:{
+      attemptId:f.attemptId,pinnedRevisionId:"qrv_bundle_new",
+      targetIndex:1,expectedFrontier:0,expectedUiVersion:0,
+      item:{itemId:"itm_b",statementLatex:"Question two"},
+    }};
+  const nav=await f.svc.navigate(navigation);
+  await db.doc("attempts/"+f.attemptId).update({status:"submitted"});
+  assert.deepEqual(await f.svc.saveAnswers(saved),answer);
+  assert.deepEqual(await f.svc.navigate(navigation),nav);
+  await assert.rejects(f.svc.saveAnswers({...saved,
+    requestId:requestId(),expectedAnswerVersion:1,
+    changes:[change("itm_a","9",1)],
+    proof:proof(f.attemptId,["itm_a"])}),why("ATTEMPT_FROZEN"));
+  await assert.rejects(f.svc.navigate({...navigation,
+    requestId:requestId(),proof:{...navigation.proof,
+      expectedFrontier:1,expectedUiVersion:1}}),why("ATTEMPT_FROZEN"));
+  assert.equal((await db.doc("attempts/"+f.attemptId+"/answers/itm_a").get())
+    .data().value,"4");
+});
