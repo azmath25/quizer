@@ -49,8 +49,12 @@
   gap: 16px;
   margin-bottom: 18px;
 }
+.runner-title {
+  min-width: 0;
+}
 .runner-title h1 {
   font-size: 1.2rem;
+  overflow-wrap: anywhere;
 }
 .runner-title p {
   font-size: 0.8rem;
@@ -60,6 +64,8 @@
 .timer {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
   gap: 8px;
   padding: 9px 13px;
   background: var(--surface);
@@ -89,6 +95,13 @@
 .question-meta strong {
   color: var(--primary);
   font-size: 0.8rem;
+}
+/* A flag/star toggle must never resize its tap target or shift nearby controls. */
+.question-meta #flag,
+.question-meta #star {
+  min-height: 44px;
+  min-width: 84px;
+  white-space: nowrap;
 }
 .runner-question > .math-content {
   font-size: 1.08rem;
@@ -456,7 +469,8 @@ fieldset.choices {
 @media (max-width: 760px) {
   html[data-input="touch"] .runner-footer {
     position: sticky;
-    bottom: 0;
+    /* Keep Previous/Next above the fixed mobile navigation. */
+    bottom: calc(72px + env(safe-area-inset-bottom));
     z-index: 20;
     margin: 16px -16px 0;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
@@ -469,5 +483,29 @@ fieldset.choices {
   }
   html[data-input="touch"] .runner-footer .save-indicator {
     display: none;
+  }
+}
+
+/* Narrow phones and enlarged text: controls stay aligned and are touch-sized. */
+@media (max-width: 520px) {
+  .question-meta {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .question-meta .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .question-meta .actions > span:first-child {
+    margin-right: auto;
+  }
+}
+@media (max-width: 420px) {
+  .runner-sidebar .question-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .runner-sidebar .question-grid button {
+    min-height: 44px;
   }
 }
