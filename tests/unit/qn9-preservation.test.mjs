@@ -227,3 +227,30 @@ test("nonempty destination refuses overwrite; SQL parameterization protects cont
   assert(sql.log.some(x=>x.args.includes(title)));
   assert.equal(sql.commits,1);
 });
+
+test("genuine v1 client attempts with no pinned revision remain untouched",()=>{
+  const docs=syntheticLegacySnapshot(2);
+  docs["attempts/att_v1_synthetic"]={
+    quizId:"quiz_old_style",quizRevisionId:null,
+    provenance:"legacy_client_v1",legacySnapshotUnknown:true,
+    studentId:"student_synthetic",totals:{score:2,possible:2},
+    status:"submitted",gradeState:"final",order:[],
+  };
+  docs["attempts/att_v1_synthetic/legacyAnswers/q1"]={
+    value:"2",fromLegacy:true,
+  };
+  const original=structuredClone(docs);
+  const p=buildLegacyPreservationPlan({documents:docs});
+  assert.equal(p.ready,true,JSON.stringify(p.errors));
+  assert(p.warnings.some(x=>x.code==="LEGACY_ATTEMPT_UNPINNED_PRESERVE_AS_IS"));
+  assert.equal(p.counts.attempts,2);
+  assert(p.documentHashes["attempts/att_v1_synthetic/legacyAnswers/q1"]);
+  assert.deepEqual(docs,original);
+});
+test("unexplained null revision on a modern attempt is a blocker",()=>{
+  const docs=syntheticLegacySnapshot(1);
+  docs["attempts/att_synthetic_old"].quizRevisionId=null;
+  const p=buildLegacyPreservationPlan({documents:docs});
+  assert.equal(p.ready,false);
+  assert(bad("ATTEMPT_PINNED_REVISION_MISSING")(p));
+});
