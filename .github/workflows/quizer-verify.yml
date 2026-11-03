@@ -102,10 +102,10 @@ jobs:
           npm ci
           npm ci --prefix functions
           npm run prepare:backend
-      - name: Install isolated browser-test dependencies
+      - name: Install isolated browser-test bindings (use system Chrome)
         run: |
           python -m pip install --disable-pip-version-check playwright==1.58.0
-          python -m playwright install --with-deps chromium
+          command -v google-chrome || command -v chromium || command -v chromium-browser
       - name: QN12.1 responsive browser geometry and saving checks
         run: python tests/qa/mobile-runner-browser.py
       - name: Keep only synthetic browser QA screenshots and logs
