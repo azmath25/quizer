@@ -10,6 +10,7 @@ const bank=read("js/pages/problems.js");
 const quiz=read("js/pages/quiz-editor.js");
 const form=read("js/components/problem-form.js");
 const device=read("js/core/device.js");
+const cards=read("assets/css/problem-card.css");
 
 test("QN12.2 removes original 26px selected-problem buttons everywhere",()=>{
   assert.doesNotMatch(editor,/\.sel-ctl \.icon-button\s*\{[^}]*width:\s*26px/s);
@@ -71,4 +72,11 @@ test("QN12.2 keeps existing real author data/action paths unchanged",()=>{
   assert.match(quiz,/api\("saveQuizDraft"/);
   assert.match(quiz,/api\("publishQuiz"/);
   assert.match(bank,/api\("getProblem"/);
+});
+
+test("QN12.2 bank card toolbar wraps into 44px buttons on small viewports",()=>{
+  assert.match(cards,/@media \(max-width: 600px\)\s*\{[^}]*\.prob-tabs\s*\{[^}]*flex-wrap:\s*wrap;/s);
+  assert.match(cards,/\.tab-actions \.action-btn\s*\{[^}]*flex:\s*0 0 44px;[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
+  assert.match(cards,/\.prob-select\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
+  assert.match(cards,/@media \(hover: none\)\s*\{[^}]*\.action-btn\[data-tooltip\]:hover::before\s*\{[^}]*opacity:\s*0;/s);
 });
