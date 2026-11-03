@@ -27,12 +27,12 @@ Tests: tests/unit/qn-fe-mobile-controls.test.mjs contains seven source-contract 
 
 ## Remaining QN12 mobile audit — priority list
 
-1. **Visible save feedback on touch:** assets/css/pages/quiz.css contains html[data-input="touch"] .runner-footer .save-indicator { display:none }. This hides the normal "saving/unsaved/offline/error" indicator at exactly the time mobile users need it. Redesign with a compact persistent/status overlay that does not cover answer fields or the fixed bottom navigation. Test failed saves, offline and recovery. The underlying save mechanism is unchanged by the current patch.
+1. **Visible save feedback on touch — QN12.1 fix implemented:** the prior `display:none` on touch is removed. `save-status` and contextual retry/conflict controls now live in one compact sticky footer row above Previous/Next. QA must exercise failed-save/retry and confirm no overlap with mobile navigation; answer persistence internals are unchanged.
 2. **Small editor controls:** assets/css/pages/editor.css contains .sel-ctl .icon-button { width:26px; height:26px; min-width:0 }. Audit selected-problem actions and drag affordances for 44x44 accessible touch targets, avoiding a reflow of list rows.
 3. **Real browser layout and device tests:** verify 320/360/375/390/430px phones, 768px tablets, 1024px landscape/tablet and desktop widths; Android Chrome and iOS Safari; portrait and landscape; fine/coarse/hybrid pointers; browser text-size at 100/200%, device safe-area insets, on-screen keyboard opening, and dynamic viewport changes. No horizontal overflow or hidden buttons permitted.
 4. **Quiz state changes:** capture before/after button geometry (x,y,width,height) for Flag/Star pressed and unpressed, timer from 10:00 to 09:59 and 01:00 to 00:59, answered/flagged grid states, navigation and submit flow. Target: zero geometry shift for toggle controls and no button overlap.
 5. **Latex/image and accessibility:** long MathJax formulas, images, manual textarea with mobile keyboard, answer selection, scroll anchoring, focus rings, semantic aria labels/pressed state, reduced motion and dark mode, keyboard-only navigation and voice-over/screen-reader output.
-6. **Sticky bars:** verify the new 72px bottom clearance against actual mobile-nav element height, safe-area changes, landscape and browser toolbars; use measured CSS or dynamic layout if the hard-coded approximation proves insufficient. Verify no collision with site navigation/submit.
+6. **Sticky bars — QN12.1 measured clearance:** new ResizeObserver/viewport measurement sets `--runner-mobile-nav-clearance`, with CSS safe-area fallback. Chromium screenshot checks cover 320–1024px, but real landscape keyboard/OS safe-area and iOS Safari still require QN12.2 hardware review.
 7. **Perceived performance and network behavior:** editor 100/500-question scroll, quiz cold/warm first question, flag/save/navigation requests, offline retries, duplicate request suppression, answer recovery and API request count comparisons. QN11 and QN13 need integration before claiming real app improvements.
 
 ## Current status and boundary
@@ -40,3 +40,7 @@ Tests: tests/unit/qn-fe-mobile-controls.test.mjs contains seven source-contract 
 - Existing live Quizer remains on its original published Firebase handlers. QN8/10 staged backend is disabled. QN11 is still pending for Neon bank, cross-store authoring, student attempt and grading wiring. QN12 remains the full mobile UI/accessibility/browser test milestone; QN13 remains end-to-end performance, data-preservation and release-readiness.
 - This update touches only js/pages/quiz.js, assets/css/pages/quiz.css, a new static regression test and this audit/roadmap documentation. It does **not** claim screenshots, real Safari/Android testing, mobile hardware validation or full QN12 acceptance.
 - **No changes to the site's overall design system, other page styles, core quiz data flow, main, main-backup or Mimo.**
+
+## QN12.1 follow-up (2026-11-03)
+
+The quiz-only improvements are now committed on the feature branch: persistent Save/Retry feedback, safe-area-aware footer clearance measurement, fixed-width timer readout, disabled locked flagged links, touch-safe swipes and 44px problem grid targets. Eight further static regressions and a GitHub Actions Chromium-based emulator device matrix were added. Browser tests are distinct from actual hardware Safari/Android, and should not be counted as hardware certification. See `docs/QUIZER_QN12_1_CHECKPOINT_2026-11.md` for the final CI evidence.
