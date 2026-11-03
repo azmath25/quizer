@@ -195,6 +195,8 @@ test("oversized protected data is rejected rather than partially published",()=>
 test("sparse arrays, unsupported values and prototype pollution are refused",()=>{
   assert.throws(()=>canonicalBundleBytes({x:undefined}),/Invalid bundle value/);
   assert.throws(()=>canonicalBundleBytes({x:[1,,3]}),/Sparse/);
+  const decorated=[1,,3]; decorated.extra="fake index";
+  assert.throws(()=>canonicalBundleBytes({x:decorated}),/Sparse or decorated/);
   const obj=JSON.parse('{"__proto__":{"isAdmin":true}}');
   assert.throws(()=>canonicalBundleBytes(obj),/Unsafe property/);
 });
