@@ -65,7 +65,7 @@ export function createQuizerNeonWriteRepository({
       typeof verifyAssets !== "function")
     throw new Error("QN8 requires transactional Postgres port and Firebase asset checks.");
   async function guardedTransaction(fn) {
-    return guardedTransaction(async tx => {
+    return sql.transaction(async tx => {
       // Do not trust a JS assertion or a URL name: prove SQL privileges using
       // the live connection actually executing the transaction.
       const role = first(await tx.query(
