@@ -11,6 +11,12 @@ Date: 2026-11-03. Branch: `work/quizer-audit-optimization-2026-11`.
 - `tests/unit/qn4-disposable-guard.test.mjs`: guarded connection tests, production/nonlocal refusal, explicit approval, SQL/checkpoint structural assertions.
 - Rollback remains `db/quizer/001_rollback_DISPOSABLE_ONLY.sql`; it destroys only the newly created `quizer` schema inside the approved localhost disposable database.
 
+## Isolated verification performed
+
+- **7/7** localhost safety-target cases passed by executing the exact committed guard function in V8 with a URL shim (valid disposable target, missing approval, remote host, Mimo DB, production DB, URL override, wrong protocol).
+- **6/6** structural assertions passed against committed SQL and runner source, including the transaction boundary, FK/immutability tests, rollback and inherited-libpq-host overrides.
+- **No PostgreSQL server was available:** these results do **not** verify that the schema applies or that the SQL assertions/rollback execute successfully.
+
 ## Next operator verification (not performed)
 
 Provision a **new local empty** PostgreSQL database with a name beginning `quizer_qn4_disposable_` and grant its test role sufficient DDL rights, then from a complete checkout run:
