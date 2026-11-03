@@ -1,22 +1,21 @@
-// Screenshot-and-crop tool. Resolves to a PNG File, or null if cancelled.
-// Falls back to an image picker where screen capture is unavailable (phones).
-function pickImage() {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = () => resolve(input.files[0] ?? null);
-    input.oncancel = () => resolve(null);
-    input.click();
-  });
-}
-
+// Browser-tab pixel snip. Never launches the OS screenshot app and never
+// falls back to a device file picker. The browser's tab-sharing permission
+// chooser is REQUIRED for actual rendered pixels under web security rules.
+// For a zero-permission DOM/LaTeX snip, use page-snip.js instead.
 async function grabFrame() {
   const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
+    video: { displaySurface: "browser" },
+    audio: false,
     preferCurrentTab: true,
+    selfBrowserSurface: "include",
+    monitorTypeSurfaces: "exclude",
   });
   try {
+    const track = stream.getVideoTracks()[0];
+    if (track?.getSettings()?.displaySurface &&
+      track.getSettings().displaySurface !== "browser") {
+      throw new Error("Choose the Quizer browser tab, not a screen or another window.");
+    }
     const video = document.createElement("video");
     video.srcObject = stream;
     video.muted = true;
@@ -113,11 +112,12 @@ function crop(canvas) {
 }
 
 export async function snip() {
-  if (!navigator.mediaDevices?.getDisplayMedia) return pickImage();
+  if (!navigator.mediaDevices?.getDisplayMedia)
+    throw new Error("This browser cannot capture tab pixels. Use Snip page content instead.");
   try {
     return await crop(await grabFrame());
   } catch (error) {
-    if (error?.name === "NotAllowedError") return null;
-    return pickImage();
+    if (["NotAllowedError", "AbortError"].includes(error?.name)) return null;
+    throw error;
   }
 }
