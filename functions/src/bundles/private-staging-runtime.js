@@ -3,6 +3,7 @@
 // NOT imported into functions/src/router.js, jobs/worker.js or entrypoint.
 // Only trusted Firebase Admin + Neon service ports, no new public endpoint.
 import {assert,id} from "../../shared/schema.js";
+import {hash} from "../domain/runtime.js";
 import {requireRole} from "../domain/runtime.js";
 import {createPrivateBundleStoragePort} from "./private-storage.js";
 import {createFirestoreBundlePublicationStore} from "./firestore-publication-store.js";
@@ -14,6 +15,13 @@ import {createFirestorePrivateGradeFinalization} from "./private-grade-finalizat
 import {createQuizerPrivateStartAndExport} from "./private-start-export.js";
 import {createFirestorePrivateAttemptStart} from "./private-attempt-start.js";
 import {createQuizerPrivateImageSigner} from "./private-image-signer.js";
+import {createFirestorePrivateImageScope} from "./private-image-scope.js";
+import {createQuizerAuthorImageScope} from "./private-author-image-scope.js";
+import {createFirestorePublishedImageRetention} from "./private-asset-retention.js";
+import {createFirestorePrivateExportAssetReader} from "./private-export-asset-reader.js";
+import {createFirestorePrivateExportStore} from "./private-export-store.js";
+import {createPrivateZipStoragePort} from "./private-zip-storage.js";
+import {createPrivateQuizZipWorker} from "./private-zip-worker.js";
 import {createQuizerPrivateIntegration} from "./private-integration.js";
 
 export function createQuizerStagedPrivateRuntime({
@@ -21,19 +29,23 @@ export function createQuizerStagedPrivateRuntime({
   resolvePublicationActor,verifyPublicationAssets,
   preflightStart,commitStart,authorizeExport,verifyExportAssets,
   resolveImageScope,signImage,legacyHandle,
+  authorImagePorts=null,
 }={}){
   if(enabled!==true)return Object.freeze({enabled:false,
     handle:async()=>({disabled:true}),
     publishJob:async()=>({disabled:true}),
     gradeJobBatch:async()=>({disabled:true}),
     finalizeGradeJob:async()=>({disabled:true}),
-    exportSource:async()=>({disabled:true})});
+    exportSource:async()=>({disabled:true}),
+    exportJob:async()=>({disabled:true})});
   assert(db?.doc&&db?.runTransaction&&bucket?.file&&
     typeof authFor==="function"&&
     typeof neonReader?.getProblemForTeacher==="function"&&
     [resolvePublicationActor,verifyPublicationAssets,
-      authorizeExport,verifyExportAssets,
-      resolveImageScope,signImage,legacyHandle].every(x=>typeof x==="function") &&
+      legacyHandle].every(x=>typeof x==="function") &&
+    [authorizeExport,verifyExportAssets,
+      resolveImageScope,signImage].every(x=>
+      x===undefined || typeof x==="function") &&
     ((preflightStart===undefined && commitStart===undefined) ||
       (typeof preflightStart==="function" &&
         typeof commitStart==="function")),
@@ -103,9 +115,12 @@ export function createQuizerStagedPrivateRuntime({
   const pinned=createPinnedNeonPublicationResolver({
     enabled:true,readRepository:neonReader,
     resolvePublicationActor,verifyAssets:verifyPublicationAssets});
+  const retention=createFirestorePublishedImageRetention({
+    enabled:true,db,authFor});
   const publisher=createPrivateBundlePublisher({
     enabled:true,publicationStore,
     resolvePinnedRevision:args=>pinned.resolve(args),
+    retainPublishedAssets:args=>retention.ensureRetained(args),
     storage,
   });
   const secureAttempts=createFirestoreSecureBundleService({
@@ -116,21 +131,69 @@ export function createQuizerStagedPrivateRuntime({
   const trustedStart=(preflightStart&&commitStart)
     ? {preflightStart,commitStart}
     : createFirestorePrivateAttemptStart({enabled:true,db});
+  const zipStorage=createPrivateZipStoragePort({enabled:true,bucket});
+  const exportStore=createFirestorePrivateExportStore({
+    enabled:true,db,authFor,signExport:args=>zipStorage.sign(args)});
+  const assetReader=createFirestorePrivateExportAssetReader({
+    enabled:true,db,bucket});
   const startExport=createQuizerPrivateStartAndExport({
     enabled:true,preflightStart:trustedStart.preflightStart,
     commitStart:trustedStart.commitStart,
-    authorizeExport,verifyExportAssets,
+    authorizeExport:authorizeExport??(args=>exportStore.load(args.jobId)),
+    verifyExportAssets:verifyExportAssets??(async ({job,quizId,
+      revisionId,assetIds})=>{
+      for(const assetId of assetIds)
+        await assetReader.verifyRetained({job,quizId,revisionId,assetId});
+      return true;
+    }),
     loadRevision:({quizId,revisionId})=>get(
       "quizzes/"+id(quizId)+"/revisions/"+id(revisionId)),
     readPrivateObject:args=>storage.readExact(args),
   });
+  const zipWorker=createPrivateQuizZipWorker({
+    enabled:true,exportStore,sourceReader:args=>startExport.exportSource(args),
+    assetReader,storage:zipStorage});
+  const trustedImageScope=resolveImageScope??
+    createFirestorePrivateImageScope({enabled:true,db}).resolve;
+  const imageSigner=signImage??(async ({storagePath,generation,expiresAt})=>{
+    const [url]=await bucket.file(storagePath,{generation})
+      .getSignedUrl({version:"v4",action:"read",expires:expiresAt,
+        queryParams:{generation:String(generation)}});
+    return url;
+  });
   const images=createQuizerPrivateImageSigner({
-    enabled:true,db,signImage});
+    enabled:true,db,signImage:imageSigner,
+    verifyRetained:async ({attemptId,assetId})=>{
+      const a=await get("attempts/"+id(attemptId));
+      assert(a?.quizId&&a.quizRevisionId,
+        "RESOURCE_UNAVAILABLE","Pinned image attempt unavailable.");
+      const target="quizzes/"+id(a.quizId)+"/revisions/"+id(a.quizRevisionId);
+      const ref=await get("assets/"+id(assetId)+"/refs/"+hash(target));
+      return ref?.target===target;
+    },
+  });
+  const authorAssets=authorImagePorts
+    ? createQuizerAuthorImageScope({
+      enabled:true,resolveActor:resolveFirebaseActor,
+      neonReader,...authorImagePorts,
+    }).authorize
+    : null;
+  const resolveExportOrigin=async ({jobId})=>{
+    const job=await get("jobs/"+id(jobId));
+    assert(job?.kind==="export_quiz"||job?.kind==="export_results",
+      "RESOURCE_UNAVAILABLE","Export job unavailable.");
+    return job.kind==="export_results"
+      ? "firestore_legacy"
+      : readKind(job.targetId,job.input?.revisionId);
+  };
   const facade=createQuizerPrivateIntegration({
     enabled:true,resolveFirebaseActor,resolveAttemptOrigin,
     resolveQuizOrigin,legacy:{handle:legacyHandle},
     secureAttempts,startExport,attemptCommits,gradeFinalization,publisher,
-    resolveImageScope,signReadyAssets:images.signReadyAssets,
+    resolveImageScope:trustedImageScope,
+    signReadyAssets:images.signReadyAssets,
+    authorizeAuthorAssets:authorAssets,
+    resolveExportOrigin,exportStore,zipWorker,
   });
   return Object.freeze({...facade,enabled:true});
 }
