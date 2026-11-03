@@ -29,6 +29,13 @@ Scope: **QN9 only.** No merge, deployment, production Firebase reads or writes, 
 
 All IDs and values above are synthetic, not private user data.
 
+## CI verification
+
+- **Both GitHub Actions jobs PASSED** on the complete QN9 implementation, commit 29d95bf41400944d8842111fd4362894b6f5c8e3: [run 41641124699](https://github.com/azmath25/quizer/actions/runs/41641124699).
+- Unit tests: **166/166 passed** (includes QN9 100/500 fixture inventory, legacy v1 attempt cases, hash and broken-reference checks). Backend tests: **5/5 passed**. Static frontend verification passed.
+- Firebase emulator integration suite and transport suite both passed, including the QN9 historical quiz revision and pinned result readability test. This establishes synthetic/emulator compatibility, not production-data parity.
+- Later commits only add checkpoint/roadmap documentation; workflow path filters do not require rerunning the unchanged code.
+
 ## Verification limits and stop gate
 
 - **No production inventory has been performed.** It is not possible to prove real historical quiz coverage without a later explicitly approved read-only backup/inventory with complete pagination and nested subcollections. No production Firebase credentials or user data were accessed.
