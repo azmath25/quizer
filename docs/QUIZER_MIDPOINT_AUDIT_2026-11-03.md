@@ -32,7 +32,7 @@ This is an implementation audit, **not** an authorization to deploy or modify li
 - Local **native Node 22** runs of existing QN1 and QN2 pure helper suites succeeded: 9/9 each, with one QN1 source-inspection case skipped in the partial local checkout.
 - QN3 (15), QN5 (8), QN6 (11) contract suites previously passed in V8 mock runners; these are not substitutes for integration tests.
 - QN4 guard previously passed 7 local-target cases and 6 structural checks; actual DDL, FK and revision trigger SQL have **not** been executed in PostgreSQL.
-- New GitHub Actions workflow: `https://github.com/azmath25/quizer/actions/workflows/quizer-verify.yml`. This report must be updated to include the final test-only run result; do not call partial/queued/cancelled checks "CI passed".
+- **GitHub Actions full two-job run passed** at commit `0efd21e0eef1e4cfdf7fe5c6bbbf933535521203`: `https://github.com/azmath25/quizer/actions/runs/41596426366`. Job `Unit + backend + static`: unit regression, backend regression and static frontend checks **success**. Job `Firebase emulator regressions`: emulator integration and transport checks **success**. Subsequent audit/documentation commits do not affect the code under test (workflow ignores documentation-only changes). These checks do **not** validate actual PostgreSQL, a live Neon connection or browser QA.
 - No mobile browser performance, private bundle student-security, 100/500-question bulk imports, Neon budget or cloud latency measurement yet.
 
 ## Recommended work order
