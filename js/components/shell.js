@@ -44,6 +44,8 @@ export function mountShell() {
       .join("");
     const account = document.querySelector("#account-link");
     account.href = s.authResolved && !s.user ? "login.html" : "profile.html";
+    // The visible name is hidden only on narrow mobile headers.
+    account.setAttribute("aria-label", s.authResolved && !s.user ? "Sign in" : "Profile");
     account.innerHTML = s.user
       ? `<span class="avatar">${e((s.profile?.displayName || s.user.email || "U").slice(0, 1).toUpperCase())}</span><span>${e((s.profile?.displayName || "Profile").split(" ")[0])}</span>`
       : `${icon("profile")}<span>${s.authResolved ? "Sign in" : "Profile"}</span>`;
