@@ -111,6 +111,9 @@ test("QN11.6.3 creates real compressed ZIP with protected quiz.json and retained
   assert.equal(contents.revision.bundle.sha256,bundleHash);
   assert.equal(contents.records[0].grading.acceptedAnswers[0],
     "SENSITIVE_ANSWER");
+  assert.equal(contents.records[0].content.itemId,"itm_1");
+  assert.equal(contents.records[0].content.points,2);
+  assert.equal(contents.records[0].content.problemRevisionId,"prv_1");
   assert.equal(contents.assets.ast_1.path,"images/ast_1.png");
   assert.equal(entry(f.bytes,"images/ast_1.png").toString(),"SYNTHETIC_PNG");
 });
