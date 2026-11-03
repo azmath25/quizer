@@ -124,6 +124,12 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
         # Existing problem bank. Selecting is IN-MEMORY ONLY.
         open_page(page,"problems.html","[data-select]")
         no_horizontal_overflow(page,"problem bank",width)
+        if width<=600:
+            card_buttons=page.locator(".problem-wrapper .tab-actions .action-btn")
+            require(card_buttons.count()>0,"Problem card toolbar missing")
+            r=rect(card_buttons.first)
+            require(r["height"]>=43.5 and r["width"]>=43.5,
+                    f"Bank toolbar undersized at {width}px: {r}")
         checks=page.locator("[data-select]")
         require(checks.count()>0,"Seeded teacher has no bank problems")
         checks.first.check(timeout=12000,force=True)
