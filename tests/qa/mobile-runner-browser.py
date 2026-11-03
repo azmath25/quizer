@@ -75,7 +75,7 @@ def login(context):
     }, timeout=25000)
     require(r.ok, "Synthetic student login failed: " + r.text()[:500])
 
-def viewport_check(browser, width, height, touch, attempt_id):
+def viewport_check(browser, width, height, touch, attempt_id, scale=False):
     ctx = browser.new_context(viewport={"width": width, "height": height},
                               device_scale_factor=2 if touch else 1,
                               is_mobile=touch, has_touch=touch,
@@ -83,6 +83,11 @@ def viewport_check(browser, width, height, touch, attempt_id):
     try:
         login(ctx)
         page = ctx.new_page()
+        if scale:
+            page.add_init_script("""document.addEventListener(
+              'DOMContentLoaded', () => {
+                document.documentElement.style.fontSize='200%';
+              }, {once:true});""")
         page.route("https://fonts.googleapis.com/**", lambda route: route.abort())
         page.route("https://fonts.gstatic.com/**", lambda route: route.abort())
         page.route("**/js/components/tour.js*", lambda route: route.abort())
@@ -131,6 +136,24 @@ def viewport_check(browser, width, height, touch, attempt_id):
         grid = page.locator("#question-grid button").first
         require(grid.count() and rect(grid)["height"] >= 43.5,
                 f"numbered problem button smaller than 44px at {width}px")
+        require(page.locator('#question-grid button[aria-current="step"]').count()==1,
+                f"Current question has no accessible step marker at {width}px")
+        if width == 390 and not scale:
+            # Real keyboard activation of a numbered question: rerendering
+            # the entire grid must not discard the user's focus.
+            grid_buttons=page.locator("#question-grid button")
+            if grid_buttons.count()>1 and not grid_buttons.nth(1).is_disabled():
+                target=grid_buttons.nth(1)
+                target.focus()
+                target.press("Enter")
+                page.wait_for_function("""() =>
+                    document.querySelector('#question-grid button[aria-current="step"]')
+                      ?.dataset.index === '1'""",timeout=15000)
+                require(page.evaluate("""() =>
+                    document.activeElement?.closest('#question-grid')
+                       ?.querySelector('button[aria-current="step"]') ===
+                    document.activeElement"""),
+                    "Rerendering the numbered grid discarded keyboard focus")
         footer = page.locator(".runner-footer")
         footer.scroll_into_view_if_needed()
         if width <= 760:
@@ -172,7 +195,7 @@ def viewport_check(browser, width, height, touch, attempt_id):
                 """() => document.querySelector('#save-status')
                      ?.textContent.includes('All changes saved')""",
                 timeout=20000)
-        page.screenshot(path=str(OUTPUT / f"{width}px-runner.png"),
+        page.screenshot(path=str(OUTPUT / f"{width}px-{'large-text' if scale else 'normal'}-runner.png"),
                         full_page=False)
         require(not errors, f"browser uncaught errors at {width}px: {errors[:4]}")
         print(f"PASS responsive runner width={width} touch={touch} " +
@@ -229,6 +252,8 @@ def main():
                         setup.close()
                     for width, height, touch in WIDTHS:
                         viewport_check(browser, width, height, touch, attempt_id)
+                    # Simulate user-selected enlarged text on a narrow phone.
+                    viewport_check(browser,390,844,True,attempt_id,scale=True)
                 finally:
                     browser.close()
         finally:
