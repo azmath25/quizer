@@ -44,7 +44,8 @@
 .meta-id:hover { text-decoration: underline; }
 .meta-tag { padding: 2px 8px; border-radius: var(--radius-sm); font-size: 0.7rem; font-weight: 600; background: var(--glass); white-space: nowrap; }
 .tab-actions { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; flex-wrap: wrap; justify-content: flex-end; }
-.prob-select { display: inline-flex; align-items: center; margin-right: 6px; }
+.prob-select { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; margin-right: 6px; }
+.prob-select input { width: 22px; height: 22px; margin: 0; }
 
 .prob-card-box { position: relative; z-index: 1; }
 .prob-card__body { padding: 16px 20px; display: grid; gap: 10px; }
