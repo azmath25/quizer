@@ -17,7 +17,7 @@ export function createPrivateZipStoragePort({enabled=false,bucket}={}){
     assert(typeof storagePath==="string"&&SAFE.test(storagePath),
       "INVALID_FIELDS","Unsafe private export path.");
     const m=storagePath.match(SAFE);
-    assert(m[3]===m[1]||id(m[3]),
+    assert(m[3]===m[1],
       "INVALID_FIELDS","Invalid ZIP filename quiz ID.");
     assert(m[4]===m[2],"INVALID_FIELDS",
       "Export filename job mismatch.");
