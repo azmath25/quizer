@@ -56,6 +56,10 @@ or the archive worker is unavailable.
 - No destructive legacy cleanup or source-of-truth cutover without separate
   explicit later approval; tests do not constitute deployment approval.
 
+## Dedicated Quizer Neon account decision (2026-11-03)
+
+Read-only Neon inventory found **only the existing Mimo project**; no Quizer project exists. A dedicated separate project will be needed before real QN4/8 SQL or staging. See `docs/QUIZER_NEON_BACKEND_DECISION_2026-11.md`. The new `functions/src/neon/project-config.js` defaults OFF and rejects an explicitly configured Mimo project, wrong database/role/host or insecure connection URL. Eleven isolated configuration tests passed (V8 shim harness only; no Neon connectivity). This is a server-only guard, **not** a new API or permission to provision or deploy. QN4 remains unverified and the QN7–QN13 implementation milestones remain pending.
+
 ## Milestone map
 
 | Phase | Small deliverable | Gate |
