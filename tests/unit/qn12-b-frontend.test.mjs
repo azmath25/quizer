@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {saveBeforeNavigate,prefetchQuestionBatches}
   from "../../js/services/runner-scheduling.js";
+import {bindAccessibleTabs} from "../../js/components/accessibility-tabs.js";
 const source=readFileSync(new URL("../../js/pages/quiz.js",import.meta.url),
   "utf8");
 test("QN12-B navigation waits for successful answer commit",async()=>{
@@ -77,4 +78,49 @@ test("QN12-B fail-closed prefetch bounds and renderer contracts",async()=>{
   const warm=source.slice(source.indexOf("async function warmAll()"),
     source.indexOf("async function showQuestion()"));
   assert.doesNotMatch(warm,/loadImages\(/);
+});
+
+test("QN12-B keyboard tabset supports arrows, Home, End and one active tab",()=>{
+  const tabs=Array.from({length:3},(_,i)=>{
+    const events={},attrs={"aria-selected":i===0?"true":"false"};
+    return {
+      events,attrs,tabIndex:i===0?0:-1,focused:false,
+      addEventListener:(name,fn)=>events[name]=fn,
+      setAttribute:(key,value)=>attrs[key]=value,
+      getAttribute:(key)=>attrs[key],
+      focus(){this.focused=true;},
+    };
+  });
+  const selected=[];
+  bindAccessibleTabs({querySelectorAll:()=>tabs},"[role=tab]",tab=>{
+    selected.push(tabs.indexOf(tab));
+  });
+  assert.equal(selected.at(-1),0);
+  let prevented=false;
+  tabs[0].events.keydown({key:"ArrowRight",preventDefault(){
+    prevented=true;}});
+  assert.equal(prevented,true);
+  assert.equal(selected.at(-1),1);
+  assert.equal(tabs[1].tabIndex,0);
+  assert.equal(tabs[0].tabIndex,-1);
+  assert.equal(tabs[1].focused,true);
+  tabs[1].events.keydown({key:"End",preventDefault(){}});
+  assert.equal(selected.at(-1),2);
+  tabs[2].events.keydown({key:"Home",preventDefault(){}});
+  assert.equal(selected.at(-1),0);
+  tabs[2].events.click();
+  assert.equal(selected.at(-1),2);
+  assert.equal(tabs.filter(t=>t.getAttribute("aria-selected")==="true").length,1);
+});
+test("QN12-B author/import tabs expose labelled panels and keyboard bindings",()=>{
+  const editor=readFileSync(new URL("../../js/pages/quiz-editor.js",
+    import.meta.url),"utf8");
+  for(const id of ["create-import-tab","create-blank-tab",
+    "import-edit-tab","import-preview-tab","quiz-edit-tab","quiz-preview-tab"])
+    assert(editor.includes('id="'+id+'"'));
+  for(const selector of ["[data-create]","[data-import-tab]","[data-editor-tab]"])
+    assert(editor.includes('bindAccessibleTabs(root,"'+selector+'"'));
+  assert.match(editor,/aria-controls="import-panel"/);
+  assert.match(editor,/id="import-panel" role="tabpanel"/);
+  assert.match(editor,/id="quiz-preview-panel" role="tabpanel"/);
 });
