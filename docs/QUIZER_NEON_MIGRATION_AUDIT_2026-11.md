@@ -68,7 +68,7 @@ the existing Mimo project. No Neon project was created or changed.
 | Auth identity and canonical roles | Firebase Auth / Firestore | Firebase UID is stable external identity in Neon; server verifies role on sensitive requests |
 | Quiz catalog, policies, drafts and slots | Firestore | Keep quiz draft lightweight: IDs, ordering, settings, per-slot references; no duplicated problem content on new import |
 | Original uploaded `.tex` source | Firebase Storage | **One source file per import**, persisted independently of individual extracted Neon problems; legacy sources preserved |
-| Frozen published revisions, grading keys, delivery | Firestore + Firebase Storage | **Only at publish** materialize the full protected frozen question-and-key snapshot from Neon revisions; no Neon in quiz session path |
+| Frozen published revisions, grading keys, delivery | **One private versioned Storage bundle per published revision** + small Firestore pointer | Only at publish compose validated Neon revisions into a single encrypted-at-rest/private bundle; no per-question Firebase problem-bank docs. Existing legacy Firestore revisions remain readable. Backend serves authorized slices, never whole bundle to student. |
 | Attempts, answers, grades, results, deadlines | Firestore | Server authoritative, stable under Neon outage |
 | Reusable problem bank and immutable problem revisions | **Dedicated Quizer Neon database** after safe cutover | Metadata, statement, options, grading, tags, ownership and provenance; no browser DB credential |
 | Image bytes and derived files | Firebase Storage | Neon holds immutable asset identifiers and provenance, never image bytes by default |
@@ -107,9 +107,12 @@ must not create a new content revision. Images upload only if new/changed.
 
 Teacher requests publish with expected draft/version. Trusted worker resolves
 all pinned Neon problem revisions (during transition: approved fallback for old
-Firestore records), validates ownership/sharing and hashes, and materializes a
-new frozen Firebase quiz revision. Preserve old published revision until the
-new one is ready; failures never partially expose content or answer keys.
+Firestore records), validates ownership/sharing and hashes, and creates **one
+private immutable Storage bundle per published quiz revision**. A small Firestore
+manifest/pointer references the verified bundle. Preserve the old published
+bundle and pointer until the new one is ready; failures never partially expose
+content or answer keys. Existing legacy Firestore per-question revisions
+remain readable and untouched.
 Publish only changed revision when content hash differs; no unintended
 republish when the draft is unchanged. Avoid external SQL calls inside
 Firestore transactions; stage and verify external reads before the final
@@ -143,8 +146,13 @@ before enabling the mirror. Disable or rate-limit archival if expensive.
   server-side DB adapter. Do not introduce a new always-on service by default.
 - Cross-store transactions are unavailable: use explicit ownership, immutable
   IDs, transactional outboxes, idempotent consumers, and a reconciliation job.
-- Student paths have **zero** Neon dependency after publication. Strict
-  `allowBack: false` continues to prohibit future question disclosure.
+- Student paths have **zero** Neon dependency after publication. The complete
+  Firebase Storage published bundle is *backend-only* and is never handed to
+  students through Storage read rules or signed download links. The authenticated
+  server reads the pinned bundle, emits permitted question slices only, enforces
+  `allowBack: false` and protects unreleased answers/solutions.
+- Benchmark one-bundle private Storage read/decode, size/memory, concurrency,
+  cached and cold latency and storage cost before changing publication or delivery.
 - Publication does not expose protected grading keys before release.
 - Teacher-owned/shared problems must be authorized using current Firestore
   roles and server-side ownership policy; revocation and stale role changes
