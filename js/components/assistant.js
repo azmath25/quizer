@@ -2,6 +2,7 @@ import { go } from "../core/router.js";
 import { askAssistant, toLatex, AI_CONNECTED } from "../services/ai.js";
 import { e, dialog, confirmDialog, toast } from "./ui.js";
 import { snip } from "./snip.js";
+import { snipPageContent } from "./page-snip.js";
 import * as chats from "../services/chats.js";
 import { latexHTML, typeset } from "./math-content.js";
 
@@ -39,7 +40,7 @@ export function mountAssistant(session) {
   pendingFiles = [];
   root = document.createElement("div");
   root.id = "ai-assistant";
-  root.innerHTML = `<div class="ai-dock" title="Drag to move"><button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><button class="ai-fab ai-snip-fab" type="button" aria-label="Snip the screen and ask" title="Snip the screen and ask"><span aria-hidden="true">✂</span></button></div><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Problem assistant</strong><span class="ai-tag">${AI_CONNECTED ? "Beta" : "Preview"}</span></div><div class="ai-head-actions"><a class="icon-button" href="ai.html" data-ai="full" aria-label="Open full AI page" title="Open full AI page">⤢</a><button class="icon-button" type="button" data-ai="snip" aria-label="Snip the screen and ask" title="Snip the screen and ask">✂</button><button class="icon-button" type="button" data-ai="reset" aria-label="New chat" title="New chat">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Attach a PDF, image or .tex file"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask, or attach a PDF of problems…" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div></form></aside>`;
+  root.innerHTML = `<div class="ai-dock" title="Drag to move"><button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><button class="ai-fab ai-snip-fab" type="button" aria-label="Snip page content without permission" title="Select on this page · no screen sharing"><span aria-hidden="true">✂</span></button><button class="ai-fab ai-pixel-fab" type="button" aria-label="Visual snip browser tab" title="Visual snip · browser tab permission"><span aria-hidden="true">▣</span></button></div><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Problem assistant</strong><span class="ai-tag">${AI_CONNECTED ? "Beta" : "Preview"}</span></div><div class="ai-head-actions"><a class="icon-button" href="ai.html" data-ai="full" aria-label="Open full AI page" title="Open full AI page">⤢</a><button class="icon-button" type="button" data-ai="snip-page" aria-label="Snip page content, no permission" title="Snip page text and math · no permission">✂</button><button class="icon-button" type="button" data-ai="snip" aria-label="Visual snip browser tab, requires permission" title="Visual snip · browser tab permission">▣</button><button class="icon-button" type="button" data-ai="reset" aria-label="New chat" title="New chat">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Attach a PDF, image or .tex file"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask, or attach a PDF of problems…" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div></form></aside>`;
   document.body.append(root);
   log = root.querySelector(".ai-log");
   form = root.querySelector("form");
@@ -57,17 +58,37 @@ export function mountAssistant(session) {
   };
   initResize(panel);
   initDrag(root.querySelector(".ai-dock"));
-  root.querySelector(".ai-snip-fab").onclick = async () => {
-    const file = await snip();
-    if (!file) return;
-    setOpen(true);
-    send({
-      prompt:
-        input.value.trim() ||
-        "What is this problem asking, and how do I solve it?",
-      files: [file],
-    });
+  const sendPageSnip = async () => {
+    try {
+      const text = await snipPageContent();
+      if (!text) return toast("No visible text found. For diagrams, use Visual snip.", { tone: "info" });
+      const prompt = input.value.trim() || "Explain this selected material without assuming missing context.";
+      setOpen(true);
+      await send({ prompt: prompt + "\n\nSelected from this page:\n" + text });
+    } catch (error) {
+      toast(error.message || "Could not select page content.", { tone: "error" });
+    }
   };
+  const sendPixelSnip = async () => {
+    // Capture the currently displayed tab, never request operating-system
+    // screenshot files. The browser still asks which tab may be shared.
+    document.documentElement.classList.add("ai-capture-in-progress");
+    try {
+      const file = await snip();
+      if (!file) return;
+      setOpen(true);
+      await send({
+        prompt: input.value.trim() || "Inspect this visible diagram or problem.",
+        files: [file],
+      });
+    } catch (error) {
+      toast(error.message || "Visual snip unavailable. Try Snip page content.", { tone: "error" });
+    } finally {
+      document.documentElement.classList.remove("ai-capture-in-progress");
+    }
+  };
+  root.querySelector(".ai-snip-fab").onclick = sendPageSnip;
+  root.querySelector(".ai-pixel-fab").onclick = sendPixelSnip;
   fab.onclick = () => setOpen(!state.open);
   root.querySelector("[data-ai=close]").onclick = () => setOpen(false);
   root.querySelector("[data-ai=reset]").onclick = () => {
@@ -80,16 +101,8 @@ export function mountAssistant(session) {
     event.preventDefault();
     go(state.chatId ? `ai.html?chat=${state.chatId}` : "ai.html");
   };
-  root.querySelector("[data-ai=snip]").onclick = async () => {
-    const file = await snip();
-    if (file)
-      send({
-        prompt:
-          input.value.trim() ||
-          "What is this problem asking, and how do I solve it?",
-        files: [file],
-      });
-  };
+  root.querySelector("[data-ai=snip-page]").onclick = sendPageSnip;
+  root.querySelector("[data-ai=snip]").onclick = sendPixelSnip;
   root.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.open) setOpen(false);
   });
