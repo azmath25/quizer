@@ -27,7 +27,7 @@ Scope: **QN10.1 only. Stop before QN10.2.**
 ## Tests and stop gate
 
 - GitHub Actions work-branch CI: https://github.com/azmath25/quizer/actions/workflows/quizer-verify.yml .
-- Latest QN10.1 code/test commit: 67d464eb82cf5f6aa62dee315881cec3e9aaa3a1. CI run 41643820337 initiated; check for its final result before claiming green.
+- **Final CI VERIFIED GREEN** on QN10.1 code/test commit 49841b8c886339dd8f140b3f3b78eefda8578def: [run 41644098850](https://github.com/azmath25/quizer/actions/runs/41644098850). The complete two-job workflow passed: **180/180 unit tests, 5/5 backend tests, static frontend checks, Firebase emulator integration and transport**. The Storage rules suite includes denial of direct read, URL, list, upload and delete for preseeded private bundle objects by guests, students and teachers. Later documentation-only changes do not alter tested application code.
 - Documentation of format, permissions and threat model: docs/QUIZER_QN10_1_BUNDLE_FORMAT_2026-11.md .
 - STOP before QN10.2 (bundle writer and publication pointer cutover), QN10.3 (student slice and grading), QN11–QN13. No merge/deploy.
 
