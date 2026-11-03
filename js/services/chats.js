@@ -42,6 +42,24 @@ export async function openProblemInChat(latex, label = "Problem") {
   return `ai.html?chat=${chatId}`;
 }
 
+// Only the quiz's public overview metadata is handed to AI. Do not read
+// unpublished revisions, grading keys, attempt answers or locked questions.
+export async function openQuizInChat(quiz) {
+  const title = String(quiz?.title || "Quiz").slice(0, 160);
+  const info = [
+    "Help me review or improve the following quiz overview.",
+    "Title: " + title,
+    "Subject: " + String(quiz?.subject || "Mathematics").slice(0, 100),
+    "Description: " + String(quiz?.description || "").slice(0, 1200),
+    "Question count: " + String(quiz?.questionCount ?? "Not supplied"),
+    "Do not assume access to hidden questions or answer keys.",
+  ].join("\n");
+  const chatId = await newChat("Quiz: " + title, [
+    { role: "user", text: info },
+  ]);
+  return `ai.html?chat=${chatId}`;
+}
+
 export function importResult(result, bank) {
   sessionStorage.setItem(
     IMPORT_KEY,
