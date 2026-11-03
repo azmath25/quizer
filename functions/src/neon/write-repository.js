@@ -148,8 +148,28 @@ export function createQuizerNeonWriteRepository({
     if (hasContent && (rawContent === undefined || rawGrading === undefined))
       fail("INVALID_FIELDS", "Content and grading must be submitted together.");
     const parsed = hasContent ? validateProblem(rawContent, rawGrading) : null;
+    const payloadHash = fingerprint({
+      action:"saveProblemRevision",problemId,expectedVersion,metadata,
+      content:parsed?.content ?? null,grading:parsed?.grading ?? null,
+    });
     if (parsed) await verify(actor, parsed.content, parsed.grading);
     return guardedTransaction(async tx => {
+      // This receipt lock precedes both version checking and content mutation.
+      // Same-request replays return the original result even when the problem's
+      // version has subsequently advanced; changed payloads are rejected.
+      await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+        ["quizer:mutation:"+actor.uid+":"+requestId]);
+      const prior = first(await tx.query(
+        "SELECT action,payload_hash,result_json FROM quizer.mutation_receipts " +
+        "WHERE actor_uid=$1 AND request_id=$2",
+        [actor.uid,requestId]));
+      if (prior) {
+        if (prior.action !== "saveProblemRevision" ||
+            prior.payload_hash.trim() !== payloadHash)
+          fail("VERSION_CONFLICT","Request ID was reused with different content.");
+        return typeof prior.result_json === "string"
+          ? JSON.parse(prior.result_json) : prior.result_json;
+      }
       const old = first(await tx.query(HEADER_SQL, [problemId]));
       if (!old || (old.owner_uid !== actor.uid && actor.role !== "admin") ||
           old.lifecycle !== "active")
@@ -196,8 +216,16 @@ export function createQuizerNeonWriteRepository({
           await tx.query("INSERT INTO quizer.problem_tags (problem_id,tag) VALUES ($1,$2)",
             [problemId, tag]);
       }
-      return { problemId, revisionId, version: nextVersion,
+      const result = { problemId, revisionId, version: nextVersion,
         ...(sameContent ? { metadataOnly: true } : {}) };
+      // Atomic with the revision/metadata transaction. A crash after COMMIT
+      // but before Firebase acknowledgement cannot create a second revision.
+      await tx.query(
+        "INSERT INTO quizer.mutation_receipts " +
+        "(actor_uid,request_id,action,payload_hash,result_json) " +
+        "VALUES ($1,$2,'saveProblemRevision',$3,$4::jsonb)",
+        [actor.uid,requestId,payloadHash,JSON.stringify(result)]);
+      return result;
     });
   }
   async function importProblemBatch({ actor, job, records, now = new Date(),
@@ -259,6 +287,6 @@ export function createQuizerNeonWriteRepository({
         newlyInserted: [...mapped.values()].filter(x => !x.replayed).length };
     });
   }
-  return Object.freeze({ enabled: true, createProblem,
+  return Object.freeze({ enabled: true, replaySafeEdits: true, createProblem,
     saveProblemRevision, importProblemBatch });
 }
