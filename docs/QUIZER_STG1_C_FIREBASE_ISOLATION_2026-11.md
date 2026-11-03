@@ -66,3 +66,17 @@ Keep STG2 **NO GO** until Auth, Firestore rules/indexes, Storage, Functions, res
 **PASS:** [GitHub Actions run 41742378046](https://github.com/azmath25/quizer/actions/runs/41742378046) on exact staging source commit `215273a2ad51f82dec3078041378d77426997640` — all 3/3 jobs successful. Includes **367/367 unit tests**, **5/5 backend tests**, Firebase emulator integration/transport, and Chromium mobile runner / author checks. Offline staging-build identity test passed and original production source remained unchanged.
 
 These were local/CI tests against emulator and repo files, **not live Firebase, Storage, Firestore, Google Auth or deployment verification**. Further external STG1 gates remain pending.
+
+
+## Cloud Firestore creation checkpoint (user-verified 2026-11-04)
+
+The user executed the following with **explicit** `--project=quizer-staging-az26`:
+
+1. `gcloud firestore databases list` prompted to enable `firestore.googleapis.com` in the new staging project; the enable operation succeeded.
+2. Repeated listing returned no databases.
+3. `gcloud firestore databases create --database="(default)" --location=europe-west3 --edition=standard --type=firestore-native --project=quizer-staging-az26` completed successfully.
+4. `gcloud firestore databases describe --project=quizer-staging-az26 --database="(default)"` confirmed `FIRESTORE_NATIVE`, region `europe-west3`, correct resource name.
+
+Creation response additionally reports `databaseEdition: STANDARD`, `freeTier: true`, `deleteProtectionState: DELETE_PROTECTION_DISABLED`, `pointInTimeRecoveryEnablement: POINT_IN_TIME_RECOVERY_DISABLED`. These are recorded as development-only properties, not as a secure production configuration.
+
+**Result: STG1-C Firestore database provisioned, but Security Rules are NOT yet verified/deployed.** Next: publish explicit staging-only deny-by-default bootstrap rules, verify release, then configure Firebase Google sign-in through staging Authentication Console. Database creation does not imply any application deployment. Do not grant broad test-mode access.
