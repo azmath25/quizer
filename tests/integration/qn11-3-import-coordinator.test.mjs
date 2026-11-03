@@ -137,3 +137,34 @@ test("QN11.3 emulator: fenced concurrent chunks and persisted operation conflict
     e=>e.reason==="FAILED_PRECONDITION");
   assert.equal((await doc("jobs/"+jobId+"/mappings/problem_2").get()).exists,false);
 });
+
+test("QN11.3 emulator: expired fencing lease cannot finalize; replay reclaims",async()=>{
+  const {jobId}=await setup();
+  let clock=Date.now();
+  const c=createQuizerImportCoordinator({enabled:true,db,now:()=>clock,
+    leaseMs:30000});
+  const req=request(jobId,[item(7)]);
+  const expectedItems={jobId,items:[{importItemKey:"problem_7",
+    payloadHash:fingerprint(item(7)),points:1}]};
+  const payloadHash=fingerprint(req);
+  const first=await c.prepare({action:req.action,auth,
+    requestId:req.requestId,payloadHash,expectedItems});
+  const result=await gateway.handle(req.action,auth,req);
+  await c.recordEffect({action:req.action,auth,requestId:req.requestId,
+    payloadHash,jobId,token:first.token,result});
+  clock+=30001;
+  await assert.rejects(c.finalize({action:req.action,auth,
+    requestId:req.requestId,payloadHash,jobId,token:first.token,result}),
+    e=>e.reason==="VERSION_CONFLICT");
+  assert.equal((await doc("jobs/"+jobId).get()).data().progress.processed,0);
+  const retry=await c.prepare({action:req.action,auth,
+    requestId:req.requestId,payloadHash,expectedItems});
+  assert.notEqual(retry.token,first.token);
+  await c.recordEffect({action:req.action,auth,
+    requestId:req.requestId,payloadHash,jobId,token:retry.token,result});
+  const settled=await c.finalize({action:req.action,auth,
+    requestId:req.requestId,payloadHash,jobId,token:retry.token,result});
+  assert.equal(settled.processed,1);
+  assert.deepEqual((await c.prepare({action:req.action,auth,
+    requestId:req.requestId,payloadHash,expectedItems})).result,settled);
+});
