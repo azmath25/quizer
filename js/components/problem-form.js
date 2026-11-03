@@ -3,6 +3,7 @@ import { drafts, draftBanner } from "../services/drafts.js";
 import { api } from "../services/api.js";
 import { uploadAsset, resolveImages } from "../services/assets.js";
 import { validateProblem, validateMetadata } from "../../shared/schema.js";
+import { problemSavePayload } from "./problem-save-diff.js";
 import {
   field,
   textarea,
@@ -309,13 +310,17 @@ export async function problemForm(
   window.addEventListener("beforeunload", beforeUnload);
   onLeaveGuard(() => dirty);
   onLeave(() => window.removeEventListener("beforeunload", beforeUnload));
+  let savedBaseline = null;
+  let persisted = Boolean(initial.problemId);
   bindForm(form, async () => {
     const data = collect();
     validateMetadata(data.metadata);
     validateProblem(data.content, data.grading);
     root.querySelector("#save-state").textContent = "Saving…";
     try {
-      await onSave(data);
+      await onSave(problemSavePayload(data, savedBaseline, persisted));
+      savedBaseline = structuredClone(data);
+      persisted = true;
       dirty = false;
       store.clear();
       root.querySelector("#save-state").textContent = "Saved to Firebase";
@@ -328,6 +333,7 @@ export async function problemForm(
   choiceRows();
   imageRows();
   modeChanged();
+  savedBaseline = structuredClone(collect());
   const saved = readOnly ? null : store.read();
   if (saved)
     draftBanner(root, saved, {
