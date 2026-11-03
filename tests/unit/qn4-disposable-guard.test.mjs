@@ -33,6 +33,8 @@ test("QN4 SQL verifies FK, immutable revisions, tags, receipts, indexes, and rev
     assert(sql.includes(term), term);
   assert.match(up, /DEFERRABLE INITIALLY DEFERRED/);
   assert.match(up, /BEFORE UPDATE OR DELETE ON quizer.problem_revisions/);
+  assert.match(up, /RETURNS trigger LANGUAGE plpgsql AS \\$\\$/);
+  assert.match(up, /\\$\\$;\\s*CREATE TRIGGER quizer_problem_revision_immutable/);
   assert.match(down, /DROP SCHEMA quizer CASCADE/);
 });
 test("QN4 refuses schema clobbering before any test SQL", () => {
