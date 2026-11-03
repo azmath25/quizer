@@ -33,8 +33,12 @@ async function buildZip({source,images}){
   }
   const body=wire({schemaVersion:2,kind:"math-quiz-backup",
     quizId:source.quizId,revision:source.revision,
-    records:source.records.map(x=>({content:x.content,
-      grading:x.grading})),assets});
+    // Preserve legacy quiz-backup record structure: the published item
+    // identity and points live on the exported content record.
+    records:source.records.map(x=>({content:{
+      itemId:x.itemId,problemId:x.problemId,
+      problemRevisionId:x.problemRevisionId,points:x.points,
+      ...x.content},grading:x.grading})),assets});
   zip.append(Buffer.from(JSON.stringify(body,null,2),"utf8"),
     {name:"quiz.json",date:ARCHIVE_DATE});
   try{
