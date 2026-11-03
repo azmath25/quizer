@@ -26,7 +26,7 @@ function mapEvent(r) {
 }
 
 export function createFutureActivityReader({
-  sql, enabled = false, cutoverAt = null, cursorSecret = "",
+  sql, enabled = false, cutoverAt = null, cursorSecret = "", resolveQuizOwnerId = null,
 }) {
   // No live SQL path unless this separate future-log feature is enabled.
   if (enabled !== true)
@@ -130,12 +130,14 @@ export function createFutureActivityReader({
     listAdminUserActivity: ({actor,targetUid,...rest}) => {
       requireAdmin(actor);return read({actor,...rest,filter:{actorId:requireId(targetUid)}});
     },
-    // ownerId MUST have been obtained by the trusted backend from Firestore
-    // getOwnedQuiz. Never accept a browser-supplied "ownerId".
-    listOwnedQuizHistory: ({actor,quizId,verifiedQuizOwnerId,...rest}) => {
+    // Quiz ownership comes only from the trusted Firebase lookup injected at
+    // initialization, never from request fields.
+    listOwnedQuizHistory: async ({actor,quizId,...rest}) => {
       requireTeacher(actor);
       const id = requireId(quizId);
-      const ownerId = requireId(verifiedQuizOwnerId);
+      if (typeof resolveQuizOwnerId !== "function")
+        throw new Error("Trusted Firebase quiz owner resolver required");
+      const ownerId = requireId(await resolveQuizOwnerId(id), "quiz owner ID");
       return read({actor,...rest,filter:{quizId:id},
         ownership:{quizId:id,ownerId}});
     },
