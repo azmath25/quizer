@@ -44,9 +44,13 @@ export function createQuizerPrivateIntegration({
       "Unknown pinned attempt provenance.");
     return source;
   }
-  async function originForQuiz(firebaseAuth,quizId){
+  async function originForQuiz(firebaseAuth,quizId,sourceAttemptId=null){
+    // A retry may pin an older legacy revision even when the quiz's current
+    // published pointer is private. The trusted lookup must inspect the
+    // source attempt's immutable pinned revision before choosing a route.
     const source=await resolveQuizOrigin({
-      firebaseAuth,quizId:id(quizId)});
+      firebaseAuth,quizId:id(quizId),
+      sourceAttemptId:sourceAttemptId==null?null:id(sourceAttemptId)});
     assert(ORIGINS.has(source),"RESOURCE_UNAVAILABLE",
       "Unknown published quiz provenance.");
     return source;
@@ -118,7 +122,8 @@ export function createQuizerPrivateIntegration({
       "Authenticated actor mismatch.");
     if(action==="getAssetLinks")return imageLinks(firebaseAuth,request);
     if(action==="startAttempt"){
-      const source=await originForQuiz(firebaseAuth,request.quizId);
+      const source=await originForQuiz(
+        firebaseAuth,request.quizId,request.sourceAttemptId??null);
       return source==="firestore_legacy"
         ? callLegacy(action,firebaseAuth,request)
         : startExport.start({firebaseAuth,quizId:request.quizId,
