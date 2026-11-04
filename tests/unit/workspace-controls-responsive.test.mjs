@@ -21,7 +21,7 @@ test("selection inspector remains responsive without affecting API", () => {
   const problems=read("js/pages/problems.js");
   assert.match(problems,/installBankSearchShortcut\(root\)/);
   assert.match(problems,/const placePanel = \(\) =>/);
-  assert.match(problems,/tabletDock\.matches/);
+  assert.match(problems,/compactLayout\.matches/);
   const css=read("assets/css/pages/editor.css");
   assert.match(css,/\.editor-grid\[data-inspector="closed"\]/);
   assert.match(css,/@media \(max-width: 900px\)/);
