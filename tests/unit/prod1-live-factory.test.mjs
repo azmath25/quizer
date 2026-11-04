@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import "../../functions/src/router.js";
-import {createProd1LiveRuntime,createProd1TrustedWorkerInvoker}
-  from "../../functions/src/prod1/live-factory.js";
+import {createProd1LiveRuntime,createProd1TrustedWorkerInvoker,
+  prod1CallableResponse} from "../../functions/src/prod1/live-factory.js";
+import {Timestamp} from "../../functions/src/domain/runtime.js";
 import {SAT_QUIZ_NEON}
   from "../../functions/src/neon/sat-quiz-live-sql.js";
 const db={doc(){return {async get(){return {exists:false};}};},
@@ -67,4 +68,24 @@ test("trusted private worker delivers original job payload, never context as job
     trustedServerInvocation:true},job),/Trusted PROD1 worker required/);
   await assert.rejects(invoke(context,context),/Private job payload required/);
   assert.equal(received.length,1);
+});
+
+test("P1-C response normalizes nested private Firestore timestamps",()=>{
+  const started=Timestamp.fromMillis(1793876400000);
+  const submitted=Timestamp.fromMillis(1793876460000);
+  const saved=Timestamp.fromMillis(1793876430000);
+  const result=prod1CallableResponse({
+    attempt:{startedAt:started,submittedAt:submitted,lastSavedAt:null},
+    items:[{answer:{value:"4",updatedAt:saved}}],
+    totalItems:1,
+  },new Date("2026-11-05T05:00:00.000Z"));
+  assert.equal(result.serverTime,"2026-11-05T05:00:00.000Z");
+  assert.equal(result.apiVersion,2);
+  assert.equal(result.data.attempt.startedAt,started.toDate().toISOString());
+  assert.equal(result.data.attempt.submittedAt,submitted.toDate().toISOString());
+  assert.equal(result.data.items[0].answer.updatedAt,saved.toDate().toISOString());
+  assert.equal(result.data.attempt.lastSavedAt,null);
+  assert.equal(prod1CallableResponse(undefined).data,null);
+  assert.throws(()=>prod1CallableResponse({},new Date(NaN)),
+    /Trusted server time required/);
 });

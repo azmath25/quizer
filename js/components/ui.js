@@ -1,4 +1,5 @@
 import { scrollBehavior } from "../core/device.js";
+import {parseDateTime} from "../core/date-time.js";
 import { escapeHTML as e } from "../common.js";
 import { errorMessage } from "../firebase-client.js";
 export { e };
@@ -48,13 +49,15 @@ export const loading = (message = "Loading…") =>
   `<div class="loading" role="status" aria-label="${e(message)}"><div class="skeleton"><i></i><i></i><i></i></div></div>`;
 export const notice = (text, tone = "info") =>
   `<div class="notice ${tone}" role="${tone === "error" ? "alert" : "status"}">${e(text)}</div>`;
-export const date = (value) =>
-  value
+export const date = (value) => {
+  const parsed=parseDateTime(value);
+  return parsed
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: "medium",
         timeStyle: "short",
-      }).format(new Date(value))
+      }).format(parsed)
     : "—";
+};
 export const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const duration = (seconds) =>
   !seconds

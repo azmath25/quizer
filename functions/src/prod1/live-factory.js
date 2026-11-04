@@ -2,7 +2,7 @@
 // Cloud Functions must bind QUIZER_NEON_DATABASE_URL using defineSecret
 // and supply the secret only INSIDE an invocation, never module scope.
 import {assert} from "../../shared/schema.js";
-import {dispatch as legacyDispatch,handlers}
+import {dispatch as legacyDispatch,handlers,wire}
   from "../domain/runtime.js";
 import {createProd1BankRuntime,PROD1_BANK_ACTIONS} from "./bank-runtime.js";
 import {createProd1PrivateRuntime,createProd1PublicationIdentityPort}
@@ -25,6 +25,13 @@ const PRIVATE=new Set(["startAttempt","getAttemptQuestions",
   "getExportLink","saveManualGrade","releaseResults"]);
 const NONLEGACY=new Set([...PROD1_BANK_ACTIONS,
   "importProblemBatch",...PRIVATE]);
+export function prod1CallableResponse(data,now=new Date()){
+  // Match legacy dispatch: normalize nested Firestore Timestamp/Date to ISO.
+  assert(now instanceof Date&&Number.isFinite(now.getTime()),
+    "FAILED_PRECONDITION","Trusted server time required.");
+  return {apiVersion:2,serverTime:now.toISOString(),
+    data:wire(data===undefined?null:data)};
+}
 // A single trusted invocation boundary for both direct worker dispatch and
 // the leased worker adapter. The security context MUST NOT be mistaken for
 // the private job payload (which must still contain kind + jobId).
@@ -125,28 +132,24 @@ export async function createProd1LiveRuntime({
         // These interceptions exist in an UNMOUNTED factory, not the API.
         if(request.action==="saveQuizDraft"){
           const data=await draftMutations.handle(verifiedAuth,request);
-          return {apiVersion:2,serverTime:new Date().toISOString(),
-            data:data===undefined?null:data};
+          return prod1CallableResponse(data);
         }
         if(request.action==="finishImportJob"){
           const data=await finisher.finish(verifiedAuth,request);
-          return {apiVersion:2,serverTime:new Date().toISOString(),
-            data};
+          return prod1CallableResponse(data);
         }
         if(request.action==="publishQuiz"){
           const data=await publication.publish(verifiedAuth,request);
-          return {apiVersion:2,serverTime:new Date().toISOString(),
-            data};
+          return prod1CallableResponse(data);
         }
         if(request.action==="getQuizDraftItems"){
           const data=await draftReader.getItems({
             auth:verifiedAuth,quizId:request.quizId,
             itemIds:request.itemIds});
-          return {apiVersion:2,serverTime:new Date().toISOString(),data};
+          return prod1CallableResponse(data);
         }
         const data=await runtime.handle(request.action,verifiedAuth,request);
-        return {apiVersion:2,serverTime:new Date().toISOString(),
-          data:data===undefined?null:data};
+        return prod1CallableResponse(data);
       },
       runPrivateJob:invokeTrustedJob,
       // This adapter owns its lease and never calls the legacy worker for
