@@ -59,6 +59,9 @@ test("trusted private worker delivers original job payload, never context as job
     leaseOwner:"lease_example_12345"});
   assert.deepEqual(await invoke(context,job),{handled:"publishJob"});
   assert.deepEqual(received,[job]);
+  await assert.rejects(invoke(context,{kind:"publishJob",jobId:"job_2"}),
+    /Claimed private publication lease required/);
+  assert.equal(received.length,1);
   assert.equal(received[0].firebaseProjectId,undefined);
   await assert.rejects(invoke({firebaseProjectId:"mimo-backend-513412",
     trustedServerInvocation:true},job),/Trusted PROD1 worker required/);
