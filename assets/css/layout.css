@@ -69,6 +69,86 @@
   font-size: 0.88rem;
   white-space: nowrap;
 }
+/* Contextual appearance control: a single icon in the header,
+   with explicit Light / Dark / System choices. No network request. */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.header-controls .profile-link { margin-left: 0; }
+.theme-menu { position: relative; flex: 0 0 auto; }
+.theme-trigger {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface);
+}
+.theme-trigger::-webkit-details-marker { display: none; }
+.theme-trigger:hover, .theme-menu[open] .theme-trigger {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--surface-blue);
+}
+.theme-trigger:focus-visible, .theme-options button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.theme-options {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 175px;
+  z-index: 45;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+.theme-options button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.theme-options button:hover, .theme-options button[aria-pressed="true"] {
+  background: var(--surface-blue);
+  color: var(--primary);
+}
+.theme-options button[aria-pressed="true"]::after {
+  content: "✓";
+  margin-left: auto;
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .header-controls { gap: 5px; }
+  .theme-trigger { width: 38px; height: 38px; }
+}
+@media (max-width: 520px) {
+  .header-controls { gap: 3px; }
+  .theme-options { right: -2px; }
+}
 .avatar {
   background: var(--surface-blue);
   border: 1px solid var(--border);
