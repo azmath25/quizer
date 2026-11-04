@@ -110,6 +110,23 @@ export async function mount(root, session) {
   let collapsed = mobileDock.matches;
   if (matchMedia("(min-width: 761px) and (max-width: 899px)").matches)
     collapsed = true;
+  // A resized desktop window or rotated tablet must not strand the inspector
+  // in its previous position or leave the phone dock expanded by accident.
+  const compactSelection = matchMedia("(max-width: 899px)");
+  const syncSelectionViewport = () => {
+    collapsed = compactSelection.matches;
+    const details = panel.querySelector("#selection-details");
+    const toggle = panel.querySelector("#toggle-selection");
+    if (!details || !toggle) return;
+    panel.dataset.collapsed = String(collapsed);
+    details.hidden = collapsed;
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label",
+      collapsed ? "Expand selected problems" : "Collapse selected problems");
+    toggle.textContent = collapsed ? "▴" : "▾";
+  };
+  compactSelection.addEventListener?.("change", syncSelectionViewport);
+  onLeave(() => compactSelection.removeEventListener?.("change", syncSelectionViewport));
   const total = () =>
     [...selected.values()].reduce((sum, p) => sum + (Number(p.points) || 0), 0);
   function updateTotal() {
