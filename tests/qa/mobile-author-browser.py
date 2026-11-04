@@ -95,6 +95,13 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
         open_page(page,"upload.html?id="+quiz_id,".slot-row")
         # Appearance is controlled from the header, never the profile page.
         appearance=page.locator("#theme-trigger")
+        if 761 <= width <= 1080:
+            studio=page.locator('#desktop-nav a[href="ai.html"]')
+            require(studio.is_visible(), "Tablet header hides AI Studio")
+            require(rect(studio)["width"] >= 68,
+                    "Tablet AI Studio link is clipped: "+str(rect(studio)))
+            require(rect(studio)["right"]+3 <= rect(appearance)["left"],
+                    "Tablet links overlap appearance icon")
         require(appearance.count()==1, "Missing compact appearance icon")
         require(rect(appearance)["width"]>=36 and rect(appearance)["height"]>=36,
                 "Appearance icon too small at "+str(width))
