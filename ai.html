@@ -77,16 +77,16 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <header class="topbar">
 <button class="icon-btn mobile-only" aria-label="Open chat history" data-act="sidebar"><svg class="ico"><use href="#ic-bars"/></svg></button>
 <a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span>math quiz<span style="color:var(--cyan)">.</span></span></a>
-<span class="divider"></span><span class="crumb">Workspace <svg class="ico sm"><use href="#ic-chevron"/></svg><strong>AI Studio</strong></span><span class="grow"></span>
-<span class="tag demo"><span class="dot"></span> Design preview</span><a class="toplink" href="problems.html">Problem bank</a><a class="toplink" href="teaching.html">Teaching</a>
-<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector"><svg class="ico"><use href="#ic-panel"/></svg></button><span class="top-avatar">AI</span></div>
+<span class="studio-name">AI Studio</span><span class="grow"></span>
+<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink" href="problems.html">Problem bank</a>
+<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
 </header>
 <div class="shell" id="shell">
 <aside class="sidebar" aria-label="Conversation history">
 <div class="side-top"><button class="new" data-act="new"><svg class="ico"><use href="#ic-plus"/></svg> New conversation <svg class="ico sm" style="margin-left:auto"><use href="#ic-chevron"/></svg></button><label class="side-search"><svg class="ico sm"><use href="#ic-search"/></svg><input id="history-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search conversations"><span class="kbd">⌘ K</span></label></div>
 <nav class="sidenav" aria-label="History filters"><button class="nav-row active" data-act="filter" data-filter="all"><svg class="ico"><use href="#ic-chat"/></svg> All conversations <small id="chat-count">0</small></button><button class="nav-row" data-act="filter" data-filter="pinned"><svg class="ico"><use href="#ic-pin"/></svg> Pinned</button><button class="nav-row" data-act="filter" data-filter="jobs"><svg class="ico"><use href="#ic-clock"/></svg> Processing jobs <small id="job-count">0</small></button></nav>
 <div class="side-label eyebrow"><span id="history-label">Recent conversations</span><span id="history-count"></span></div><div class="history" id="history-list"></div>
-<div class="side-foot"><div class="storage-label"><span class="muted">Storage</span><strong>Local preview</strong></div><div class="meter"><span style="width:18%"></span></div><div class="storage-note"><span>History stays in this browser</span><svg class="ico sm"><use href="#ic-shield"/></svg></div></div>
+
 </aside>
 <main class="stage" id="workspace"><div class="conversation-head" id="conversation-head"></div><div class="conversation" id="conversation" aria-label="Conversation messages"><div class="message-list" id="messages"></div></div>
 <div class="composer-area"><div id="pending" class="attached"></div><div class="composer" id="composer"><textarea id="prompt" rows="2" maxlength="12000" aria-label="Your message" placeholder="Ask about mathematics, quizzes, or a document..."></textarea><div class="composer-tools"><button class="compose-btn" data-act="attach" title="Attach a PDF, image, text or TeX"><svg class="ico sm"><use href="#ic-paperclip"/></svg><span>Attach</span></button><button class="compose-btn" data-act="snip" title="Snip visible page text, without screen sharing"><svg class="ico sm"><use href="#ic-snip"/></svg><span>Snip</span></button><span class="compose-mode" id="compose-mode"></span><button class="send" data-act="send" aria-label="Send message" title="Send · Enter"><svg class="ico"><use href="#ic-send"/></svg></button></div></div><div class="composer-note"><span>Design only · No model calls, uploads or cloud writes</span><span>Enter to send · Shift+Enter for newline</span></div><input type="file" id="file-input" multiple accept=".pdf,.tex,.txt,image/*,application/pdf,text/plain" hidden></div></main>
@@ -119,8 +119,9 @@ const ago=t=>{const n=Math.max(0,Date.now()-t);return n<60000?"Now":n<3600000?Ma
 const size=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(1)+" MB";
 function seed(){
  const n=Date.now();
- return {active:"sample-doc",selected:"job-sample",filter:"all",inspector:true,side:false,spot:true,motion:true,
+ return {active:"start",selected:"job-sample",filter:"all",inspector:false,side:false,spot:false,motion:false,
  chats:[
+ {id:"start",type:"chat",title:"New conversation",pin:false,at:n,updated:n,messages:[]},
  {id:"sample-doc",type:"document",title:"Functions worksheet · extraction",pin:true,at:n-500000,updated:n-24000,messages:[
  {id:"a1",role:"user",text:"Extract the numbered math problems, preserve their formulas and mark figures that require human review.",at:n-380000,files:[{name:"Functions general quiz.pdf",size:2400000,type:"application/pdf"}]},
  {id:"a2",role:"assistant",text:"This is a preview conversation. The inspector shows a simulated document-processing job. No file has been uploaded, read or processed. A real implementation would provide editable extracted content, uncertainty flags and teacher approval before importing.",at:n-360000,files:[]}]},
@@ -135,7 +136,7 @@ function clean(o){
  if(!o||!Array.isArray(o.chats)||!Array.isArray(o.jobs))return seed();
  o.chats=o.chats.slice(0,60).filter(c=>c&&T[c.type]&&typeof c.id==="string").map(c=>({id:String(c.id).slice(0,100),type:c.type,title:String(c.title||"Conversation").slice(0,100),pin:!!c.pin,at:+c.at||Date.now(),updated:+c.updated||Date.now(),messages:(Array.isArray(c.messages)?c.messages:[]).slice(-150).filter(m=>m&&["user","assistant"].includes(m.role)).map(m=>({id:String(m.id||uid()).slice(0,100),role:m.role,text:String(m.text||"").slice(0,12000),at:+m.at||Date.now(),files:(Array.isArray(m.files)?m.files:[]).slice(0,8).map(f=>({name:String(f.name||"File").slice(0,150),size:+f.size||0,type:String(f.type||"").slice(0,80)}))}))}));
  o.jobs=o.jobs.slice(0,60).filter(j=>j&&typeof j.id==="string").map(j=>({id:j.id.slice(0,100),chatId:String(j.chatId||"").slice(0,100),name:String(j.name||"Sample").slice(0,150),status:["queued","running","paused","failed","cancelled","succeeded"].includes(j.status)?j.status:"queued",progress:Math.min(100,Math.max(0,+j.progress||0)),at:+j.at||Date.now(),started:+j.started||Date.now(),updated:+j.updated||Date.now(),attempt:+j.attempt||1,logs:(Array.isArray(j.logs)?j.logs:[]).slice(-25).map(l=>({at:+l.at||Date.now(),text:String(l.text||"").slice(0,200)}))}));
- o.inspector=o.inspector!==false;o.side=false;o.spot=o.spot!==false;o.motion=o.motion!==false;
+ o.inspector=false;o.side=false;o.spot=o.spot===true;o.motion=o.motion===true;
  return o;
 }
 let state;try{state=clean(JSON.parse(localStorage.getItem(STORE)));}catch{state=seed();}
@@ -150,8 +151,9 @@ function layout(){
  theme();$("#workspace").style.setProperty("--spotlight",state.spot?"1":"0");$("#workspace").style.setProperty("--aurora",state.motion?"block":"none");
  $("#app").classList.toggle("show-sidebar",innerWidth<=760&&state.side);
  $("#app").classList.toggle("show-inspector",innerWidth<=1060&&state.inspector);
+ $("[data-act=inspector]").forEach(b=>b.setAttribute("aria-expanded",String(state.inspector)));
  const insp=document.querySelector(".inspector");insp.style.display=innerWidth>1060&&!state.inspector?"none":"";
- $("#shell").style.gridTemplateColumns=innerWidth>1060&&!state.inspector?"263px minmax(0,1fr)":"";
+ $("#shell").style.gridTemplateColumns=innerWidth>1060&&!state.inspector?"232px minmax(0,1fr)":"";
 }
 function history(){
  $$(".nav-row").forEach(b=>b.classList.toggle("active",b.dataset.filter===state.filter));
