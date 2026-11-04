@@ -106,8 +106,10 @@ export async function mount(root, session) {
     if (panel.parentElement === document.body) panel.remove();
   });
   // Preserve the selection state when its contents are collapsed/reordered.
-  // Phones use a bottom dock; compact tablets use an initially collapsed top panel.
-  let collapsed = matchMedia("(max-width: 899px)").matches;
+  // Preserve the mobile-dock source contract; compact tablets also start collapsed.
+  let collapsed = mobileDock.matches;
+  if (matchMedia("(min-width: 761px) and (max-width: 899px)").matches)
+    collapsed = true;
   const total = () =>
     [...selected.values()].reduce((sum, p) => sum + (Number(p.points) || 0), 0);
   function updateTotal() {
