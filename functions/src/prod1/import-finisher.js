@@ -57,17 +57,28 @@ export function createProd1ImportFinisher({
         get("jobs/"+jobId+"/mappings/"+id(key))));
       receipts.push(...fetched);
     }
-    const itemIds=new Set(),problemRevisions=new Set();
+    const itemIds=new Set(),olderLegacy=[];
     for(let i=0;i<keys.length;i++){
       const row=receipts[i];
       assert(row&&row.importItemKey===keys[i]&&
         row.hash&&/^[0-9a-f]{64}$/.test(row.hash)&&
-        row.version===1&&row.problemId&&row.revisionId&&
-        row.itemId&&Number.isFinite(row.points)&&row.points>0&&
+        [1,undefined].includes(row.version)&&
+        row.problemId&&row.revisionId&&row.itemId&&
+        Number.isFinite(row.points)&&row.points>0&&
         !itemIds.has(row.itemId),
         "VERSION_CONFLICT","Import receipt is missing or inconsistent.");
       itemIds.add(row.itemId);
-      problemRevisions.add(row.problemId+":"+row.revisionId);
+      // Historical Firestore imports did not use version:1 on mappings.
+      // Preserve them ONLY if the original revision still exists.
+      if(row.version===undefined)olderLegacy.push(row);
+    }
+    for(let i=0;i<olderLegacy.length;i+=20){
+      const group=olderLegacy.slice(i,i+20);
+      const roots=await Promise.all(group.map(row=>
+        get("problems/"+id(row.problemId)+
+          "/revisions/"+id(row.revisionId))));
+      assert(roots.every(Boolean),"VERSION_CONFLICT",
+        "Historical Firestore import revision unavailable.");
     }
     // Imported problems may be reused in a quiz; item IDs themselves must
     // be unique and every pending draft slot must match its SQL receipt.
