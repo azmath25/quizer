@@ -627,8 +627,15 @@ body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
     overflow: visible;
     margin: 0;
   }
+  /* Inline, never a viewport overlay. Tall selections scroll INSIDE
+     the card so phone bottom navigation is never covered. */
+  body[data-page="problems"] .bank-layout > .selection-panel,
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) .selection-panel {
+    max-height: min(56dvh, 440px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   body[data-page="problems"] .selection-panel #selection-details:not([hidden]) {
-    max-height: none;
     overflow: visible;
   }
 }
