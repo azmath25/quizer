@@ -5,7 +5,7 @@ import {audit} from "../../scripts/prod1/p1-cloud-audit.mjs";
 import {PROD1_RELEASE_APPROVED}
   from "../../functions/src/prod1/release-gate.js";
 const PROJECT="sat-quiz-fd317",ROLE="serviceAccount:quizer-runtime@example.iam.gserviceaccount.com";
-function fake({missingSecret=false,wrongProject=false}={}){
+function fake({missingSecret=false,wrongProject=false,missingIamForCursor=false}={}){
   const calls=[];
   const exec=args=>{
     calls.push([...args]);
@@ -29,8 +29,9 @@ function fake({missingSecret=false,wrongProject=false}={}){
     if(action==="storage"&&verb==="buckets")
       return raw({name:"sat-quiz-fd317.firebasestorage.app"});
     if(action==="secrets"&&verb==="get-iam-policy")
-      return raw({bindings:[{role:"roles/secretmanager.secretAccessor",
-        members:[ROLE]}]});
+      return raw({bindings:missingIamForCursor &&
+        name==="QUIZER_BANK_CURSOR_KEY"?[]:[
+        {role:"roles/secretmanager.secretAccessor",members:[ROLE]}]});
     if(action==="projects"&&verb==="get-iam-policy")
       return raw({bindings:[]});
     throw Error("Unexpected read-only request: "+args.join(" "));
@@ -81,4 +82,13 @@ test("wrong project or missing secret is reported, never repaired",()=>{
     getBranch:()=> "work/quizer-audit-optimization-2026-11"});
   assert(y.blockedBy.some(s=>s.includes("Missing enabled secret")));
   assert.equal(y.activate,false);
+});
+
+test("grant on Neon URL alone does not pass cursor-key IAM check",()=>{
+  const f=fake({missingIamForCursor:true});
+  const result=audit({exec:f.exec,
+    getBranch:()=>"work/quizer-audit-optimization-2026-11"});
+  assert.equal(result.iamUnconditionalAccessor.api,false);
+  assert.equal(result.iamUnconditionalAccessor.processJob,false);
+  assert.equal(result.iamUnconditionalAccessor.scheduledMaintenance,false);
 });
