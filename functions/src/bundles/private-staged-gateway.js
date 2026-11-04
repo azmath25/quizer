@@ -73,7 +73,9 @@ export function createQuizerStagedIntegratedGateway({
       return privateRuntime.finalizeGradeJob({
         jobId,attemptId,leaseOwner});
     }
-    return privateRuntime[kind]({jobId});
+    // Preserve the exact worker-claimed lease through to the publication
+    // preflight. Do not silently adopt another worker's newer lease.
+    return privateRuntime[kind]({jobId,leaseOwner});
   };
   return Object.freeze({enabled:true,handle,runPrivateJob,
     actionCounts:Object.freeze({
