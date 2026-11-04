@@ -40,8 +40,12 @@ export function createFirestoreBundlePublicationStore({
     // Auth is provided only by trusted Firebase Admin identity lookup.
     return authFor(doc.requestedBy);
   }
-  async function load(jobId) {
+  async function load(jobId,expectedLeaseOwner=null) {
     id(jobId,"job ID");
+    if(expectedLeaseOwner!==null&&expectedLeaseOwner!==undefined)
+      assert(typeof expectedLeaseOwner==="string"&&
+        expectedLeaseOwner.length>=16&&expectedLeaseOwner.length<=128,
+        "JOB_LEASE","Claimed publication lease missing.");
     const auth=await callerForJob(jobId);
     return transact(db,"job.bundle.preflight",jobId+"-preflight",async c=>{
       const job=await c.get("jobs/"+jobId);
@@ -60,8 +64,10 @@ export function createFirestoreBundlePublicationStore({
       }
       assert(job.status==="running" &&
         typeof job.leaseOwner==="string" && job.leaseOwner.length>0 &&
+        (expectedLeaseOwner===null||expectedLeaseOwner===undefined||
+          job.leaseOwner===expectedLeaseOwner) &&
         job.leaseExpiresAt && millis(job.leaseExpiresAt)>millis(c.now),
-        "JOB_LEASE","Publication lease expired or held by another worker.");
+        "JOB_LEASE","Publication lease expired, replaced or held by another worker.");
       assert(quiz.lifecycle==="active" &&
         quiz.publishingJobId===jobId &&
         revision.state==="building" &&
