@@ -70,8 +70,11 @@ test("enabled bridge initializes once on first request and never leaks secrets",
   const bridge=createProd1EntrypointBridge({enabled:true,...f.deps});
   assert.equal(f.stats.secretReads,0);
   assert.deepEqual((await bridge.dispatch(null,{action:"getDashboard"})).data,
+    {legacy:true,action:"getDashboard"});
+  assert.equal(f.stats.secretReads,0);
+  assert.deepEqual((await bridge.dispatch(null,{action:"createProblem"})).data,
     {hybrid:true});
-  await bridge.dispatch(null,{action:"getDashboard"});
+  await bridge.dispatch(null,{action:"createProblem"});
   assert.equal(f.stats.secretReads,1);
   assert.equal(f.stats.runtimeCreated,1);
 });
