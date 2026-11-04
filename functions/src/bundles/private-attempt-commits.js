@@ -18,11 +18,35 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
   if(enabled!==true)return Object.freeze({
     enabled:false,
     saveAnswers:async()=>({disabled:true}),
+    replaySavedAnswers:async()=>({disabled:true}),
     navigate:async()=>({disabled:true}),
     gradeBatch:async()=>({disabled:true}),
   });
   assert(db?.runTransaction && db?.doc,
     "INVALID_FIELDS","Trusted Firebase transaction client required.");
+  // A lost save ACK may be retried after the attempt is submitted.
+  // Consult the authenticated, input-bound receipt BEFORE protected bundle
+  // preflight (which correctly rejects frozen attempts). This is read-only.
+  async function replaySavedAnswers({firebaseAuth,attemptId,
+    expectedAnswerVersion,changes,requestId}={}){
+    id(attemptId,"attempt ID");id(requestId,"request ID");
+    return transact(db,"bundle.answer.receipt",requestId,async c=>{
+      const attempt=await c.get("attempts/"+attemptId);
+      requireRole(c.actor,"verified");
+      assert(attempt?.studentId===firebaseAuth?.uid &&
+        c.actor.uid===firebaseAuth.uid,"RESOURCE_UNAVAILABLE",
+        "Attempt unavailable.");
+      const prior=await c.get(
+        "operations/"+c.actor.uid+"/requests/"+requestId,false);
+      if(!prior)return {found:false};
+      const inputHash=fingerprint({action:"saveAnswers",attemptId,
+        expectedAnswerVersion,changes});
+      assert(prior.action==="saveAnswers" &&
+        prior.inputHash===inputHash,"INVALID_FIELDS",
+        "Request ID reused with different answers.");
+      return {found:true,result:prior.result};
+    },firebaseAuth);
+  }
   async function saveAnswers({firebaseAuth,attemptId,expectedAnswerVersion,
     changes,proof,requestId}={}){
     id(attemptId,"attempt ID");id(requestId,"request ID");
@@ -195,5 +219,5 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
         total:a.order.length};
     });
   }
-  return Object.freeze({enabled:true,saveAnswers,navigate,gradeBatch});
+  return Object.freeze({enabled:true,replaySavedAnswers,saveAnswers,navigate,gradeBatch});
 }
