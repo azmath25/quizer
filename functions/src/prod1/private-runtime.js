@@ -7,23 +7,13 @@ import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
 import {createQuizerStagedPrivateRuntime}
   from "../bundles/private-staging-runtime.js";
 
-export function createProd1PrivateRuntime({
-  enabled=false,firebaseProjectId="",db,bucket,authFor,
-  bankRuntime,legacyDispatch,legacyActions=[],
+export function createProd1PublicationIdentityPort({
+  db,authFor,resolveFirebaseActor,
 }={}){
-  if(enabled!==true)return Object.freeze({enabled:false,
-    handle:async()=>({disabled:true}),close:async()=>{}});
-  assert(firebaseProjectId==="sat-quiz-fd317"&&db?.doc&&
-    typeof db.runTransaction==="function"&&bucket?.file&&
-    typeof authFor==="function"&&bankRuntime?.enabled===true&&
-    typeof bankRuntime.read?.getProblemForTeacher==="function"&&
-    typeof bankRuntime.buildFullRuntime==="function"&&
-    typeof legacyDispatch==="function"&&
-    Array.isArray(legacyActions),
-    "FAILED_PRECONDITION","Trusted Firebase Admin/bank ports required.");
-  const firebase=createProd1FirebaseBankPorts({
-    enabled:true,db,legacyDispatch});
-  const resolvePublicationActor=async({plan})=>{
+  assert(db?.doc&&typeof authFor==="function"&&
+    typeof resolveFirebaseActor==="function",
+    "FAILED_PRECONDITION","Trusted production publication identity port required.");
+  return async({plan})=>{
     assert(plan?.jobId&&plan?.quizId&&plan?.revisionId&&
       plan?.ownerId&&plan?.leaseOwner,
       "RESOURCE_UNAVAILABLE","Missing trusted publication plan.");
@@ -47,6 +37,26 @@ export function createProd1PrivateRuntime({
       "AUTH_REQUIRED","Trusted Firebase publication identity required.");
     return requireTeacher(await firebase.resolveFirebaseActor(trustedAuth));
   };
+}
+
+export function createProd1PrivateRuntime({
+  enabled=false,firebaseProjectId="",db,bucket,authFor,
+  bankRuntime,legacyDispatch,legacyActions=[],
+}={}){
+  if(enabled!==true)return Object.freeze({enabled:false,
+    handle:async()=>({disabled:true}),close:async()=>{}});
+  assert(firebaseProjectId==="sat-quiz-fd317"&&db?.doc&&
+    typeof db.runTransaction==="function"&&bucket?.file&&
+    typeof authFor==="function"&&bankRuntime?.enabled===true&&
+    typeof bankRuntime.read?.getProblemForTeacher==="function"&&
+    typeof bankRuntime.buildFullRuntime==="function"&&
+    typeof legacyDispatch==="function"&&
+    Array.isArray(legacyActions),
+    "FAILED_PRECONDITION","Trusted Firebase Admin/bank ports required.");
+  const firebase=createProd1FirebaseBankPorts({
+    enabled:true,db,legacyDispatch});
+  const resolvePublicationActor=createProd1PublicationIdentityPort({
+    db,authFor,resolveFirebaseActor:firebase.resolveFirebaseActor});
   const verifyPublicationAssets=async({actor,assetIds=[]})=>
     firebase.verifyAssets({actor,assetIds});
   const privateRuntime=createQuizerStagedPrivateRuntime({
