@@ -80,3 +80,22 @@ The user executed the following with **explicit** `--project=quizer-staging-az26
 Creation response additionally reports `databaseEdition: STANDARD`, `freeTier: true`, `deleteProtectionState: DELETE_PROTECTION_DISABLED`, `pointInTimeRecoveryEnablement: POINT_IN_TIME_RECOVERY_DISABLED`. These are recorded as development-only properties, not as a secure production configuration.
 
 **Result: STG1-C Firestore database provisioned, but Security Rules are NOT yet verified/deployed.** Next: publish explicit staging-only deny-by-default bootstrap rules, verify release, then configure Firebase Google sign-in through staging Authentication Console. Database creation does not imply any application deployment. Do not grant broad test-mode access.
+
+## Firestore deny-all bootstrap rules deployed — verified from Cloud Shell output
+
+User executed on the **new** `quizer-staging-az26` project:
+
+```sh
+mkdir -p ~/quizer-stg1c-rules
+# Local firebase.json declares only firestore.rules
+# Local firestore.rules allows read, write: if false on all documents
+(cd ~/quizer-stg1c-rules &&
+ env -u GOOGLE_CLOUD_QUOTA_PROJECT firebase deploy \
+ --only firestore:rules --project quizer-staging-az26 --non-interactive)
+```
+
+Cloud Shell reported `firestore.rules compiled successfully`, `released rules firestore.rules to cloud.firestore`, and `Deploy complete!`.
+
+**Checkpoint: PASS for deployment of deny-all client SDK rules**. This blocks client Firestore reads and writes, including signed-in clients; server Admin SDK/IAM calls bypass rules. This is intentionally a temporary locked state, **not Quizer's final role-aware `firebase/firestore.rules`**, which will need a separate tested staging-only release before runtime testing. This procedure did not deploy a frontend, Function, storage rule, indexes or auth provider and did not mutate Mimo or production.
+
+**Next gate:** configure Google as a sign-in method **only** in Firebase Console for `quizer-staging-az26`; verify project ID, project support email and authorized domains, save, then independently check. Do not enable Email/Password or anonymous providers unless separately required. No real sign-in verification can pass before runtime endpoints and suitable stage-only authorization are ready.
