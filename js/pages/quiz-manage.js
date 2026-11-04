@@ -549,7 +549,7 @@ export async function mount(root) {
         "More than 10,000 activity records. Narrow the export before retrying.");
       const cell = (v) => {
         let text = String(v ?? "");
-        if (/^[=+\\-@\\t\\r]/.test(text)) text = "'" + text;
+        if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
         return '"' + text.replace(/"/g, '""') + '"';
       };
       const rows = [["Time", "Action", "Actor ID", "Role", "Target type", "Target ID"],
