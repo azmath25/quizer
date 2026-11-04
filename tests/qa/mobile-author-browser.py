@@ -221,9 +221,9 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
         if width==320:
             page.screenshot(path=str(OUTPUT/"320px-selected-collapsed.png"),
                             full_page=False)
-        if width<=760:
+        if width<=899:
             require(toggle.get_attribute("aria-expanded")=="false",
-                    "Phone selection should start compact")
+                    "Phone/tablet selection should start compact")
             tap_or_click(toggle,touch)
             require(toggle.get_attribute("aria-expanded")=="true",
                     "Could not expand selected problems")
