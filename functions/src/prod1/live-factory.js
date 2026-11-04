@@ -5,7 +5,14 @@ import {assert} from "../../shared/schema.js";
 import {dispatch as legacyDispatch,handlers}
   from "../domain/runtime.js";
 import {createProd1BankRuntime,PROD1_BANK_ACTIONS} from "./bank-runtime.js";
-import {createProd1PrivateRuntime} from "./private-runtime.js";
+import {createProd1PrivateRuntime,createProd1PublicationIdentityPort}
+  from "./private-runtime.js";
+import {createProd1LegacyPublicationSource}
+  from "./legacy-publication-source.js";
+import {createProd1PublicationGateway}
+  from "./publication-gateway.js";
+import {createProd1WorkerRouter}
+  from "./worker-router.js";
 import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
 import {createProd1DraftReader} from "./draft-reader.js";
 import {createProd1DraftMutationGateway} from "./draft-mutations.js";
@@ -59,6 +66,16 @@ export async function createProd1LiveRuntime({
       resolveOrigin:ports.resolveProblemOrigin,
       neonReader:bank.read,legacyDispatch,
       verifyAssets:ports.verifyAssets});
+    const legacySource=createProd1LegacyPublicationSource({
+      enabled:true,db,
+      resolvePublicationActor:createProd1PublicationIdentityPort({
+        db,authFor,resolveFirebaseActor:ports.resolveFirebaseActor}),
+      verifyAssets:ports.verifyAssets});
+    const publication=createProd1PublicationGateway({
+      enabled:true,db,resolveActor:ports.resolveFirebaseActor,
+      resolveOrigin:ports.resolveProblemOrigin,neonReader:bank.read,
+      verifyAssets:ports.verifyAssets,legacyDispatch,
+      legacySource});
     const runtime=createProd1PrivateRuntime({
       enabled:true,firebaseProjectId,db,bucket,authFor,
       bankRuntime:bank,legacyDispatch,
@@ -85,6 +102,11 @@ export async function createProd1LiveRuntime({
           return {apiVersion:2,serverTime:new Date().toISOString(),
             data:data===undefined?null:data};
         }
+        if(request.action==="publishQuiz"){
+          const data=await publication.publish(verifiedAuth,request);
+          return {apiVersion:2,serverTime:new Date().toISOString(),
+            data};
+        }
         if(request.action==="getQuizDraftItems"){
           const data=await draftReader.getItems({
             auth:verifiedAuth,quizId:request.quizId,
@@ -100,6 +122,14 @@ export async function createProd1LiveRuntime({
           context?.trustedServerInvocation===true,
           "AUTH_REQUIRED","Trusted PROD1 worker required.");
         return runtime.runPrivateJob(job);
+      },
+      // This adapter owns its lease and never calls the legacy worker for
+      // private publish jobs. It is NOT registered in index.js yet.
+      createWorker({runLegacy,now}={}){
+        return createProd1WorkerRouter({
+          enabled:true,db,runLegacy,now,
+          runPrivateJob:args=>runtime.runPrivateJob(args),
+        });
       },
       close:()=>runtime.close(),
     });
