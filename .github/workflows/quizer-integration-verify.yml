@@ -5,7 +5,7 @@ on:
     branches:
       - integration/quizer-frontend-backend-2026-11-05
     paths:
-      - ".github/workflows/quizer-verify.yml"
+      - ".github/workflows/quizer-integration-verify.yml"
       - "functions/**"
       - "js/**"
       - "assets/**"
