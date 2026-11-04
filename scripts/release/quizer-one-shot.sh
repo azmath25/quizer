@@ -2,6 +2,7 @@
 # Quizer coordinated release: run once in Google Cloud Shell.
 # Does not touch Mimo, Firebase Hosting, Firestore rules/indexes, or Neon schema/data.
 set -Eeuo pipefail
+umask 077
 
 PROJECT="sat-quiz-fd317"
 PROJECT_NUMBER="476816329871"
@@ -157,8 +158,27 @@ step "Publish reviewed combined frontend via existing GitHub Pages work-branch w
 git push origin "HEAD:refs/heads/$PUBLIC_BRANCH" \
   || fail "Frontend push failed after backend deployment (backend rollback attempted)"
 FRONTEND_PUSHED=1
-echo "GitHub Pages workflow triggered. Release source: $(git rev-parse HEAD)"
-echo "Release log/rollback snapshots: $RELEASE_DIR"
-echo "Monitor: https://github.com/azmath25/quizer/actions/workflows/quizer-github-pages.yml"
-echo "If Pages fails after the push, restore backend traffic from previous-*.txt and do not discard the release folder."
-echo "SUCCESS: backend deployed and guest-smoked; frontend publication triggered (not yet confirmed)."
+step "Confirm the GitHub Pages workflow actually completed for this commit"
+COMMIT="$(git rev-parse HEAD)"
+PAGES_STATUS="not-found"
+for attempt in $(seq 1 60); do
+  # Public GitHub API: release SHA and job status only; no access tokens in logs.
+  curl --fail --silent --show-error --max-time 15 \
+    "https://api.github.com/repos/azmath25/quizer/actions/runs?per_page=30" \
+    > "$RELEASE_DIR/actions-runs.json" || fail "Cannot read GitHub Actions status"
+  PAGES_STATUS="$(node - "$RELEASE_DIR/actions-runs.json" "$COMMIT" <<'NODE'
+const fs=require("fs"),data=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+const run=(data.workflow_runs??[]).find(r=>r.head_sha===process.argv[3] &&
+  r.name==="Publish Quizer to GitHub Pages");
+console.log(!run?"not-found":run.status!=="completed"?"running":
+  run.conclusion==="success"?"success":"failed");
+NODE
+)"
+  [[ "$PAGES_STATUS" == success ]] && break
+  [[ "$PAGES_STATUS" == failed ]] && fail "Pages publication failed; inspect GitHub Actions before any more deployment"
+  sleep 10
+done
+[[ "$PAGES_STATUS" == success ]] || fail "Pages completion could not be confirmed; backend remains deployed, inspect GitHub Actions"
+echo "SUCCESS: Firebase backend deployed and guest-smoked; GitHub Pages deployed from $COMMIT."
+echo "Release/rollback snapshots: $RELEASE_DIR"
+echo "NOTE: An authenticated student submission smoke still needs a safe test account."
