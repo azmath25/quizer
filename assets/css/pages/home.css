@@ -118,3 +118,17 @@ body[data-page="home"] .page-heading p {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lift);
 }
+
+/* Phone-first dashboard: put the next action above visual decoration. */
+@media (max-width: 760px) {
+  body[data-page="home"] .page-heading { padding: 24px 20px; }
+  body[data-page="home"] .page-heading::after { font-size: 2.5rem; right: 9px; bottom: -5px; }
+  body[data-page="home"] .welcome-strip { gap: 12px; margin-bottom: 20px; }
+  body[data-page="home"] .home-section .section-head { align-items: baseline; }
+  body[data-page="home"] .home-section .section-head > h2 { min-width: 0; }
+}
+@media (max-width: 520px) {
+  body[data-page="home"] .welcome-strip > .button { width: 100%; }
+  body[data-page="home"] .page-heading::after { opacity: .10; }
+  body[data-page="home"] .quick-links { margin-bottom: 18px; }
+}
