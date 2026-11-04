@@ -32,7 +32,12 @@ export function quizerNeonConfig(env = process.env) {
     throw new Error("Quizer database host, role, name, or TLS setting is unsafe.");
 
   const names = new Set([...url.searchParams.keys()]);
-  if ([...names].some(k => k !== "sslmode"))
+  // Neon Console may include channel_binding=require in the pooled URL.
+  // Permit only that strict SCRAM setting; never accept host, options,
+  // search_path or other connection-string override parameters.
+  if ([...names].some(k => !["sslmode", "channel_binding"].includes(k)) ||
+      (names.has("channel_binding") &&
+        url.searchParams.get("channel_binding") !== "require"))
     throw new Error("Unexpected Quizer database URL parameters.");
 
   return Object.freeze({
