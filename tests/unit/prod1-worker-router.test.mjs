@@ -141,3 +141,15 @@ test("cancelling a trashed quiz clears only its private publishing pointer",asyn
   assert.equal(f.stats.privateCalls,0);
   assert.equal(f.stats.legacyCalls,0);
 });
+
+test("incomplete private publication marker cannot fall through to legacy worker",async()=>{
+  const f=fixture({kind:"private"});
+  delete f.docs["jobs/job_1"].input.bundleMode;
+  assert.throws(()=>classifyProd1Job(f.docs["jobs/job_1"]),
+    /private source pins but no trusted bundle mode/);
+  await assert.rejects(createProd1WorkerRouter(f.deps)
+    .runJob("job_1"),/private source pins but no trusted bundle mode/);
+  assert.equal(f.stats.legacyCalls,0);
+  assert.equal(f.stats.privateCalls,0);
+  assert.equal(f.stats.writes,0);
+});
