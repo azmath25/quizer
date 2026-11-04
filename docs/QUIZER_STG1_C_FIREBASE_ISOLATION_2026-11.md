@@ -105,3 +105,16 @@ Cloud Shell reported `firestore.rules compiled successfully`, `released rules fi
 On 2026-11-04 the user reported completing the Firebase Console step to enable Google sign-in in `quizer-staging-az26`.
 
 **Status:** reported enabled, not independently API-verified yet. No Auth user/session/redirect-domain test has been performed. Do **not** state full STG1-C success until stage-only provider status and authorized domains are inspected. Project Mimo stays unmodified. The next safe validation is the read-only Identity Toolkit API `projects.defaultSupportedIdpConfigs.get`, printing **only** the `enabled` and `name` fields (never OAuth `clientSecret`).
+
+## Independent Google Auth provider verification — PASS
+
+The user ran a read-only Identity Toolkit Admin v2 `GET` with the explicit header `X-Goog-User-Project: quizer-staging-az26` and a response field mask `fields=name,enabled`. Cloud Shell output:
+
+```text
+Provider: projects/509423933910/defaultSupportedIdpConfigs/google.com
+Google sign-in enabled: True
+```
+
+This independently verifies Google as an **enabled provider** for the new Firebase staging project (`509423933910`). The earlier HTTP 403 without the explicit quota-project header was resolved. No OAuth client secrets were printed and neither Mimo nor production was changed.
+
+**Authentication provider gate: PASS.** Authorized redirect domains and actual user login are still **UNVERIFIED**. Firestore remains intentionally deny-all. Next step: inspect only `authorizedDomains` via `GET https://identitytoolkit.googleapis.com/admin/v2/projects/quizer-staging-az26/config?fields=authorizedDomains` with the same explicit quota-project header. This command must not expose any client or provider secret. No user signup, rules relaxation, staging deployment or credential changes are yet authorized.
