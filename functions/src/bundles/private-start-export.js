@@ -1,7 +1,7 @@
 // QN11.5 STAGED: server-only first-attempt planning and private export source.
 // No direct Storage URLs, browser-supplied actor, public URLs, live routing,
 // migrations or cloud calls at module import.
-import {assert,id,number,assetIds} from "../../shared/schema.js";
+import {assert,id,number,assetIds,studentItem} from "../../shared/schema.js";
 import {readPrivatePublishedBundle} from "./published-bundle.js";
 
 export function createQuizerPrivateStartAndExport({
@@ -76,7 +76,24 @@ export function createQuizerPrivateStartAndExport({
     });
     assert(result?.attemptId && result.quizRevisionId===revisionId,
       "FAILED_PRECONDITION","Attempt commit did not confirm pinned revision.");
-    return result;
+    // The authorized, SHA-verified private bundle is already in memory.
+    // The transaction has committed the attempt before this student-only
+    // question is returned. Never expose grading, keys or Storage URLs.
+    const first=byItem.get(result.order?.[0]);
+    if(!first || result.status!=="active" ||
+      result.currentFrontier!==0 || result.answeredCount!==0)
+      return result;
+    return {...result,firstQuestion:{
+      ...studentItem({
+        itemId:first.itemId,type:first.content.type,
+        answerMode:first.content.answerMode,
+        statementLatex:first.content.statementLatex,
+        options:first.content.options,points:first.points,
+        questionAssetBindings:first.content.questionAssetBindings,
+      }),
+      answer:{value:"",revision:0,updatedAt:null},
+    }};
+
   }
   async function exportSource({jobId}={}){
     id(jobId,"export job ID");
