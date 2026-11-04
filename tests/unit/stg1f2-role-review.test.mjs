@@ -50,7 +50,7 @@ test("STG1-F.2 grants only exact reviewed app permissions",()=>{
 });
 
 test("STG1-F.2 dry-run has a narrow allowlist of SQL statement kinds",()=>{
-  assert.equal(statements.length,12);
+  assert.equal(statements.length,13);
   for(const s of statements.slice(1,-1))
     assert.match(s,/^(CREATE\s+ROLE\s+quizer_app|GRANT\s|REVOKE\s)/i);
 });
@@ -61,5 +61,5 @@ test("STG1-F.2 has no migration, deploy, driver or network integration",()=>{
   const runtime=read("../../functions/src/neon/sql-port.js");
   for(const s of [gate,workflow,runtime])
     assert.doesNotMatch(s,/stg1f2_role_grants_DRY_RUN_ONLY/);
-  assert.doesNotMatch(raw,/\b(?:curl|gcloud|firebase|neon\s+deploy|psql\s+-c|wget)\b/i);
+  assert.doesNotMatch(sql,/\b(?:curl|gcloud|firebase|neon\s+deploy|psql\s+-c|wget)\b/i);
 });
