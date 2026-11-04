@@ -10,6 +10,7 @@ PROJECT="sat-quiz-fd317"
 NUMBER="476816329871"
 SECRET="QUIZER_NEON_DATABASE_URL"
 EXPECTED_HOST="ep-ancient-voice-b9jua9ew-pooler.c-7.eu-central-1.aws.neon.tech"
+DIRECT_HOST="ep-ancient-voice-b9jua9ew.c-7.eu-central-1.aws.neon.tech"
 
 if [[ "$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')" != "$NUMBER" ]]; then
   echo "STOP: SAT QUIZ Firebase project identity not verified." >&2
@@ -32,11 +33,20 @@ fi
 echo "Neon Console: https://console.neon.tech/app/projects/soft-grass-35754518/branches/br-lucky-lake-b9pocorx"
 echo "Choose branch sat-quiz-live-2026-11, database quizer, role quizer_app."
 echo "If the role has no password, reset it in the Neon Roles panel."
-echo "Copy the pooled Postgres URL from Connect. Do NOT paste it into chat."
-IFS= read -r -s -p "Paste the complete quizer_app pooled URL (hidden): " NEON_URL
+echo "Copy the PostgreSQL URL (direct or pooled). Exact direct host is normalized locally."
+IFS= read -r -s -p "Paste the quizer_app PostgreSQL URL (hidden): " NEON_URL
 printf '\n'
 if [[ -z "$NEON_URL" ]]; then
   echo "STOP: empty connection string"; exit 2
+fi
+
+# Neon may show the DIRECT endpoint by default. Normalize ONLY the verified
+# same-branch direct hostname to its known pooled counterpart, preserving the
+# role, password, path, TLS and all query parameters unchanged.
+# No credentials are printed, and arbitrary hosts remain rejected.
+if [[ "$NEON_URL" == *"@$DIRECT_HOST/"* ]]; then
+  NEON_URL="${NEON_URL/"@$DIRECT_HOST/"/"@$EXPECTED_HOST/"}"
+  echo "INFO: Verified direct endpoint hostname normalized to pooled; password unchanged."
 fi
 
 # Connect with a restricted user and check actual grants before storing URL.
