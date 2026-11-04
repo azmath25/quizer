@@ -197,3 +197,27 @@ test("QN-PROD.3 receipt lookup safely acknowledges saved answers after freeze",a
   await assert.rejects(f.svc.replaySavedAnswers({
     ...args,firebaseAuth:other}),why("RESOURCE_UNAVAILABLE"));
 });
+
+test("QN-PROD.3 committed navigation receipt survives frozen attempt",async()=>{
+  const f=await seeded(),rid=requestId();
+  const args={firebaseAuth:f.actor,attemptId:f.attemptId,
+    targetIndex:1,requestId:rid};
+  assert.deepEqual(await f.svc.replayNavigation(args),{found:false});
+  const plan={...args,proof:{attemptId:f.attemptId,
+    pinnedRevisionId:"qrv_bundle_new",expectedFrontier:0,
+    expectedUiVersion:0,targetIndex:1,item:{itemId:"itm_b"}}};
+  const original=await f.svc.navigate(plan);
+  await db.doc("attempts/"+f.attemptId).update({status:"submitted"});
+  const replay=await f.svc.replayNavigation(args);
+  assert.equal(replay.found,true);
+  assert.deepEqual(replay.result,original);
+  await assert.rejects(f.svc.replayNavigation({...args,targetIndex:0}),
+    why("INVALID_FIELDS"));
+  const other={uid:id("other_nav_"),token:{email_verified:true}};
+  await db.doc("roles/"+other.uid).set({role:"student",
+    accountStatus:"active",version:1});
+  await assert.rejects(f.svc.replayNavigation({
+    ...args,firebaseAuth:other}),why("RESOURCE_UNAVAILABLE"));
+  assert.equal((await db.doc("attempts/"+f.attemptId).get())
+    .data().currentFrontier,1);
+});
