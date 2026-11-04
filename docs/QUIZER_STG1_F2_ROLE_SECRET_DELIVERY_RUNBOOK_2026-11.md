@@ -65,3 +65,11 @@ On any wrong endpoint, untrusted service identity, unexpectedly elevated role, b
 STG1-F.2 is a **preparation** milestone. The SQL role, password, server-only Secret Manager destination, cloud billing controls and real integration remain UNPROVISIONED / UNVERIFIED. Next separately approved stage: choose and attest exact Quizer staging runtime service identity and secret destination, review billing limitations and only then consider actual restricted role creation and independent attestation.
 
 **No merges, production changes, Neon SQL execution, Firebase/GCP changes or Mimo access. STG2 NO GO.**
+
+## Verification checkpoint
+
+- Work-branch GitHub Actions [run 41748673358](https://github.com/azmath25/quizer/actions/runs/41748673358) on tested source SHA ff611e6ceec87ea0f188426a97e2ca0f5084ec58: **all 3/3 jobs passed**.
+- Unit tests: **378/378**, backend tests: **5/5**, static verification, Firebase demo-emulator regressions and Chromium mobile/author QA: **PASS**.
+- Documentation-only commit after the tested source did not alter the reviewed SQL or unit-test source.
+- A final read-only Neon role listing for disposable child br-sweet-rice-b9ehdv9i still showed only quizer_owner (password), quizer_app_limited (NOLOGIN) and quizer_reader_limited (NOLOGIN). **quizer_app does not exist.**
+- None of these checks ran the dry-run role SQL, connected as a restricted runtime login, verified Secret Manager, or deployed a staging backend. F.2 completion does not close the real SQL/cloud blockers.
