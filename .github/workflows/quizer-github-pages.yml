@@ -6,6 +6,18 @@ on:
   push:
     branches:
       - work/quizer-audit-optimization-2026-11
+    # Backend-only commits should not republish unchanged static pages.
+    paths:
+      - ".github/workflows/quizer-github-pages.yml"
+      - "*.html"
+      - ".nojekyll"
+      - "assets/**"
+      - "js/**"
+      - "shared/**"
+      - "examples/**"
+      - "scripts/build.mjs"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
