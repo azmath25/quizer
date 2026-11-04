@@ -23,6 +23,25 @@ export function isProd1Enabled({
     env.QUIZER_PROD1_ENABLED==="true" &&
     (env.GCLOUD_PROJECT??env.GCP_PROJECT)===PROD1_PROJECT;
 }
+async function isPinnedPrivateJob(db,job){
+  if(!["grade_attempt","export_quiz"].includes(job?.kind))return false;
+  let quizId,revisionId;
+  if(job.kind==="grade_attempt"){
+    const a=await db.doc("attempts/"+id(job.targetId)).get();
+    const attempt=a.exists?a.data():null;
+    assert(attempt?.quizId&&attempt?.quizRevisionId,
+      "RESOURCE_UNAVAILABLE","Frozen grading attempt unavailable.");
+    quizId=id(attempt.quizId);revisionId=id(attempt.quizRevisionId);
+  }else{
+    quizId=id(job.targetId);revisionId=id(job.input?.revisionId);
+  }
+  const snap=await db.doc("quizzes/"+quizId+
+    "/revisions/"+revisionId).get();
+  const revision=snap.exists?snap.data():null;
+  assert(revision?.state==="ready",
+    "RESOURCE_UNAVAILABLE","Pinned revision unavailable.");
+  return Boolean(revision.bundle);
+}
 export function createProd1EntrypointBridge({
   enabled=false,db,legacyDispatch,legacyRunJob,
   runtimeFactory,readSecrets,environment=process.env,
@@ -75,9 +94,10 @@ export function createProd1EntrypointBridge({
       const job=snap.data();
       // Legacy publication and other jobs never allocate a Neon pool.
       // Private publication must never fall back when the runtime fails.
-      if(classifyProd1Job(job)==="legacy" &&
-        !["grade_attempt","export_quiz"].includes(job.kind))
-        return legacyRunJob(db,jobId);
+      if(classifyProd1Job(job)==="legacy"){
+        if(!await isPinnedPrivateJob(db,job))
+          return legacyRunJob(db,jobId);
+      }
       return (await getRuntime()).createWorker({
         runLegacy:legacyRunJob,
       }).runJob(jobId);
