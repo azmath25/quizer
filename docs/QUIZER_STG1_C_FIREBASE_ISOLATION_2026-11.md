@@ -146,3 +146,21 @@ After an initial Cloud Shell gcloud session transiently had no active account, t
   `roles/owner`.
 
 **Billing project-level linkage: PASS (disabled).** This is not a spending-alert check or proof that future Blaze activation is safe. **IAM: PARTIAL/NEEDS REVIEW** because role names without members do not show public grants or which principal has `roles/owner` or `roles/iam.serviceAccountTokenCreator`. The next check must show per-role member counts, public-principal flags, and principal type breakdown only, without exposing account emails. Avoid changes to Mimo, current production, IAM and billing.
+
+## STG1-D project-level IAM member-class audit — PASS (2026-11-04)
+
+The user ran a read-only, explicitly scoped `gcloud projects get-iam-policy quizer-staging-az26 --format=json` and a Python summarizer which displayed per-binding member type/count, anonymous grants and conditions without user/service-account addresses.
+
+| Role | Members | Class | Public? | Condition? |
+| --- | ---: | --- | --- | --- |
+| `roles/firebase.managementServiceAgent` | 1 | serviceAccount | false | false |
+| `roles/firebase.sdkAdminServiceAgent` | 1 | serviceAccount | false | false |
+| `roles/firebaseauth.admin` | 1 | serviceAccount | false | false |
+| `roles/firebaserules.system` | 1 | serviceAccount | false | false |
+| `roles/firestore.serviceAgent` | 1 | serviceAccount | false | false |
+| `roles/iam.serviceAccountTokenCreator` | 1 | serviceAccount | false | false |
+| `roles/owner` | 1 | user | false | false |
+
+**Verified:** no project-wide `allUsers` or `allAuthenticatedUsers` binding, only one human owner, and service-only Firebase-related grants. The presence of an impersonation privilege needs exact service-identity/role-reason verification before runtime access is considered hardened. This does not inspect IAM of individual resources, inherited organization/folder permissions, or whether the underlying service identities have been modified. No IAM changes were made.
+
+**Remaining:** budget alerts before any billing activation, disabled-billing constraints on Functions/Storage, dedicated Neon `quizer_app` SQL LOGIN with secure secrets, version-ledger persistence and runner, final staging-only deploy/recovery plan, real auth and end-to-end tests. STG2 is still NO GO.
