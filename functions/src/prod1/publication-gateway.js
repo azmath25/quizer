@@ -52,6 +52,24 @@ export function createProd1PublicationGateway({
       "INVALID_FIELDS","Invalid publish request.");
     const actor=requireTeacher(await resolveActor(auth));
     const quizId=id(request.quizId);
+    const receiptPath="operations/"+actor.uid+"/requests/"+request.requestId;
+    const requestHash=hash(request);
+    // A successfully committed request is replayable even if the quiz
+    // is now publishing, complete, or its draft version has advanced.
+    // This fast path is Firebase-only and never incurs a second Neon read.
+    const early=await get(db,receiptPath);
+    if(early){
+      assert(early.action==="publishQuiz"&&
+        early.inputHash===requestHash,
+        "VERSION_CONFLICT","Request ID reused for another operation.");
+      const jobId=id(early.result?.jobId,"receipt job ID"),
+        revisionId=id(early.result?.revisionId,"receipt revision ID");
+      const job=await get(db,"jobs/"+jobId);
+      assert(job?.kind==="publish_quiz"&&job.requestedBy===actor.uid&&
+        job.targetId===quizId&&job.input?.revisionId===revisionId,
+        "FAILED_PRECONDITION","Publication receipt job mismatch.");
+      return {jobId,revisionId};
+    }
     const [quiz,draft]=await Promise.all([
       get(db,"quizzes/"+quizId),
       get(db,"quizzes/"+quizId+"/drafts/current"),
@@ -90,24 +108,31 @@ export function createProd1PublicationGateway({
       "FAILED_PRECONDITION",
       "Mixed Firestore/Neon publication requires a separate approved migration.");
     const sources=[];
-    for(const slot of slots){
-      const loaded=await neonReader.getProblemForTeacher({
-        actor,problemId:slot.problemId,
-        revisionId:slot.problemRevisionId});
-      assert(loaded?.problemId===slot.problemId&&
-        loaded.revisionId===slot.problemRevisionId&&
-        loaded.problem?.ownerId===actor.uid&&
-        loaded.problem?.lifecycle==="active",
-        "RESOURCE_UNAVAILABLE",
-        "Only verified owner-owned Neon revisions may be privately published.");
-      const normalized=normalizedSource(loaded);
-      await verifyAssets({actor,assetIds:assetIds(
-        normalized.content,normalized.grading)});
-      sources.push({...slot,contentHash:fingerprint(normalized),
-        source:{kind:"neon_revision",problemId:slot.problemId,
-          problemRevisionId:slot.problemRevisionId}});
+    // A 500-question exam must not incur 500 serial round trips or fan
+    // out all queries at once. Keep at most eight preflights in flight.
+    for(let start=0;start<slots.length;start+=8){
+      const group=await Promise.all(slots.slice(start,start+8)
+        .map(async slot=>{
+          const loaded=await neonReader.getProblemForTeacher({
+            actor,problemId:slot.problemId,
+            revisionId:slot.problemRevisionId});
+          assert(loaded?.problemId===slot.problemId&&
+            loaded.revisionId===slot.problemRevisionId&&
+            loaded.problem?.ownerId===actor.uid&&
+            loaded.problem?.lifecycle==="active",
+            "RESOURCE_UNAVAILABLE",
+            "Only verified owner-owned Neon revisions may be privately published.");
+          const normalized=normalizedSource(loaded);
+          assert(await verifyAssets({actor,assetIds:assetIds(
+            normalized.content,normalized.grading)})===true,
+            "RESOURCE_UNAVAILABLE","Pinned publication assets unavailable.");
+          return {...slot,contentHash:fingerprint(normalized),
+            source:{kind:"neon_revision",problemId:slot.problemId,
+              problemRevisionId:slot.problemRevisionId}};
+        }));
+      sources.push(...group);
     }
-    const digest=hash(request);
+    const digest=requestHash;
     const jobId="job_"+hash("private:"+actor.uid+":"+request.requestId)
       .slice(0,28);
     const revisionId="qrv_"+hash("private:"+actor.uid+":"+
@@ -117,19 +142,14 @@ export function createProd1PublicationGateway({
         const snap=await tx.get(db.doc(path));
         return snap.exists?snap.data():null;
       };
-      const receiptPath="operations/"+actor.uid+"/requests/"+
-        request.requestId;
       const base="quizzes/"+quizId;
-      const [receipt,role,current,currentDraft,prior]=await Promise.all([
-        read(receiptPath),
-        read("roles/"+actor.uid),
-        read(base),
-        read(base+"/drafts/current"),
-        // Prior revision is checked after reading current quiz pointer.
-        Promise.resolve(null),
+      const [receipt,role,current,currentDraft]=await Promise.all([
+        read(receiptPath),read("roles/"+actor.uid),
+        read(base),read(base+"/drafts/current"),
       ]);
       if(receipt){
-        assert(receipt.inputHash===digest,"VERSION_CONFLICT",
+        assert(receipt.action==="publishQuiz"&&
+          receipt.inputHash===digest,"VERSION_CONFLICT",
           "Request ID reused for different publish.");
         return receipt.result;
       }
@@ -184,6 +204,15 @@ export function createProd1PublicationGateway({
       const result={jobId,revisionId};
       tx.set(db.doc(receiptPath),{
         action:"publishQuiz",inputHash:digest,result,createdAt:now});
+      // Same transaction as the job and quiz pointer update.
+      tx.set(db.doc("auditEvents/evt_"+hash(receiptPath+
+        ":quiz.publishing").slice(0,28)),{
+        actorId:actor.uid,actorRoleAtTime:role.role,
+        action:"quiz.publishing",targetType:"quiz",targetId:quizId,
+        quizId,quizOwnerId:current.ownerId,
+        affectedUserId:null,changedFields:[],
+        requestId:request.requestId,occurredAt:now,
+      });
       return result;
     });
   }
