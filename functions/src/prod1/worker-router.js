@@ -5,6 +5,7 @@
 import {randomUUID} from "node:crypto";
 import {assert,id} from "../../shared/schema.js";
 import {Timestamp,millis} from "../domain/runtime.js";
+import {createProd1SecondaryWorker} from "./secondary-worker.js";
 
 const PRIVATE_MODE="private_bundle_v1";
 const RETRIES=5;
@@ -150,10 +151,17 @@ export function createProd1WorkerRouter({
       return true;
     });
   }
+  const secondary=createProd1SecondaryWorker({
+    db,runLegacy,runPrivateJob,now,randomLease,
+  });
   async function runJob(jobId){
     id(jobId);
     const original=await snapshot(db,"jobs/"+jobId);
     if(!original)return {status:"missing"};
+    // The saved attempt/published revision, never the browser or job
+    // request, decides whether grading/export uses private bundle keys.
+    if(["grade_attempt","export_quiz"].includes(original.kind))
+      return secondary.runJob(jobId);
     const kind=classifyProd1Job(original);
     if(kind==="legacy"){
       // The legacy worker owns its own lease and all old job kinds.
