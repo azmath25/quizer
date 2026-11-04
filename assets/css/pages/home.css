@@ -132,3 +132,21 @@ body[data-page="home"] .page-heading p {
   body[data-page="home"] .page-heading::after { opacity: .10; }
   body[data-page="home"] .quick-links { margin-bottom: 18px; }
 }
+
+/* A quieter home: fewer cards, shorter utility links, less ornamental space. */
+body[data-page="home"] .page-heading { padding: 22px 26px; }
+body[data-page="home"] .page-heading::after { font-size: 2.7rem; opacity: .1; }
+body[data-page="home"] .quick-links { margin-bottom: 18px; gap: 10px; }
+body[data-page="home"] .quick-link { padding: 12px 15px; gap: 10px; }
+body[data-page="home"] .home-section { margin-bottom: 20px; }
+body[data-page="home"] .home-simple .panel { padding: 18px; }
+body[data-page="home"] .home-resource-links {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  border-top: 1px solid var(--border); margin-top: 15px;
+  padding-top: 13px; font-size: .84rem;
+}
+@media (max-width: 760px) {
+  body[data-page="home"] .page-heading { padding: 20px; }
+  body[data-page="home"] .quick-links { margin-bottom: 15px; }
+  body[data-page="home"] .home-simple .panel { padding: 14px; }
+}
