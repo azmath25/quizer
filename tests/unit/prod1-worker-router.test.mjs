@@ -128,3 +128,16 @@ test("maintenance and cancellation block claiming private publication",async()=>
   assert.equal(cancelled.docs["quizzes/quiz_1"].publishingJobId,"another_job");
   assert.equal(cancelled.docs["quizzes/quiz_1"].publishedRevisionId,"pub_previous");
 });
+
+test("cancelling a trashed quiz clears only its private publishing pointer",async()=>{
+  const f=fixture();
+  f.docs["quizzes/quiz_1"].lifecycle="trashed";
+  const r=createProd1WorkerRouter(f.deps);
+  assert.equal((await r.runJob("job_1")).status,"cancelled");
+  assert.equal(f.docs["quizzes/quiz_1"].publishingJobId,null);
+  assert.equal(f.docs["quizzes/quiz_1"].publishedRevisionId,"pub_previous");
+  assert.equal(f.docs["jobs/job_1"].status,"failed");
+  assert.equal(f.docs["quizzes/quiz_1/revisions/pub_1"].state,"failed");
+  assert.equal(f.stats.privateCalls,0);
+  assert.equal(f.stats.legacyCalls,0);
+});
