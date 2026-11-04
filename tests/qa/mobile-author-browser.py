@@ -100,7 +100,7 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
             require(studio.is_visible(), "Tablet header hides AI Studio")
             require(rect(studio)["width"] >= 68,
                     "Tablet AI Studio link is clipped: "+str(rect(studio)))
-            require(rect(studio)["right"]+3 <= rect(appearance)["left"],
+            require(rect(studio)["right"]+3 <= rect(appearance)["x"],
                     "Tablet links overlap appearance icon")
         require(appearance.count()==1, "Missing compact appearance icon")
         require(rect(appearance)["width"]>=36 and rect(appearance)["height"]>=36,
