@@ -28,7 +28,7 @@ wait_for_seed=helpers["wait_for_seed"]
 
 VIEWPORTS=[(320,720,True),(390,844,True),
            (430,932,True),(768,1024,True),(844,390,True),
-           (1024,768,False)]
+           (1024,768,False),(1440,900,False)]
 
 def login_teacher(context):
     reply=context.request.post(BASE+"/__qa/login",data={
@@ -190,6 +190,28 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                 f"Problem selection tap did not select item at {width}px")
         panel=page.locator("#selection-panel")
         panel.wait_for(state="visible",timeout=15000)
+        if width >= 900:
+            geometry=page.evaluate("""() => {
+              const layout=document.querySelector('.bank-layout');
+              const bank=document.querySelector('.bank-main');
+              const panel=document.querySelector('#selection-panel');
+              const pager=bank?.querySelector('.pager');
+              const a=bank?.getBoundingClientRect();
+              const b=panel?.getBoundingClientRect();
+              return {
+                children:[...layout.children].map(n=>n.className),
+                pagerInBank:!!pager,
+                bankRight:a?.right, panelLeft:b?.left,
+                bankTop:a?.top, panelTop:b?.top
+              };
+            }""")
+            require(geometry["children"]==["bank-main","selection-panel"],
+                "Bank layout gained an extra grid child: "+str(geometry))
+            require(geometry["pagerInBank"],
+                "Pagination must remain within the left column")
+            require(geometry["panelLeft"]>geometry["bankRight"]+5,
+                "Selected inspector must occupy the empty RIGHT column: "+
+                str(geometry))
         toggle=page.locator("#toggle-selection")
         require(toggle.get_attribute("aria-controls")=="selection-details",
                 "Selection toggle lacks accessible controlled region")
