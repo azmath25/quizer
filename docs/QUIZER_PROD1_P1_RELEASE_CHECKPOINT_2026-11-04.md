@@ -61,6 +61,8 @@ sat-quiz-fd317**, run:
 ```bash
 cd ~/quizer-staging-audit/quizer
 git pull --ff-only
+# Optional only if QUIZER_BANK_CURSOR_KEY does not yet exist:
+# node scripts/prod1/p1-create-cursor-secret.mjs
 node scripts/prod1/p1-cloud-audit.mjs
 ```
 
