@@ -46,7 +46,15 @@ export function createPinnedNeonPublicationResolver({
     const {gradingVersion,...key}=loaded.grading;
     assert(gradingVersion===undefined||gradingVersion===1,
       "VERSION_CONFLICT","Unknown grading version.");
-    const normalized=validateProblem(loaded.content,key);
+    // The real SQL repository includes revisionNumber, createdAt, source and
+    // contentHash for teacher use. Those are NOT part of the immutable
+    // question schema and must not enter bundle validation or hashing.
+    const contentKeys=["type","answerMode","statementLatex","options",
+      "defaultPoints","questionAssetBindings"];
+    const minimal=Object.fromEntries(contentKeys
+      .filter(k=>Object.hasOwn(loaded.content,k))
+      .map(k=>[k,loaded.content[k]]));
+    const normalized=validateProblem(minimal,key);
     assert(fingerprint(normalized)===pinned[0].contentHash,
       "VERSION_CONFLICT","Pinned immutable problem hash mismatch.");
     // Verify retention/authorization of BOTH question and solution assets
