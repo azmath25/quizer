@@ -48,7 +48,7 @@ if [[ "$NEON_URL" == "postgresql://quizer_app@"* ||
   echo "INFO: Neon URL is missing the password."
   echo "Reset quizer_app password in Neon Roles and copy the new password."
   IFS= read -r -s -p "Paste the NEW quizer_app password (hidden): " NEON_PASSWORD
-  printf '\\n'
+  printf '\n'
   if [[ -z "$NEON_PASSWORD" ]]; then
     echo "STOP: no password supplied; nothing saved." >&2
     exit 2
