@@ -1,17 +1,21 @@
 # Math Quiz · version 2
 
-A mobile-first math quiz website with a bright blue interface, Firebase accounts, a reusable problem bank, and teacher-managed quizzes. The frontend is plain HTML, CSS and JavaScript. GitHub Pages can deploy it **directly from a branch**. Firebase runs authentication, protected data, file uploads, grading and background jobs. There is no PHP.
+A mobile-first math quiz website with a bright blue interface, Firebase accounts, a reusable problem bank, and teacher-managed quizzes. The frontend is plain HTML, CSS and JavaScript. GitHub Pages hosts the public frontend through the dedicated **Publish Quizer to GitHub Pages** workflow on the Quizer work branch. Firebase runs authentication, protected data, file uploads, grading and background jobs. There is no PHP.
 
 ## Start here
 
 1. Follow [FIREBASE-SETUP.md](FIREBASE-SETUP.md) once to configure and deploy your Firebase backend.
 2. Put the extracted project contents in your GitHub repository. `index.html` belongs at the repository root.
-3. In GitHub **Settings → Pages**, select **Deploy from a branch → main → /(root)**.
+3. In GitHub **Settings → Pages**, set Source to **GitHub Actions**. The workflow `.github/workflows/quizer-github-pages.yml` builds and publishes only `dist/` from `work/quizer-audit-optimization-2026-11`. Do not enable Firebase Hosting for this deployment.
 4. Sign in, bootstrap the first administrator, then manage teacher roles from **Admin**.
 
 **Upgrading an existing Firebase installation?** Read [docs/MIGRATION.md](docs/MIGRATION.md) before replacing its rules. Version 1 data and rules are not interchangeable with version 2.
 
-The supplied `js/firebase-config.js` is intentionally empty. Add your own public Firebase web configuration. This archive does not contain production credentials, deploy to a Firebase project, or change your existing data.
+The public Firebase web configuration in `js/firebase-config.js` targets `sat-quiz-fd317`. It contains public Firebase SDK identifiers, not private credentials. This repository does not contain a Neon password, private signing key or service-account key. The new Neon-backed PROD1 backend remains unmounted until a separately approved real-cloud release.
+
+## Prod 1 release status (November 2026)
+
+The **existing Firebase-backed app** is the active API contract. Separate Quizer Neon schema and SQL role exist, and the work branch contains default-disabled modules for a reusable Neon problem bank, diff-only saves, private published bundles and cross-store recovery. They are **not wired into the deployed Firebase Functions**. A successful GitHub Pages run publishes only static files; it cannot activate Neon or update Cloud Functions. Real Firebase+Neon+Storage end-to-end testing, secret binding, history preservation and deployment authorization are still required. See [Prod 1 release gate](docs/QUIZER_PROD1_RELEASE_GATE_2026-11-04.md).
 
 ## What is included
 
@@ -42,7 +46,7 @@ git remote add origin https://github.com/YOUR_ACCOUNT/YOUR_REPOSITORY.git
 git push -u origin main
 ```
 
-No file-by-file upload is needed. `.gitignore` excludes installed packages, local runtime files and credentials. Preserve `.nojekyll`. There is **no custom GitHub Actions workflow** in this project. If your old repository has `.github/workflows/pages.yml`, remove that obsolete workflow when switching to branch deployment.
+No file-by-file upload is needed. `.gitignore` excludes installed packages, local runtime files and credentials. Preserve `.nojekyll`. The public frontend is built by `.github/workflows/quizer-github-pages.yml`; unit/emulator/mobile CI runs in `.github/workflows/quizer-verify.yml`. The frontend workflow does not deploy Firebase Hosting, Cloud Functions, Neon, or Mimo.
 
 ## Local development
 
@@ -79,7 +83,7 @@ npm run verify:static
 npm run build
 ```
 
-`test:integration` starts Auth, Firestore and Storage emulators and checks permissions, assets, immutable publication, admissions, attempts, grading, reports, concurrency and migration. `test:transport` checks real Auth tokens through the exported callable HTTP wrapper using the client SDK. `npm run build` creates a frontend-only `dist/` alternative; branch deployment does not need this build.
+`test:integration` starts Auth, Firestore and Storage emulators and checks permissions, assets, immutable publication, admissions, attempts, grading, reports, concurrency and migration. `test:transport` checks real Auth tokens through the exported callable HTTP wrapper using the client SDK. `npm run build` creates the frontend-only `dist/` directory uploaded by the dedicated GitHub Pages workflow.
 
 See [docs/VERIFICATION.md](docs/VERIFICATION.md) for performed checks and remaining production checks. The original detailed plan is retained in [docs/COPILOT_IMPLEMENTATION_PLAN.md](docs/COPILOT_IMPLEMENTATION_PLAN.md).
 
@@ -109,4 +113,4 @@ Quiz metadata and drafts are separate from immutable published snapshots. Attemp
 
 Default limits: 500 problems per quiz; 4 MiB per image; 16 megapixels; 20 MiB source/backup input; 1 GiB teacher storage allowance; bounded API pages and edits. Automatic short-answer grading supports accepted text/numeric expressions and numerical tolerance, **not unrestricted symbolic algebra equivalence**. Use teacher marking for proofs and long reasoning.
 
-Future AI-assisted selection from PDF is intentionally a later project. It is not a button that pretends to work in this release.
+The teacher-facing AI chat currently contains a demo interface (`AI_CONNECTED=false`); real PDF AI extraction, Ask AI and browser snipping remain separate PROD2 scope. Do not label demo output as live AI processing.
