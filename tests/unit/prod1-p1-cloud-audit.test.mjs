@@ -92,3 +92,35 @@ test("grant on Neon URL alone does not pass cursor-key IAM check",()=>{
   assert.equal(result.iamUnconditionalAccessor.processJob,false);
   assert.equal(result.iamUnconditionalAccessor.scheduledMaintenance,false);
 });
+
+test("transient gcloud project lookup failures are retried without mutation",()=>{
+  const f=fake();
+  let attempts=0;
+  const exec=args=>{
+    if(args[0]==="projects"&&args[1]==="describe"&&++attempts<=2)
+      return {ok:false,text:""};
+    return f.exec(args);
+  };
+  const report=audit({exec,
+    getBranch:()=>"work/quizer-audit-optimization-2026-11"});
+  assert.equal(attempts,3);
+  assert.equal(report.verifiedProject,true);
+  assert.equal(report.activate,false);
+  assert.equal(report.deploy,false);
+});
+test("persistent gcloud project lookup failure aborts Cloud audit safely",()=>{
+  let attempts=0;
+  const report=audit({
+    exec:args=>{
+      attempts++;
+      assert.deepEqual(args,["projects","describe","sat-quiz-fd317",
+        "--format=value(projectNumber)"]);
+      return {ok:false,text:""};
+    },
+    getBranch:()=>{throw Error("must not check any other scope");},
+  });
+  assert.equal(attempts,3);
+  assert.equal(report.verifiedProject,false);
+  assert(report.blockedBy[0].includes("lookup failed after retries"));
+  assert.deepEqual(report.secrets,{});
+});
