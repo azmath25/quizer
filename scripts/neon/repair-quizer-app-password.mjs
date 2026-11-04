@@ -34,10 +34,25 @@ if(!["postgres:","postgresql:"].includes(u.protocol) ||
    (u.searchParams.has("channel_binding") &&
       u.searchParams.get("channel_binding")!=="require") ||
    u.hash)fail("Select the exact Neon live branch's quizer_owner TLS URL.");
-const project=run(["projects","describe",PROJECT,
-  "--format=value(projectNumber)"]);
-if(!project.ok || project.stdout!=="476816329871")
-  fail("SAT QUIZ Firebase project identity not verified.");
+// Google Cloud Shell can occasionally fail a project lookup during
+// transient auth/network refresh. Retry a failed lookup, but NEVER accept
+// an unverified or mismatched project identity.
+let verifiedProject=false;
+for(let attempt=0;attempt<3;attempt++){
+  const result=run(["projects","describe",PROJECT,
+    "--format=value(projectNumber)"]);
+  if(result.ok){
+    if(result.stdout!=="476816329871")
+      fail("Google Cloud returned an unexpected SAT QUIZ project number. " +
+        "No Neon password was changed; check your gcloud account/project.");
+    verifiedProject=true;
+    break;
+  }
+}
+if(!verifiedProject)
+  fail("SAT QUIZ project lookup failed in gcloud. No Neon password was " +
+    "changed. Run: gcloud projects describe sat-quiz-fd317 " +
+    "--format='value(projectNumber)' and check any CLI error, then retry.");
 if(run(["secrets","describe",SECRET,
   "--project="+PROJECT]).ok)
   fail("Secret already exists. Refusing to overwrite it.");
