@@ -46,7 +46,7 @@ try:
                       "AI Studio did not synchronize System preference")
                 check("System" in theme.get_attribute("aria-label"),
                       "AI Studio theme icon did not announce System")
-                check(page.locator(".welcome .prompt-card").count() == 2,
+                check(page.locator(".welcome .prompt-card:visible").count() == 2,
                       f"Starter content overcrowded at {width}px")
                 check(page.locator("#app").get_attribute("class") == "app",
                       f"Inspector must start collapsed at {width}px")
@@ -55,7 +55,7 @@ try:
                         "(el) => getComputedStyle(el).display") == "none",
                         "Wide-screen inspector visible by default")
                 page.locator(".welcome .more-prompts summary").click()
-                check(page.locator(".welcome .prompt-card").count() == 4,
+                check(page.locator(".welcome .prompt-card:visible").count() == 4,
                       "Expanded suggestions are missing")
                 page.locator(".chat-options summary").click()
                 check(page.locator(".chat-actions button").count() == 3,
