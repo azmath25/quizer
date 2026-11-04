@@ -311,8 +311,8 @@
     grid-template-areas: "selection" "bank";
     gap: 14px;
   }
-  #bank-list { grid-area: bank; }
-  .selection-panel {
+  .bank-layout:has(.selection-panel:not([hidden])) #bank-list { grid-area: bank; }
+  .bank-layout:has(.selection-panel:not([hidden])) .selection-panel {
     grid-area: selection;
     position: sticky;
     inset: auto;
