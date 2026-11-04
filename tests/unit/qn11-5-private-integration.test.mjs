@@ -232,6 +232,34 @@ test("private gateway preserves existing callable action names and legacy routin
   assert.deepEqual(await f.facade.exportSource({jobId:"job_export"}),{
     internal:true});
 });
+test("P1-C regression: read-only attempt calls accept standard requestId",async()=>{
+  const f=gatewayFixture();
+  const requestId="req_read_1234567890";
+  const readCases=[
+    ["getAttemptQuestions",student,{attemptId:"att_new",itemIds:["itm_1"]}],
+    ["getAttemptQuestions",student,{attemptId:"att_old",itemIds:["itm_1"]}],
+    ["getAttemptResult",student,{attemptId:"att_new",offset:0,limit:10}],
+    ["getTeacherAttempt",teacher,{attemptId:"att_new",offset:0,limit:10}],
+    ["getAdminAttempt",admin,{attemptId:"att_new",offset:0,limit:10}],
+    ["getAssetLinks",student,{context:{kind:"attempt",id:"att_new"},
+      assetIds:["ast_picture"]}],
+    ["getExportLink",teacher,{jobId:"job_old"}],
+    ["getExportLink",teacher,{jobId:"job_new"}],
+  ];
+  for(const [action,actor,body] of readCases){
+    const result=await f.call(action,actor,{...body,requestId});
+    assert(result && typeof result==="object",action);
+  }
+  // The shared envelope field must not weaken action-specific whitelists.
+  await assert.rejects(f.call("getAttemptQuestions",student,{
+    attemptId:"att_new",itemIds:["itm_1"],requestId,role:"admin"
+  }),why("INVALID_FIELDS"));
+  // Mutations still require well-formed idempotency keys.
+  await assert.rejects(f.call("saveAnswers",student,{
+    attemptId:"att_new",expectedAnswerVersion:1,changes:[],
+    requestId:"bad"
+  }),why("INVALID_FIELDS"));
+});
 test("private gateway validates before committing answers and navigation",async()=>{
   const f=gatewayFixture();
   const requestId="request_1234567890";

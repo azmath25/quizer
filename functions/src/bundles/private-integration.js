@@ -162,7 +162,11 @@ export function createQuizerPrivateIntegration({
   async function handle(action,firebaseAuth,request){
     assert(Object.hasOwn(ALLOWED,action),"INVALID_FIELDS",
       "Unsupported private integration action.");
-    fields(request,["apiVersion","action",...ALLOWED[action]]);
+    // The v2 callable envelope permits a requestId for every action,
+    // including read-only actions. Legacy clients may send it on quiz
+    // question/results/image reads; rejecting it broke live attempts.
+    // Mutation-specific requestId validation remains below.
+    fields(request,["apiVersion","action","requestId",...ALLOWED[action]]);
     assert(request.apiVersion===2 && request.action===action,
       "API_VERSION","Invalid callable action envelope.");
     assert(firebaseAuth?.uid && firebaseAuth.token &&
