@@ -521,16 +521,6 @@
     max-width: none;
   }
 }
-@media (min-width: 1280px) {
-  /* Two bank cards only when the selection inspector is absent; otherwise
-     long mathematical statements retain a legible single-column width. */
-  body[data-page="problems"] .bank-layout:not(:has(.selection-panel:not([hidden]))) #bank-list {
-    max-width: none;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    gap: 22px;
-  }
-}
 @media (min-width: 761px) {
   /* On desktop/tablet the collapse affordance belongs on the right side. */
   body[data-page="problems"] .sel-head #toggle-selection {
@@ -595,4 +585,50 @@
 }
 @media (max-width: 760px) {
   .bank-search-hint { text-align: left; margin-top: -4px; }
+}
+
+/* QN-FE: uniform single-column bank, permanent contextual selection
+   controls. Do not introduce masonry/two-column height mismatch. */
+body[data-page="problems"] #bank-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  max-width: none;
+  gap: 16px;
+}
+body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
+  align-items: start;
+}
+@media (max-width: 899px) {
+  body[data-page="problems"] .bank-layout,
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "selection" "bank";
+    gap: 14px;
+  }
+  body[data-page="problems"] .bank-layout > #bank-list {
+    grid-area: bank;
+    width: 100%;
+  }
+  body[data-page="problems"] .bank-layout > .selection-panel,
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) .selection-panel {
+    grid-area: selection;
+    position: relative;
+    inset: auto;
+    top: auto;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    z-index: 1;
+    overflow: visible;
+    margin: 0;
+  }
+  body[data-page="problems"] .selection-panel #selection-details:not([hidden]) {
+    max-height: none;
+    overflow: visible;
+  }
 }
