@@ -36,6 +36,7 @@ import {
 } from "../components/ui.js";
 import { latexHTML, typeset, clearMath } from "../components/math-content.js";
 import { loginURL } from "../core/navigation.js";
+import { showQuizRules } from "./quiz-rules.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     attemptId = params.get("attempt"),
@@ -72,16 +73,14 @@ export async function mount(root, session) {
     RESOURCE_UNAVAILABLE: "This quiz is not available for new attempts",
   };
   root.innerHTML = `<div class="quiz-overview"><div class="page-heading">${linkButton("All quizzes", "quizzes.html", "ghost")}</div><section class="panel flush"><div class="overview-header">${badge(q.subject || "Mathematics", "blue")} ${badge(q.accessMode === "approval" ? "Teacher approval" : "Open access")}<h1>${e(q.title)}</h1><p>${e(q.description)}</p><p>By ${e(q.ownerDisplayName || "Teacher")}</p></div><div class="overview-body"><div class="quiz-facts"><div><strong>${q.questionCount ?? "—"}</strong><span>Problems</span></div><div><strong>${q.totalPoints === null ? "—" : points(q.totalPoints)}</strong><span>Points</span></div><div><strong>${duration(q.durationSeconds)}</strong><span>Time limit</span></div></div>${q.opensAt || q.closesAt ? `<p class="muted small">${q.opensAt ? "Opens " + date(q.opensAt) : ""}${q.closesAt ? " · Closes " + date(q.closesAt) : ""}</p>` : ""}<p class="muted small">${q.maxAttempts === null ? "Unlimited attempts" : `${q.maxAttempts + q.extraAttempts} attempts allowed · ${q.attemptCount} used`}</p>${q.reason ? notice(labels[q.reason] || "You cannot start this quiz right now.", q.reason === "ACCESS_PENDING" ? "info" : "warning") : ""}<div data-message></div><div class="actions">${q.activeAttemptId ? linkButton("Resume attempt", `quiz.html?attempt=${q.activeAttemptId}`, "primary", "arrow") : !session.user ? linkButton("Sign in", loginURL(), "primary") : q.canStart ? '<button class="button primary" id="start">Start quiz</button>' : q.canRequest ? '<button class="button primary" id="request-access">Request access</button>' : q.reason === "EMAIL_UNVERIFIED" ? linkButton("Open profile", "profile.html", "primary") : ""}${session.user ? linkButton("My attempts", "activity.html", "secondary") : ""}${q.canManage ? linkButton("Manage quiz", `quiz-manage.html?id=${quizId}`, "secondary") : ""}</div><hr><p class="muted small">Your answers are saved during the quiz. The quiz’s teacher can see saved responses, results and the times responses were changed. Written responses require teacher marking.</p></div></section></div>`;
-  action(root, "#start", async () => {
-    const confirm = await dialog({
-      title: "Start this quiz?",
-      body: `<p>${q.questionCount} problems · ${duration(q.durationSeconds)}. ${q.durationSeconds ? "The timer begins immediately and continues if you leave the page." : ""}</p><p class="muted small">The teacher can see your saved responses and change times.</p>`,
-      confirm: "Start quiz",
+  action(root, "#start", () => {
+    showQuizRules(root, q, {
+      begin: () => api("startAttempt", { quizId }),
+      started: async (attempt) => {
+        history.replaceState(null, "", `quiz.html?attempt=${encodeURIComponent(attempt.attemptId)}`);
+        await runner(root, attempt, session);
+      },
     });
-    if (!confirm) return;
-    const attempt = await api("startAttempt", { quizId });
-    history.replaceState(null, "", `quiz.html?attempt=${attempt.attemptId}`);
-    await runner(root, attempt, session);
   });
   action(root, "#request-access", async () => {
     const values = await dialog({
@@ -207,6 +206,11 @@ async function runner(root, initial, session) {
     itemCache.set(item.itemId, Promise.resolve(item));
     ready.add(item.itemId);
   }
+  // The newly committed start response may include its first student-safe
+  // question. Reuse it instead of making a second authorized Storage read.
+  // Older backend revisions simply fall back to getAttemptQuestions.
+  if (a.firstQuestion?.itemId === a.order[index])
+    seedItem(a.firstQuestion);
   function fetchItem(itemId) {
     if (!itemCache.has(itemId))
       itemCache.set(
