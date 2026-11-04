@@ -52,7 +52,7 @@ export async function mount(root, session) {
       "Build quizzes from saved problems. Each selection keeps its chosen revision.",
       `<div class="actions">${linkButton("Import problems", "upload.html?bank=1", "secondary", "upload")}${linkButton("New problem", "problem-edit.html", "primary", "plus")}</div>`,
     ) +
-    `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="grid" id="bank-list"></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
+    `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="bank-main"><div class="grid" id="bank-list"></div></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
   installBankSearchShortcut(root);
   const list = root.querySelector("#bank-list"),
     PAGE = 12,
@@ -64,6 +64,8 @@ export async function mount(root, session) {
   pager.hidden = true;
   pager.innerHTML =
     '<button class="button secondary" type="button" data-prev>Previous</button><span class="muted small" data-label></span><button class="button secondary" type="button" data-next>Next</button>';
+  // Keep pagination inside the bank column. A third grid child would
+  // occupy the selection column and push the inspector beneath the cards.
   list.after(pager);
   const setPage = (cursor) => {
     nextCursor = cursor;
