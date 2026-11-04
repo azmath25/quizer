@@ -18,7 +18,15 @@ export function classifyProd1Job(job){
   assert(job&&typeof job==="object","RESOURCE_UNAVAILABLE",
     "Job unavailable.");
   if(job.kind!=="publish_quiz")return "legacy";
-  if(job.input?.bundleMode===undefined)return "legacy";
+  if(job.input?.bundleMode===undefined){
+    // A partially written private job must never be interpreted as an old
+    // Firestore job just because its mode discriminator is missing.
+    assert(!job.input?.sources?.some(slot=>
+      ["neon_revision","firestore_legacy"].includes(slot?.source?.kind)),
+      "FAILED_PRECONDITION",
+      "Publication has private source pins but no trusted bundle mode.");
+    return "legacy";
+  }
   assert(job.input.bundleMode===PRIVATE_MODE &&
     typeof job.input.revisionId==="string" &&
     Array.isArray(job.input.sources)&&
