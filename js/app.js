@@ -14,8 +14,7 @@ import {
   notice,
 } from "./components/ui.js";
 import { loginURL } from "./core/navigation.js";
-import { startRouter, go, isStale, loadModule, setWarmer } from "./core/router.js";
-import { warm } from "./services/api.js";
+import { startRouter, go, isStale, loadModule } from "./core/router.js";
 const pages = {
   home: "guest",
   catalog: "guest",
@@ -133,24 +132,11 @@ watchSession((next) => {
     location.reload();
   }
 });
-const warmers = {
-  "index.html": () => warm("getDashboard"),
-  "quizzes.html": () => warm("listPublicQuizzes", { limit: 12 }),
-  "activity.html": () => getSession().user && warm("listMyAttempts", { limit: 20 }),
-  "problems.html": () =>
-    getSession().capabilities.teach &&
-    (warm("listProblems", { view: "mine", lifecycle: "active", limit: 12 }),
-    warm("listStars")),
-  "teaching.html": () =>
-    getSession().capabilities.teach &&
-    warm("listMyQuizzes", { limit: 20, lifecycle: "active" }),
-};
-setWarmer((file) => warmers[file]?.());
+// Keep route-module prefetching (static JS/CSS only), but never fetch
+// dashboard/catalog/activity/bank/teaching DATA for pages the user did not
+// explicitly visit. On low concurrency/cloud plans these speculative calls
+// compete with the foreground quiz and increase both latency and cost.
 await startRouter(renderPage);
-// Warm the main menu destinations once the current page is up.
-setTimeout(() => {
-  for (const file of Object.keys(warmers)) warmers[file]();
-}, 1500);
 document.addEventListener("click", (event) => {
   const back = event.target.closest(".qc-back");
   if (back) {
