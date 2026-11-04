@@ -174,3 +174,26 @@ test("QN11.5: lost ACK replays old committed answer/navigation after submission"
   assert.equal((await db.doc("attempts/"+f.attemptId+"/answers/itm_a").get())
     .data().value,"4");
 });
+
+test("QN-PROD.3 receipt lookup safely acknowledges saved answers after freeze",async()=>{
+  const f=await seeded(),rid=requestId();
+  const args={firebaseAuth:f.actor,attemptId:f.attemptId,
+    expectedAnswerVersion:0,changes:[change("itm_a","4")],
+    requestId:rid};
+  assert.deepEqual(await f.svc.replaySavedAnswers(args),{found:false});
+  const saved=await f.svc.saveAnswers({
+    ...args,proof:proof(f.attemptId,["itm_a"])});
+  await db.doc("attempts/"+f.attemptId).update({status:"submitted"});
+  const replay=await f.svc.replaySavedAnswers(args);
+  assert.equal(replay.found,true);
+  assert.deepEqual(replay.result,saved);
+  assert.equal((await db.doc("attempts/"+f.attemptId+"/answers/itm_a").get())
+    .data().revision,1);
+  await assert.rejects(f.svc.replaySavedAnswers({
+    ...args,changes:[change("itm_a","5")]}),why("INVALID_FIELDS"));
+  const other={uid:id("student_other_"),token:{email_verified:true}};
+  await db.doc("roles/"+other.uid).set({role:"student",
+    accountStatus:"active",version:1});
+  await assert.rejects(f.svc.replaySavedAnswers({
+    ...args,firebaseAuth:other}),why("RESOURCE_UNAVAILABLE"));
+});
