@@ -265,6 +265,16 @@ export function createQuizerPrivateIntegration({
       assert(typeof request.requestId==="string" &&
         /^[A-Za-z0-9_-]{16,100}$/.test(request.requestId),
         "INVALID_FIELDS","Unique request ID required.");
+      // A prior committed save can be acknowledged after submission or
+      // timeout. Check the authenticated, input-bound receipt first; only
+      // fresh writes require an active-attempt private-bundle preflight.
+      if(typeof attemptCommits.replaySavedAnswers==="function"){
+        const replay=await attemptCommits.replaySavedAnswers({
+          firebaseAuth,attemptId,
+          expectedAnswerVersion:request.expectedAnswerVersion,
+          changes:request.changes,requestId:request.requestId});
+        if(replay.found===true)return replay.result;
+      }
       const proof=await secureAttempts.validateAnswers({
         firebaseAuth,attemptId,changes:request.changes});
       return attemptCommits.saveAnswers({firebaseAuth,attemptId,
