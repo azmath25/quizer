@@ -36,19 +36,21 @@ function requirePinnedPlan(plan, jobId) {
     assert(!seen.has(itemId) && itemId === plan.revision.itemOrder[index],
       "INVALID_FIELDS", "Duplicate or reordered source item.");
     seen.add(itemId);
-    assert(slot.source?.kind === "neon_revision" &&
+    assert(["neon_revision","firestore_legacy"].includes(slot.source?.kind) &&
       slot.source.problemId === slot.problemId &&
       slot.source.problemRevisionId === slot.problemRevisionId &&
+      (slot.source.kind!=="firestore_legacy" ||
+        ["problem","snapshot"].includes(slot.source.pathType)) &&
       typeof slot.contentHash === "string" &&
       /^[a-f0-9]{64}$/.test(slot.contentHash),
-      "INVALID_FIELDS", "Pinned immutable Neon source hash required.");
+      "INVALID_FIELDS", "Pinned immutable publication source hash required.");
   }
   return { quizId, revisionId };
 }
 
 export function createPrivateBundlePublisher({
-  enabled = false, publicationStore, resolvePinnedRevision, storage,
-  retainPublishedAssets=null,
+  enabled = false, publicationStore, resolvePinnedRevision,
+  resolveLegacyRevision=null, storage,retainPublishedAssets=null,
 } = {}) {
   if (enabled !== true) {
     return Object.freeze({enabled:false,
@@ -79,7 +81,11 @@ export function createPrivateBundlePublisher({
     for (const slot of plan.sources) {
       // This injected port MUST fetch the EXACT immutable Neon problem
       // revision, not its mutable/latest problem bank pointer.
-      const resolved = await resolvePinnedRevision({
+      const port=slot.source.kind==="firestore_legacy"
+        ? resolveLegacyRevision : resolvePinnedRevision;
+      assert(typeof port==="function","FAILED_PRECONDITION",
+        "Trusted pinned legacy publication reader not configured.");
+      const resolved = await port({
         problemId:slot.problemId,
         problemRevisionId:slot.problemRevisionId,
         source:slot.source,
