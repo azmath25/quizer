@@ -92,17 +92,27 @@ export async function mount(root, session) {
   // page/card stacking contexts. Otherwise 200% text size can put a toolbar
   // OVER the visible Expand button, making it untappable.
   const panelHome = panel.parentElement,
-    mobileDock = matchMedia("(max-width: 760px)");
+    mobileDock = matchMedia("(max-width: 760px)"),
+    tabletDock = matchMedia("(min-width: 761px) and (max-width: 899px)");
   const placePanel = () => {
-    if (mobileDock.matches && panel.parentElement !== document.body)
-      document.body.append(panel);
-    else if (!mobileDock.matches && panel.parentElement !== panelHome)
+    if (mobileDock.matches) {
+      // Existing phone portal escapes card/assistant stacking contexts.
+      if (panel.parentElement !== document.body) document.body.append(panel);
+      return;
+    }
+    if (panel.parentElement !== panelHome) panelHome.append(panel);
+    // Match DOM and visual focus order when selection is top-positioned.
+    if (tabletDock.matches && panelHome.firstElementChild !== panel)
+      panelHome.prepend(panel);
+    else if (!tabletDock.matches && panelHome.lastElementChild !== panel)
       panelHome.append(panel);
   };
   mobileDock.addEventListener?.("change", placePanel);
+  tabletDock.addEventListener?.("change", placePanel);
   placePanel();
   onLeave(() => {
     mobileDock.removeEventListener?.("change", placePanel);
+    tabletDock.removeEventListener?.("change", placePanel);
     if (panel.parentElement === document.body) panel.remove();
   });
   // Preserve the selection state when its contents are collapsed/reordered.
