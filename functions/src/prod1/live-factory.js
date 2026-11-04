@@ -25,6 +25,22 @@ const PRIVATE=new Set(["startAttempt","getAttemptQuestions",
   "getExportLink","saveManualGrade","releaseResults"]);
 const NONLEGACY=new Set([...PROD1_BANK_ACTIONS,
   "importProblemBatch",...PRIVATE]);
+// A single trusted invocation boundary for both direct worker dispatch and
+// the leased worker adapter. The security context MUST NOT be mistaken for
+// the private job payload (which must still contain kind + jobId).
+export function createProd1TrustedWorkerInvoker({firebaseProjectId="",privateRuntime}={}){
+  assert(firebaseProjectId===PROJECT&&
+    typeof privateRuntime?.runPrivateJob==="function",
+    "FAILED_PRECONDITION","Trusted private worker gateway required.");
+  return async(context,job)=>{
+    assert(context?.firebaseProjectId===PROJECT&&
+      context?.trustedServerInvocation===true,
+      "AUTH_REQUIRED","Trusted PROD1 worker required.");
+    assert(job&&typeof job.kind==="string"&&typeof job.jobId==="string",
+      "INVALID_FIELDS","Private job payload required.");
+    return privateRuntime.runPrivateJob(job);
+  };
+}
 export async function createProd1LiveRuntime({
   enabled=false,db,firebaseProjectId="",connectionString,
   cursorSecret="",firebaseAuth,storageBucket,createPool,
@@ -85,6 +101,8 @@ export async function createProd1LiveRuntime({
       bankRuntime:bank,legacyDispatch,
       legacyActions:[...handlers.keys()].filter(k=>!NONLEGACY.has(k)),
     });
+    const invokeTrustedJob=createProd1TrustedWorkerInvoker({
+      firebaseProjectId,privateRuntime:runtime});
     return Object.freeze({
       enabled:true,
       async dispatch(verifiedAuth,request){
@@ -126,18 +144,13 @@ export async function createProd1LiveRuntime({
         return {apiVersion:2,serverTime:new Date().toISOString(),
           data:data===undefined?null:data};
       },
-      async runPrivateJob(context,job){
-        assert(context?.firebaseProjectId===PROJECT&&
-          context?.trustedServerInvocation===true,
-          "AUTH_REQUIRED","Trusted PROD1 worker required.");
-        return runtime.runPrivateJob(job);
-      },
+      runPrivateJob:invokeTrustedJob,
       // This adapter owns its lease and never calls the legacy worker for
       // private publish jobs. It is NOT registered in index.js yet.
       createWorker({runLegacy,now}={}){
         return createProd1WorkerRouter({
           enabled:true,db,runLegacy,now,
-          runPrivateJob:args=>runtime.runPrivateJob({
+          runPrivateJob:args=>invokeTrustedJob({
             firebaseProjectId:PROJECT,trustedServerInvocation:true,
           },args),
         });
