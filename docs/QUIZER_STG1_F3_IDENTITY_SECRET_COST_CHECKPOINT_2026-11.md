@@ -68,3 +68,25 @@ Official docs:
 **STG1-F.3 = OFFLINE PREFLIGHT.** Runtime service identity, a secret resource, secret-scoped binding, actual budget alerts, and current service inventory are **not verified live**. The safe next milestone would be **STG1-F.4**, exclusively read-only Google Cloud metadata verification (no secret contents), followed by a new approval before any real credential, service-account creation, billing, IAM change, deployment, branch merge or data migration.
 
 Production Quizer, Mimo, protected `main`/`main-backup`, AI/snipping branches, deployed resources and real user data remain untouched.
+
+## Backup / rollback clarification (owner question, 2026-11-04)
+
+**Do not deploy Quizer staging or production on the assumption that a single backup can be "applied" if anything breaks.** A backup is necessary but insufficient for the new hybrid Firebase–Neon–Storage architecture.
+
+| Surface | Safer rollback / recovery plan |
+| --- | --- |
+| Static frontend | Keep a pinned, tested previous build; revert Hosting release or republish verified prior GitHub Pages artifact as appropriate |
+| Firebase Functions | Republish the verified old function source with proper identities, configuration and triggers; do not assume Hosting rollback reverts Functions |
+| Firestore rules/indexes | Republish previously tested rules/index configuration; these do not have the same automatic release rollback as Hosting |
+| Firestore data | Test restore of a separately captured backup/export/PITR point into a disposable database and reconcile newer legitimate records, rather than overwrite live student attempts/grades blindly |
+| Neon data | Use an independent disposable branch/snapshot and a controlled reconciliation; turning off the new feature flag leaves legacy Firestore authoritative |
+| Private images/bundles | Retain generation-specific objects and independently verify storage soft-delete/versioning/restore; don't assume database restore recreates binary files |
+| Cross-store consistency | Log write receipts and request IDs, stop new writes, verify the missing/duplicated operations, inspect recovery classification, then resume only after reconciliation |
+
+Firebase documentation:
+- https://firebase.google.com/docs/cli (Hosting rollback vs rules)
+- https://firebase.google.com/docs/firestore/manage-data/export-import (import overwrite and requirement for billing/Blaze)
+- https://firebase.google.com/docs/firestore/backups (database backup restore limitations)
+- https://docs.cloud.google.com/storage/docs/protection-backup-recovery-overview (binary object recovery options).
+
+**Release decision:** Staging deployment remains **NO GO** while runtime identity, server-only secret destination, restricted SQL LOGIN, Firebase Storage/Functions, billable controls and actual restore drill are unverified. The staging project has no verified full working application to roll back to; its current client Firestore rules are intentionally deny-all. Production must stay untouched.
