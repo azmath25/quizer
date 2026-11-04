@@ -66,17 +66,16 @@ test("desktop author/admin canvases are wider without modifying the mobile base"
   assert.match(css.reports, /body\[data-page="quiz-manage"\] #manage-panel \.workspace-grid/);
 });
 
-test("selection inspector uses side/top positioning for authors and phone-only dock", () => {
+test("selection inspector is side-by-side on desktop and above bank on compact widths", () => {
   assert.match(css.editor, /@media \(min-width:\s*900px\) and \(max-width:\s*1100px\)/);
-  assert.match(css.editor, /@media \(min-width:\s*761px\) and \(max-width:\s*899px\)/);
-  assert.match(css.editor, /\.selection-panel\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*70;[^}]*pointer-events:\s*auto;/s);
-  assert.match(css.editor, /bottom:\s*var\(--mobile-nav-clearance,/);
+  assert.match(css.editor, /@media \(max-width:\s*899px\)/);
+  assert.match(css.editor, /grid-template-areas:\s*"selection" "bank"/);
+  assert.match(css.editor, /position:\s*relative;/);
   assert.match(css.editor, /\.sel-ctl \.icon-button\s*\{[^}]*min-width:\s*44px;/s);
-  assert.match(bank, /let collapsed = mobileDock\.matches/);
-  assert.match(bank, /tabletDock = matchMedia\("\(min-width: 761px\) and \(max-width: 899px\)"\)/);
+  assert.match(bank, /let collapsed = compactLayout\.matches/);
   assert.match(bank, /panelHome\.prepend\(panel\)/);
   assert.match(bank, /panelHome\.append\(panel\)/);
-  assert.match(bank, /document\.body\.append\(panel\)/);
+  assert.doesNotMatch(bank, /document\.body\.append\(panel\)/);
   assert.match(bank, /compactSelection\.addEventListener\?\.\("change", syncSelectionViewport\)/);
 });
 
