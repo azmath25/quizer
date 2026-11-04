@@ -130,3 +130,19 @@ The user queried the Identity Toolkit Admin v2 `projects.config.get` endpoint fo
 **Result:** Authorized domains were independently verified as staging-only with no Mimo or existing Quizer production domains. No domains were added/removed; no sign-in was attempted. This is a configuration PASS, not evidence of an end-to-end login PASS.
 
 **Remaining STG1-D gates:** billing remains previously reported disabled; inspect current status, service IAM and provider controls before any billable setup. Firestore deny-all bootstrap rule is still in force. No app/Functions/Storage deployment and no Neon runtime credential is provisioned.
+
+## STG1-D preliminary billing and IAM role inventory (user-verified)
+
+After an initial Cloud Shell gcloud session transiently had no active account, the user reran both **read-only** commands with restored authentication, explicitly targeting `quizer-staging-az26`:
+
+- `gcloud billing projects describe quizer-staging-az26 --format="yaml(billingEnabled)"` -> **`billingEnabled: false`**.
+- `gcloud projects get-iam-policy quizer-staging-az26 --format="table(bindings.role)"` returned these role bindings:
+  `roles/firebase.managementServiceAgent`,
+  `roles/firebase.sdkAdminServiceAgent`,
+  `roles/firebaseauth.admin`,
+  `roles/firebaserules.system`,
+  `roles/firestore.serviceAgent`,
+  `roles/iam.serviceAccountTokenCreator`,
+  `roles/owner`.
+
+**Billing project-level linkage: PASS (disabled).** This is not a spending-alert check or proof that future Blaze activation is safe. **IAM: PARTIAL/NEEDS REVIEW** because role names without members do not show public grants or which principal has `roles/owner` or `roles/iam.serviceAccountTokenCreator`. The next check must show per-role member counts, public-principal flags, and principal type breakdown only, without exposing account emails. Avoid changes to Mimo, current production, IAM and billing.
