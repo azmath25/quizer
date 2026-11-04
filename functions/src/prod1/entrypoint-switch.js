@@ -3,6 +3,14 @@
 // approved, server-side gate is ON. Browser payloads cannot choose a backend.
 import {assert,id} from "../../shared/schema.js";
 import {classifyProd1Job} from "./worker-router.js";
+import {PROD1_BANK_ACTIONS} from "./bank-runtime.js";
+export const PROD1_ROUTED_ACTIONS=Object.freeze(new Set([
+  ...PROD1_BANK_ACTIONS,"importProblemBatch",
+  "saveQuizDraft","finishImportJob","publishQuiz","getQuizDraftItems",
+  "startAttempt","getAttemptQuestions","saveAnswers","navigateAttempt",
+  "getAttemptResult","getTeacherAttempt","getAdminAttempt",
+  "getAssetLinks","getExportLink","saveManualGrade","releaseResults",
+]));
 export const PROD1_PROJECT="sat-quiz-fd317";
 export const PROD1_SECRET_NAMES=Object.freeze([
   "QUIZER_NEON_DATABASE_URL","QUIZER_BANK_CURSOR_KEY",
@@ -53,6 +61,11 @@ export function createProd1EntrypointBridge({
   return Object.freeze({
     enabled:true,
     async dispatch(auth,request){
+      // Save cold-starts and database/secret use for unrelated Firebase
+      // actions: dashboard, access, accounts and reporting stay legacy.
+      // Hybrid actions never downgrade after an infrastructure failure.
+      if(!PROD1_ROUTED_ACTIONS.has(request?.action))
+        return legacyDispatch(db,auth,request);
       return (await getRuntime()).dispatch(auth,request);
     },
     async runJob(_db,jobId){
