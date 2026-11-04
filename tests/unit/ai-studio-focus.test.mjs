@@ -37,3 +37,8 @@ test("AI Studio is linked to teacher navigation and quick home links",()=>{
   assert.match(profile,/AI Studio \(preview\)/);
   assert.match(ai,/<a[^>]*href="index\.html"[^>]*class="brand"/);
 });
+
+test("AI Studio updates inspector accessibility over a node list, not one node",()=>{
+  assert.match(ai,/\$\$\("\[data-act=inspector\]"\)\.forEach\(/);
+  assert.doesNotMatch(ai,/(?<!\$)\$\("\[data-act=inspector\]"\)\.forEach\(/);
+});
