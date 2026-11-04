@@ -62,12 +62,25 @@ export function createProd1WorkerRouter({
       const quiz=await read("quizzes/"+id(job.targetId));
       const revision=await read("quizzes/"+id(job.targetId)+
         "/revisions/"+id(job.input.revisionId));
-      assert(quiz?.lifecycle==="active"&&
+      if(!(quiz?.lifecycle==="active"&&
         quiz.publishingJobId===jobId&&
         quiz.ownerId===job.requestedBy&&
         revision?.state==="building"&&
-        revision.publicationJobId===jobId,
-        "JOB_LEASE","Private publication cancelled or ownership changed.");
+        revision.publicationJobId===jobId)){
+        // An intentionally cancelled/trashed publication should not remain
+        // stuck in the queue and fail every future maintenance sweep.
+        const at=Timestamp.fromMillis(currentMs);
+        tx.set(db.doc("jobs/"+jobId),{...job,status:"failed",
+          leaseOwner:null,leaseExpiresAt:null,completedAt:at,updatedAt:at,
+          error:{reason:"PRIVATE_PUBLICATION_CANCELLED",
+            message:"Publication was cancelled or the quiz changed."}});
+        if(revision?.state==="building"&&
+          revision.publicationJobId===jobId)
+          tx.set(db.doc("quizzes/"+job.targetId+
+            "/revisions/"+job.input.revisionId),
+            {...revision,state:"failed"});
+        return {state:"cancelled"};
+      }
       const attempt=(job.retryCount??0)+1;
       if(attempt>RETRIES)return {state:"exhausted",job,quiz,revision};
       const lease=randomLease();
@@ -116,6 +129,24 @@ export function createProd1WorkerRouter({
       return true;
     });
   }
+  async function releaseFailedLease(jobId,lease){
+    // Only release our own still-running lease after an exception.
+    // If publication committed successfully, the lease no longer belongs
+    // to us and no field is modified. This avoids a 10-minute stall.
+    return db.runTransaction(async tx=>{
+      const ref=db.doc("jobs/"+jobId);
+      const snap=await tx.get(ref);
+      const job=snap.exists?snap.data():null;
+      if(!job||job.status!=="running"||job.leaseOwner!==lease||
+        classifyProd1Job(job)!=="private")return false;
+      tx.set(ref,{...job,
+        leaseExpiresAt:Timestamp.fromMillis(now()-1),
+        updatedAt:Timestamp.fromMillis(now()),
+        error:{reason:"PRIVATE_PUBLICATION_RETRY_PENDING",
+          message:"Publication interrupted; waiting for a safe retry."}});
+      return true;
+    });
+  }
   async function runJob(jobId){
     id(jobId);
     const original=await snapshot(db,"jobs/"+jobId);
@@ -137,12 +168,11 @@ export function createProd1WorkerRouter({
         kind:"publishJob",jobId,leaseOwner:claimResult.lease});
       return {status:"handled",result};
     }catch(error){
-      // Never replay as legacy; the next sweep may reclaim after this lease
-      // expires and the publisher rechecks immutable content and Storage.
-      if((original.retryCount??0)+1>=RETRIES){
-        // Do not clear a live lease early: another worker could still be
-        // committing. The retry sweep marks it failed after expiration.
-      }
+      // Never replay as legacy. Release ONLY our own lease after the
+      // private publisher fails, then let the next sweep retry with a new
+      // claim and verify the immutable Storage generation.
+      try{await releaseFailedLease(jobId,claimResult.lease);}
+      catch{ /* report the publisher's original failure unchanged */ }
       throw error;
     }
   }
