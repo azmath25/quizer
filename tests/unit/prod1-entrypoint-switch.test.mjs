@@ -16,6 +16,13 @@ function fixture(){
           source:{kind:"neon_revision"}}]},
     },
     "jobs/job_grading":{kind:"grade_attempt",targetId:"attempt_1"},
+    "jobs/job_legacy_grading":{kind:"grade_attempt",targetId:"attempt_old"},
+    "attempts/attempt_1":{quizId:"quiz_1",quizRevisionId:"private_rev"},
+    "attempts/attempt_old":{quizId:"quiz_1",quizRevisionId:"legacy_rev"},
+    "quizzes/quiz_1/revisions/private_rev":{
+      state:"ready",bundle:{sha256:"a".repeat(64)}},
+    "quizzes/quiz_1/revisions/legacy_rev":{
+      state:"ready",bundle:null},
   };
   let reads=0,legacy=0,runtimeCreated=0,secretReads=0;
   const db={doc(path){return{async get(){reads++;
@@ -112,4 +119,14 @@ test("other project cannot construct an enabled live bridge",()=>{
     environment:{GCLOUD_PROJECT:"mimo-backend-513412"},
   }),/Wrong Firebase project/);
   assert.equal(f.stats.secretReads,0);
+});
+
+test("legacy grading remains Firebase-only even without available Neon secrets",async()=>{
+  const f=fixture();
+  f.deps.readSecrets=async()=>{throw Error("Neon credentials offline");};
+  const bridge=createProd1EntrypointBridge({enabled:true,...f.deps});
+  assert.deepEqual(await bridge.runJob(f.db,"job_legacy_grading"),
+    {legacyJob:true});
+  assert.equal(f.stats.secretReads,0);
+  assert.equal(f.stats.runtimeCreated,0);
 });
