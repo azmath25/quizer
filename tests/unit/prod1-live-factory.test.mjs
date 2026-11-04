@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import "../../functions/src/router.js";
-import {createProd1LiveRuntime}
+import {createProd1LiveRuntime,createProd1TrustedWorkerInvoker}
   from "../../functions/src/prod1/live-factory.js";
 import {SAT_QUIZ_NEON}
   from "../../functions/src/neon/sat-quiz-live-sql.js";
@@ -42,4 +42,26 @@ test("live prod1 composition enforces trusted worker context",async()=>{
     apiVersion:2,action:"createProblem"}),
     /Sign in to continue/);
   await runtime.close();
+});
+
+test("trusted private worker delivers original job payload, never context as job",async()=>{
+  const received=[];
+  const invoke=createProd1TrustedWorkerInvoker({
+    firebaseProjectId:"sat-quiz-fd317",
+    privateRuntime:{async runPrivateJob(job){
+      received.push(job);
+      return {handled:job.kind};
+    }},
+  });
+  const context={firebaseProjectId:"sat-quiz-fd317",
+    trustedServerInvocation:true};
+  const job=Object.freeze({kind:"publishJob",jobId:"job_1",
+    leaseOwner:"lease_example_12345"});
+  assert.deepEqual(await invoke(context,job),{handled:"publishJob"});
+  assert.deepEqual(received,[job]);
+  assert.equal(received[0].firebaseProjectId,undefined);
+  await assert.rejects(invoke({firebaseProjectId:"mimo-backend-513412",
+    trustedServerInvocation:true},job),/Trusted PROD1 worker required/);
+  await assert.rejects(invoke(context,context),/Private job payload required/);
+  assert.equal(received.length,1);
 });
