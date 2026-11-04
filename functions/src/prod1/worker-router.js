@@ -79,6 +79,9 @@ export function createProd1WorkerRouter({
           tx.set(db.doc("quizzes/"+job.targetId+
             "/revisions/"+job.input.revisionId),
             {...revision,state:"failed"});
+        if(quiz?.publishingJobId===jobId)
+          tx.set(db.doc("quizzes/"+job.targetId),{...quiz,
+            publishingJobId:null,updatedAt:at});
         return {state:"cancelled"};
       }
       const attempt=(job.retryCount??0)+1;
