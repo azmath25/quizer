@@ -118,3 +118,15 @@ Google sign-in enabled: True
 This independently verifies Google as an **enabled provider** for the new Firebase staging project (`509423933910`). The earlier HTTP 403 without the explicit quota-project header was resolved. No OAuth client secrets were printed and neither Mimo nor production was changed.
 
 **Authentication provider gate: PASS.** Authorized redirect domains and actual user login are still **UNVERIFIED**. Firestore remains intentionally deny-all. Next step: inspect only `authorizedDomains` via `GET https://identitytoolkit.googleapis.com/admin/v2/projects/quizer-staging-az26/config?fields=authorizedDomains` with the same explicit quota-project header. This command must not expose any client or provider secret. No user signup, rules relaxation, staging deployment or credential changes are yet authorized.
+
+## Firebase Authentication authorized domains verified — PASS
+
+The user queried the Identity Toolkit Admin v2 `projects.config.get` endpoint for `quizer-staging-az26` with an explicit `X-Goog-User-Project: quizer-staging-az26` quota-project header and the restricted `fields=authorizedDomains` field mask. It returned only:
+
+- `localhost` — local development (review whether it is needed for release)
+- `quizer-staging-az26.firebaseapp.com` — staging authentication domain
+- `quizer-staging-az26.web.app` — staging hosting domain
+
+**Result:** Authorized domains were independently verified as staging-only with no Mimo or existing Quizer production domains. No domains were added/removed; no sign-in was attempted. This is a configuration PASS, not evidence of an end-to-end login PASS.
+
+**Remaining STG1-D gates:** billing remains previously reported disabled; inspect current status, service IAM and provider controls before any billable setup. Firestore deny-all bootstrap rule is still in force. No app/Functions/Storage deployment and no Neon runtime credential is provisioned.
