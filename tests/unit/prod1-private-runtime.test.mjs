@@ -14,8 +14,8 @@ const url="postgresql://quizer_app:synthetic@" +
   SAT_QUIZ_NEON.pooledHostname+"/quizer?sslmode=require";
 function dbFor(){
   const data={
-    "roles/"+uid:{role:"teacher",accountStatus:"active"},
-    "users/"+uid:{displayName:"Teacher"},
+    ["roles/"+uid]:{role:"teacher",accountStatus:"active"},
+    ["users/"+uid]:{displayName:"Teacher"},
     "jobs/job_1":{kind:"publish_quiz",status:"running",
       leaseOwner:"lease_1",targetId:"quiz_1",
       requestedBy:uid,input:{revisionId:"pub_1"}},
