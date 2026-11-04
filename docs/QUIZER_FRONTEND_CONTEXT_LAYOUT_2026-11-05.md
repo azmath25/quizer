@@ -29,3 +29,11 @@
 ## Prohibited actions honored
 
 No production or staging deployment, merges, existing branch updates, backend edits, database edits, or workflow dispatch.
+
+## Connector-backed verification in this checkpoint
+
+- **11/11** existing/new source contract tests passed in an isolated JavaScript harness (no GitHub Actions was dispatched).
+- Syntax parse succeeded for the changed quiz/problem-bank/profile modules and the preserved results module; modified CSS rule blocks were balanced.
+- Simulated UI events confirmed Ctrl/⌘+S passes the real submit button to `requestSubmit`, respects disabled/focus states and cleans up listeners. The inspector collapse/expand updates its ARIA attributes, and Ctrl/⌘+K focuses the existing bank search.
+- Since this branch's pinned backend snapshot, the work branch acquired additional documentation/test-only commits. Those do **not** change the backend contract. Re-check the latest head before any later promotion.
+- Browser/real device testing, full `npm test`, and staging backend integration **were not executed** in this checkpoint.
