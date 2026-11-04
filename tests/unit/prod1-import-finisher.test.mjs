@@ -94,3 +94,22 @@ test("succeeded imported job preserves legacy receipt idempotency",async()=>{
     {quizId:"quiz_import"});
   assert.equal(f.calls,1);
 });
+
+test("legacy Firestore imports without versioned Neon receipts remain finishable",async()=>{
+  const f=fixture();
+  for(let i=0;i<2;i++){
+    const row=f.docs["jobs/job_1/mappings/key_"+(i+1)];
+    delete row.version;
+    f.docs["problems/"+row.problemId+"/revisions/"+row.revisionId]={
+      statementLatex:"Historical legacy problem "+i,
+    };
+  }
+  assert.deepEqual(await f.port.finish(auth,request()),{
+    quizId:"quiz_import",
+  });
+  assert.equal(f.calls,1);
+  delete f.docs["problems/prb_1/revisions/prv_1"];
+  await assert.rejects(f.port.finish(auth,request()),
+    /Historical Firestore import revision unavailable/);
+  assert.equal(f.calls,1);
+});
