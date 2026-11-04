@@ -6,6 +6,9 @@ import {dispatch as legacyDispatch,handlers}
   from "../domain/runtime.js";
 import {createProd1BankRuntime,PROD1_BANK_ACTIONS} from "./bank-runtime.js";
 import {createProd1PrivateRuntime} from "./private-runtime.js";
+import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
+import {createProd1DraftReader} from "./draft-reader.js";
+import {createProd1DraftMutationGateway} from "./draft-mutations.js";
 const PROJECT="sat-quiz-fd317";
 const STORAGE="sat-quiz-fd317.firebasestorage.app";
 const PRIVATE=new Set(["startAttempt","getAttemptQuestions",
@@ -45,6 +48,17 @@ export async function createProd1LiveRuntime({
     enabled:true,firebaseProjectId,db,connectionString,cursorSecret,
     legacyDispatch,createPool});
   try{
+    const ports=createProd1FirebaseBankPorts({
+      enabled:true,db,legacyDispatch});
+    const draftReader=createProd1DraftReader({
+      enabled:true,db,resolveActor:ports.resolveFirebaseActor,
+      resolveProblemOrigin:ports.resolveProblemOrigin,
+      neonReader:bank.read});
+    const draftMutations=createProd1DraftMutationGateway({
+      enabled:true,db,resolveActor:ports.resolveFirebaseActor,
+      resolveOrigin:ports.resolveProblemOrigin,
+      neonReader:bank.read,legacyDispatch,
+      verifyAssets:ports.verifyAssets});
     const runtime=createProd1PrivateRuntime({
       enabled:true,firebaseProjectId,db,bucket,authFor,
       bankRuntime:bank,legacyDispatch,
@@ -61,6 +75,21 @@ export async function createProd1LiveRuntime({
           assert(def?.permission==="guest"&&!NONLEGACY.has(request.action),
             "AUTH_REQUIRED","Sign in to continue.");
           return legacyDispatch(db,null,request);
+        }
+        // Existing draft metadata-only saves take the original efficient
+        // Firestore route. Pinned Neon slot upserts are verified outside the
+        // retryable Firebase transaction and committed as references only.
+        // These interceptions exist in an UNMOUNTED factory, not the API.
+        if(request.action==="saveQuizDraft"){
+          const data=await draftMutations.handle(verifiedAuth,request);
+          return {apiVersion:2,serverTime:new Date().toISOString(),
+            data:data===undefined?null:data};
+        }
+        if(request.action==="getQuizDraftItems"){
+          const data=await draftReader.getItems({
+            auth:verifiedAuth,quizId:request.quizId,
+            itemIds:request.itemIds});
+          return {apiVersion:2,serverTime:new Date().toISOString(),data};
         }
         const data=await runtime.handle(request.action,verifiedAuth,request);
         return {apiVersion:2,serverTime:new Date().toISOString(),
