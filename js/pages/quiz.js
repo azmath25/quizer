@@ -242,16 +242,16 @@ async function runner(root, initial, session) {
   }
   // Prefetch only the immediate neighborhood, not an entire 500-item quiz.
   // This protects the foreground request and avoids repeated storage/bundle
-  // reads for questions the student may never visit. Each request is ≤12 items
+  // reads for questions the student may never visit. Each request is ≤20 items
   // (server limit is 20) and only one batch can warm at any given time.
   let warming = false;
   async function warmNearby() {
     if (warming || !a.settings.allowBack || stopped) return;
     // Chunk-aligned lookahead: avoid making one new request every time the
-    // student advances by a single problem. Begin the next 12-item batch
+    // student advances by a single problem. Begin the next 20-item batch
     // four positions before the boundary, so navigation is usually instant.
-    const start = Math.floor((index + 4) / 12) * 12;
-    const missing = a.order.slice(start, start + 12)
+    const start = Math.floor((index + 4) / 20) * 20;
+    const missing = a.order.slice(start, start + 20)
       .filter((id) => !itemCache.has(id));
     if (!missing.length) return;
     warming = true;
@@ -260,7 +260,7 @@ async function runner(root, initial, session) {
         fetchBatch(ids);
         await Promise.allSettled(ids.map((id) => fetchItem(id)));
       }, {
-        batchSize: 12,
+        batchSize: 20,
         concurrency: 1,
         shouldStop: () => stopped || getSession().epoch !== epoch,
       });
