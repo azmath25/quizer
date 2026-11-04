@@ -285,6 +285,12 @@ export function createQuizerPrivateIntegration({
       assert(typeof request.requestId==="string" &&
         /^[A-Za-z0-9_-]{16,100}$/.test(request.requestId),
         "INVALID_FIELDS","Unique request ID required.");
+      if(typeof attemptCommits.replayNavigation==="function"){
+        const replay=await attemptCommits.replayNavigation({
+          firebaseAuth,attemptId,targetIndex:request.targetIndex,
+          requestId:request.requestId});
+        if(replay.found===true)return replay.result;
+      }
       const proof=await secureAttempts.navigationPreview({
         firebaseAuth,attemptId,targetIndex:request.targetIndex});
       return attemptCommits.navigate({firebaseAuth,attemptId,
