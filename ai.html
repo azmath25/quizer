@@ -211,7 +211,7 @@ function layout(){
  theme();$("#workspace").style.setProperty("--spotlight",state.spot?"1":"0");$("#workspace").style.setProperty("--aurora",state.motion?"block":"none");
  $("#app").classList.toggle("show-sidebar",innerWidth<=760&&state.side);
  $("#app").classList.toggle("show-inspector",innerWidth<=1060&&state.inspector);
- $("[data-act=inspector]").forEach(b=>b.setAttribute("aria-expanded",String(state.inspector)));
+ $$("[data-act=inspector]").forEach(b=>b.setAttribute("aria-expanded",String(state.inspector)));
  const insp=document.querySelector(".inspector");insp.style.display=innerWidth>1060&&!state.inspector?"none":"";
  $("#shell").style.gridTemplateColumns=innerWidth>1060&&!state.inspector?"232px minmax(0,1fr)":"";
 }
