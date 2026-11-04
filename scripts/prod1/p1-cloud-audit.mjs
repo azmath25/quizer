@@ -87,9 +87,13 @@ export function audit({exec=gcloud,getBranch=()=>{
     info.blockedBy.push("Service-account IAM policy requires review");
   const allowed=serviceAccount=>{
     const member="serviceAccount:"+serviceAccount;
-    return docs.some(p=>(p?.bindings??[]).some(b=>
+    const hasAccessor=policy=>(policy?.bindings??[]).some(b=>
       b.role==="roles/secretmanager.secretAccessor" &&
-      (b.members??[]).includes(member)&&!b.condition));
+      (b.members??[]).includes(member)&&!b.condition);
+    // Both independent secrets must be accessible. A grant on one
+    // secret does not imply access to the other.
+    return SECRETS.every((_,index)=>
+      hasAccessor(docs[index])||hasAccessor(docs[SECRETS.length]));
   };
   info.iamUnconditionalAccessor=Object.fromEntries(
     FUNCTIONS.map(name=>{
