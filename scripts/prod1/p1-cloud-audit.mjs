@@ -18,7 +18,12 @@ export function gcloud(args){
   });
   return {ok:r.status===0,text:r.status===0?r.stdout.trim():""};
 }
-export function audit({exec=gcloud}={}){
+export function audit({exec=gcloud,getBranch=()=>{
+  const r=spawnSync("git",["branch","--show-current"],{
+    encoding:"utf8",timeout:5000,stdio:["ignore","pipe","pipe"],
+  });
+  return r.status===0?r.stdout.trim():"";
+}}={}){
   const project=exec(["projects","describe",PROJECT,
     "--format=value(projectNumber)"]);
   const identity=project.ok&&project.text===NUMBER;
@@ -30,11 +35,8 @@ export function audit({exec=gcloud}={}){
   if(!identity){info.blockedBy.push("Wrong/unavailable project");
     return info;}
   // First inspect the user-selected branch (no output of repository files).
-  const active=spawnSync("git",["branch","--show-current"],{
-    encoding:"utf8",timeout:5000,stdio:["ignore","pipe","pipe"],
-  });
-  info.verifiedBranch=active.status===0&&
-    active.stdout.trim()==="work/quizer-audit-optimization-2026-11";
+  info.verifiedBranch=
+    getBranch()==="work/quizer-audit-optimization-2026-11";
   if(!info.verifiedBranch)
     info.blockedBy.push("Work branch not selected");
   for(const name of SECRETS){
