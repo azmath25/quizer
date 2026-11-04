@@ -19,6 +19,7 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
     enabled:false,
     saveAnswers:async()=>({disabled:true}),
     replaySavedAnswers:async()=>({disabled:true}),
+    replayNavigation:async()=>({disabled:true}),
     navigate:async()=>({disabled:true}),
     gradeBatch:async()=>({disabled:true}),
   });
@@ -129,6 +130,28 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
       return result;
     },firebaseAuth);
   }
+  // Navigation may also have committed before a lost response and freeze.
+  // Replay only the same authorized request; never advance a frozen attempt.
+  async function replayNavigation({firebaseAuth,attemptId,
+    targetIndex,requestId}={}){
+    id(attemptId,"attempt ID");id(requestId,"request ID");
+    return transact(db,"bundle.navigation.receipt",requestId,async c=>{
+      const attempt=await c.get("attempts/"+attemptId);
+      requireRole(c.actor,"verified");
+      assert(attempt?.studentId===firebaseAuth?.uid &&
+        c.actor.uid===firebaseAuth.uid,"RESOURCE_UNAVAILABLE",
+        "Attempt unavailable.");
+      const prior=await c.get(
+        "operations/"+c.actor.uid+"/requests/"+requestId,false);
+      if(!prior)return {found:false};
+      const inputHash=fingerprint({action:"navigateAttempt",attemptId,
+        targetIndex});
+      assert(prior.action==="navigateAttempt" &&
+        prior.inputHash===inputHash,"INVALID_FIELDS",
+        "Request ID reused with another navigation.");
+      return {found:true,result:prior.result};
+    },firebaseAuth);
+  }
   async function navigate({firebaseAuth,attemptId,targetIndex,proof,requestId}={}){
     id(attemptId,"attempt ID");id(requestId,"request ID");
     assert(proof?.attemptId===attemptId && proof.targetIndex===targetIndex &&
@@ -219,5 +242,5 @@ export function createFirestorePrivateAttemptCommits({enabled=false,db}={}){
         total:a.order.length};
     });
   }
-  return Object.freeze({enabled:true,replaySavedAnswers,saveAnswers,navigate,gradeBatch});
+  return Object.freeze({enabled:true,replaySavedAnswers,replayNavigation,saveAnswers,navigate,gradeBatch});
 }
