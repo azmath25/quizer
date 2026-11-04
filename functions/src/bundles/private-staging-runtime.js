@@ -29,7 +29,7 @@ import {createQuizerStagedRecoveryAudit}
 export function createQuizerStagedPrivateRuntime({
   enabled=false,db,bucket,authFor,neonReader,
   resolvePublicationActor,verifyPublicationAssets,
-  authorizeSharedAsset=null,
+  authorizeSharedAsset=null,resolveLegacyPublication=null,
   preflightStart,commitStart,authorizeExport,verifyExportAssets,
   resolveImageScope,signImage,legacyHandle,
   authorImagePorts=null,
@@ -123,6 +123,7 @@ export function createQuizerStagedPrivateRuntime({
   const publisher=createPrivateBundlePublisher({
     enabled:true,publicationStore,
     resolvePinnedRevision:args=>pinned.resolve(args),
+    resolveLegacyRevision:resolveLegacyPublication,
     retainPublishedAssets:args=>retention.ensureRetained(args),
     storage,
   });
