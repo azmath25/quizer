@@ -583,3 +583,42 @@ fieldset.choices {
     margin-left: auto;
   }
 }
+
+/* Student-centric small-screen hierarchy: result first, actions second.
+   No change to attempt state, timer, save/retry, grading or navigation. */
+@media (max-width: 600px) {
+  .result-summary .score-line {
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    text-align: center;
+  }
+  .result-summary .score-ring { margin-inline: auto; }
+  .result-summary .score-description { max-width: 100%; min-width: 0; }
+  .quiz-overview .overview-body .actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .quiz-overview .overview-body .actions .button {
+    width: 100%;
+    min-height: 44px;
+  }
+  .runner-top { flex-wrap: wrap; }
+  .runner-title { flex: 1 1 160px; }
+}
+@media (max-width: 760px) {
+  /* Fit as many real 44px targets as available, including zoomed viewports. */
+  .runner-sidebar .question-grid {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  }
+}
+@media (max-width: 380px) {
+  .quiz-overview .overview-header,
+  .quiz-overview .overview-body { padding: 16px; }
+  .quiz-overview .quiz-facts { gap: 7px; }
+  .quiz-overview .quiz-facts strong { font-size: 1rem; }
+  .quiz-overview .quiz-facts span { font-size: .7rem; }
+  .runner-question { padding: 18px 14px; }
+}
