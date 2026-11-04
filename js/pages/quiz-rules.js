@@ -36,16 +36,16 @@ export function showQuizRules(root, quiz, { begin, started }) {
         (quiz.durationSeconds
           ? "Your timer starts after you press Begin quiz. It continues if you leave the page."
           : "This quiz has no countdown timer.") + '</span></li>' +
-      '<li>' + icon("save") +
+      '<li>' + icon("check") +
         '<span>Your answers are saved as you work. Wait for the saved confirmation before closing the tab.</span></li>' +
       '<li>' + icon("flag") +
         '<span>You may flag questions for review. Returning to previous questions depends on the teacher’s settings.</span></li>' +
-      '<li>' + icon("check-circle") +
+      '<li>' + icon("check") +
         '<span>Submit when finished. Written responses may need teacher marking.</span></li>' +
       '</ul></div>' +
     '<div class="rules-footer">' +
       '<div class="rules-prep" role="status" aria-live="polite">' +
-        icon("loader") + '<span id="rules-prep-status">Preparing the math display…</span>' +
+        icon("refresh") + '<span id="rules-prep-status">Preparing the math display…</span>' +
       '</div>' +
       '<div class="rules-actions">' +
         '<button type="button" class="button secondary" id="rules-back">Back to overview</button>' +
@@ -94,7 +94,7 @@ export function showQuizRules(root, quiz, { begin, started }) {
       beginButton.disabled = false;
       backButton.disabled = false;
       status.textContent =
-        "Could not start the attempt. Your timer has not started here.";
+        "The request did not complete. If an attempt was created, reopening the quiz will resume it.";
       panel.querySelector(".rules-error")?.remove();
       const errorNode = document.createElement("div");
       errorNode.className = "rules-error";
