@@ -48,12 +48,20 @@ function fixture(){
     reads,legacy,runtimeCreated,secretReads,
   }}};
 }
-test("the deployed release gate cannot be enabled by environment alone",()=>{
-  assert.equal(PROD1_RELEASE_APPROVED,false);
+test("P1-B source approval still needs runtime flag and exact project",()=>{
+  assert.equal(PROD1_RELEASE_APPROVED,true);
+  assert.equal(isProd1Enabled({
+    releaseApproved:PROD1_RELEASE_APPROVED,
+    env:{GCLOUD_PROJECT:PROD1_PROJECT,QUIZER_PROD1_ENABLED:"false"},
+  }),false);
+  assert.equal(isProd1Enabled({
+    releaseApproved:false,
+    env:{GCLOUD_PROJECT:PROD1_PROJECT,QUIZER_PROD1_ENABLED:"true"},
+  }),false);
   assert.equal(isProd1Enabled({
     releaseApproved:PROD1_RELEASE_APPROVED,
     env:{GCLOUD_PROJECT:PROD1_PROJECT,QUIZER_PROD1_ENABLED:"true"},
-  }),false);
+  }),true);
   assert.equal(isProd1Enabled({releaseApproved:true,
     env:{GCLOUD_PROJECT:"mimo-backend-513412",
       QUIZER_PROD1_ENABLED:"true"}}),false);

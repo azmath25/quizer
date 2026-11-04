@@ -38,14 +38,15 @@ function fake({missingSecret=false,wrongProject=false,missingIamForCursor=false}
   };
   return {calls,exec};
 }
-test("source release gate stays hard off even with secrets configured",()=>{
-  assert.equal(PROD1_RELEASE_APPROVED,false);
+test("P1-B source release approval and static secret bindings are explicit",()=>{
+  assert.equal(PROD1_RELEASE_APPROVED,true);
   const index=readFileSync("functions/src/index.js","utf8");
   const sweep=readFileSync("functions/src/jobs/sweeper.js","utf8");
   assert(index.includes("defineSecret(\"QUIZER_NEON_DATABASE_URL\")"));
   assert(index.includes("defineSecret(\"QUIZER_BANK_CURSOR_KEY\")"));
   assert(index.includes("PROD1_ACTIVE"));
   assert(index.includes("secrets: PROD1_BOUND_SECRETS"));
+  assert(index.includes("const PROD1_BOUND_SECRETS=[NEON_URL,BANK_CURSOR_KEY];"));
   assert(index.includes("prod1.dispatch(request.auth, request.data)"));
   assert(index.includes("prod1.runJob(db, event.params.jobId)"));
   assert(index.includes("runJobImpl:prod1.runJob"));

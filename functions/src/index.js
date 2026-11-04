@@ -16,16 +16,16 @@ import { REGION, ENFORCE_APP_CHECK } from "./config.js";
 initializeApp();
 const db = getFirestore();
 
-// PROD1 remains hard OFF until a reviewed source change explicitly approves
-// it. Environment settings cannot bypass that review. Unbound secrets are
-// neither resolved nor required by the existing Firestore deployment.
+// P1-B: reviewed release approval AND an explicit project-pinned runtime flag
+// are both required. Bind both secrets statically: Firebase loads dotenv
+// values at runtime, not reliably during source analysis/deploy option evaluation.
+// The getters below are invoked only for hybrid routes, never at module scope.
 const PROD1_ACTIVE=isProd1Enabled({
   releaseApproved:PROD1_RELEASE_APPROVED,
 });
 const NEON_URL=defineSecret("QUIZER_NEON_DATABASE_URL");
 const BANK_CURSOR_KEY=defineSecret("QUIZER_BANK_CURSOR_KEY");
-const PROD1_BOUND_SECRETS=PROD1_ACTIVE
-  ? [NEON_URL,BANK_CURSOR_KEY]:[];
+const PROD1_BOUND_SECRETS=[NEON_URL,BANK_CURSOR_KEY];
 const prod1=createProd1EntrypointBridge({
   enabled:PROD1_ACTIVE,db,
   legacyDispatch:dispatch,

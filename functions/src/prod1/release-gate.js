@@ -1,4 +1,6 @@
-// This is an intentional deployment gate, not a runtime user preference.
-// A reviewed PROD1 cloud release must explicitly change this constant.
-// Environment variables alone cannot turn on experimental backend paths.
-export const PROD1_RELEASE_APPROVED=false;
+// Quizer P1-B: reviewed activation approval for sat-quiz-fd317 only.
+// This does not activate the backend without QUIZER_PROD1_ENABLED=true
+// and the pinned project ID being present in the Function runtime.
+// Roll back by setting the runtime flag to false and redeploying, or
+// restoring the previous serving revisions if an emergency requires it.
+export const PROD1_RELEASE_APPROVED=true;
