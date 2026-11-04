@@ -35,7 +35,7 @@ export function createProd1PublicationIdentityPort({
     const trustedAuth=await authFor(id(plan.ownerId));
     assert(trustedAuth?.uid===plan.ownerId&&trustedAuth?.token,
       "AUTH_REQUIRED","Trusted Firebase publication identity required.");
-    return requireTeacher(await firebase.resolveFirebaseActor(trustedAuth));
+    return requireTeacher(await resolveFirebaseActor(trustedAuth));
   };
 }
 
