@@ -336,6 +336,12 @@ test("QN11.6.1 full staged bundle start loads protected bytes outside Firestore,
     firebaseAuth:f.auth,quizId:f.quizId,requestId});
   assert.equal(first.quizRevisionId,f.currentRevisionId);
   assert.equal(first.totals.possible,9);
+  assert.equal(first.firstQuestion.itemId,first.order[0]);
+  assert.equal(first.firstQuestion.statementLatex,"Question 0");
+  assert.deepEqual(first.firstQuestion.answer,
+    {value:"",revision:0,updatedAt:null});
+  assert.equal("grading" in first.firstQuestion,false);
+  assert.equal("correctOptionId" in first.firstQuestion,false);
   assert(!JSON.stringify(first).includes("supersecret_answer"));
   assert.equal(privateReads,1);
   await db.doc("attempts/"+first.attemptId).update({status:"submitted"});
@@ -344,6 +350,7 @@ test("QN11.6.1 full staged bundle start loads protected bytes outside Firestore,
     firebaseAuth:f.auth,quizId:f.quizId,requestId});
   assert.equal(second.attemptId,first.attemptId);
   assert.equal(second.status,"submitted");
+  assert.equal(second.firstQuestion,undefined,"Replayed start must not expose a stale answer");
   assert.equal(privateReads,1,"Receipt replay needs no private Storage read");
   assert.equal((await db.doc(f.pp).get()).data().attemptCount,1);
 });
