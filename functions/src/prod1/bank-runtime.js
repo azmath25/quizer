@@ -14,6 +14,7 @@ import {createQuizerImportCoordinator} from "../neon/import-coordinator.js";
 import {createQuizerNeonOrchestrator} from "../neon/orchestrator.js";
 import {createQuizerBankCompatibility} from "../neon/bank-compat.js";
 import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
+import {createQuizerStagedFullRuntime} from "../bundles/private-full-staging.js";
 
 const BANK=new Set(["getProblem","listProblemRevisions","listProblems",
   "createProblem","saveProblemRevision","forkProblem","setProblemSharing",
@@ -69,6 +70,19 @@ export function createProd1BankRuntime({
       assert(false,"INVALID_FIELDS","Prod1 bank does not own this action.");
     },
     read,
+    // Trusted server-only composition; no browser DB credentials and no
+    // active entrypoint import. Legacy/new overlap is rejected by the factory.
+    buildFullRuntime({privateRuntime,legacyActions}={}){
+      return createQuizerStagedFullRuntime({
+        enabled:true,db,neonReader:read,neonGateway:gateway,
+        bankMutations:mutations,
+        resolveFirebaseActor:firebase.resolveFirebaseActor,
+        resolveProblemOrigin:firebase.resolveProblemOrigin,
+        privateRuntime,legacyHandle:firebase.legacyHandle,
+        legacyListHeaders:firebase.legacyListHeaders,
+        legacyActionNames:legacyActions,cursorSecret,
+      });
+    },
     close:()=>sql.close(),
   });
 }
