@@ -4,6 +4,8 @@
 import {assert,id} from "../../shared/schema.js";
 import {requireTeacher} from "../neon/contracts.js";
 import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
+import {createProd1LegacyPublicationSource}
+  from "./legacy-publication-source.js";
 import {createQuizerStagedPrivateRuntime}
   from "../bundles/private-staging-runtime.js";
 
@@ -59,9 +61,13 @@ export function createProd1PrivateRuntime({
     db,authFor,resolveFirebaseActor:firebase.resolveFirebaseActor});
   const verifyPublicationAssets=async({actor,assetIds=[]})=>
     firebase.verifyAssets({actor,assetIds});
+  const legacySource=createProd1LegacyPublicationSource({
+    enabled:true,db,resolvePublicationActor,
+    verifyAssets:verifyPublicationAssets});
   const privateRuntime=createQuizerStagedPrivateRuntime({
     enabled:true,db,bucket,authFor,neonReader:bankRuntime.read,
     resolvePublicationActor,verifyPublicationAssets,
+    resolveLegacyPublication:legacySource.resolve,
     // Absent shared-asset grant callback is deliberately fail-closed.
     authorizeSharedAsset:null,
     legacyHandle:firebase.legacyHandle,
