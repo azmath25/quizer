@@ -64,11 +64,21 @@ export function createPrivateBundlePublisher({
     typeof storage.readExact === "function",
     "INVALID_FIELDS", "Trusted bundle writer dependencies are required.");
 
-  async function publish({jobId} = {}) {
+  async function publish({jobId,leaseOwner} = {}) {
     id(jobId, "publication job ID");
+    if(leaseOwner!==undefined)
+      assert(typeof leaseOwner==="string"&&
+        leaseOwner.length>=16&&leaseOwner.length<=128,
+        "JOB_LEASE","Worker publication lease invalid.");
     // PublicationStore is the sole authority for job, quiz and revision state.
     // Browser input never supplies quiz ID, owner, items or grading.
-    const plan = await publicationStore.load(jobId);
+    const plan = await publicationStore.load(jobId,leaseOwner);
+    // In normal Prod1 processing the worker must use exactly the lease it
+    // claimed. A stale worker must not acquire another worker's lease by
+    // simply reloading the latest job state.
+    if(leaseOwner!==undefined && plan?.completed!==true)
+      assert(plan?.leaseOwner===leaseOwner,
+        "JOB_LEASE","Claimed publication worker lease changed.");
     if (plan?.completed === true) {
       assert(plan.revisionId && plan.quizId &&
         plan.manifest && plan.manifest.revisionId === plan.revisionId,
