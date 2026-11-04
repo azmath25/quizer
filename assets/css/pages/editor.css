@@ -275,7 +275,7 @@
 .dock-card select { min-height: 40px; }
 /* Desktop authors should edit their selection beside the bank, not in a
    bottom overlay. Above phone widths, the panel remains in normal layout. */
-.bank-layout > #bank-list,
+.bank-layout > .bank-main,
 .bank-layout > .selection-panel { min-width: 0; }
 @media (min-width: 900px) and (max-width: 1100px) {
   .bank-layout:has(.selection-panel:not([hidden])) {
@@ -311,7 +311,7 @@
     grid-template-areas: "selection" "bank";
     gap: 14px;
   }
-  .bank-layout:has(.selection-panel:not([hidden])) #bank-list { grid-area: bank; }
+  .bank-layout:has(.selection-panel:not([hidden])) .bank-main { grid-area: bank; }
   .bank-layout:has(.selection-panel:not([hidden])) .selection-panel {
     grid-area: selection;
     position: sticky;
@@ -587,6 +587,23 @@
   .bank-search-hint { text-align: left; margin-top: -4px; }
 }
 
+/* The bank and inspector are the ONLY direct desktop grid children.
+   Pagination is nested in .bank-main, not an accidental second column. */
+body[data-page="problems"] .bank-layout > .bank-main {
+  min-width: 0;
+  width: 100%;
+}
+body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) > .selection-panel {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+@media (max-width: 899px) {
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) > .selection-panel {
+    grid-area: selection;
+  }
+}
+
 /* QN-FE: uniform single-column bank, permanent contextual selection
    controls. Do not introduce masonry/two-column height mismatch. */
 body[data-page="problems"] #bank-list {
@@ -607,7 +624,7 @@ body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
     grid-template-areas: "selection" "bank";
     gap: 14px;
   }
-  body[data-page="problems"] .bank-layout > #bank-list {
+  body[data-page="problems"] .bank-layout > .bank-main {
     grid-area: bank;
     width: 100%;
   }
