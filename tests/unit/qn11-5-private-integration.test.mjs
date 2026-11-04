@@ -145,7 +145,7 @@ test("private export only produces internal protected records for authorized job
   await assert.rejects(startFixture({deny:true}).svc.exportSource({
     jobId:"job_export"}),why("RESOURCE_UNAVAILABLE"));
 });
-function gatewayFixture({privateOrigin=true,disabled=false}={}){
+function gatewayFixture({privateOrigin=true,disabled=false,replayedSave=false}={}){
   const calls=[],actorById=new Map([[student.uid,student],
     [teacher.uid,teacher],[admin.uid,admin]]);
   const legacy={async handle(action,firebaseAuth,request){
@@ -174,6 +174,11 @@ function gatewayFixture({privateOrigin=true,disabled=false}={}){
     async saveAnswers(){calls.push("commit-answers");return {answerVersion:2};},
     async navigate(){calls.push("commit-navigation");return {currentFrontier:1};},
     async gradeBatch(){calls.push("commit-grades");return {processed:1};},
+  };
+  if(replayedSave)attemptCommits.replaySavedAnswers=async()=>{
+    calls.push("replay-save");
+    return {found:true,result:{answerVersion:1,answeredCount:1,
+      confirmed:[{itemId:"itm_1",revision:1}]}};
   };
   const gradeFinalization={enabled:true,
     async completedManualGrade(){calls.push("receipt-check");
@@ -427,4 +432,16 @@ test("QN11.6.3 private ZIP links are routed by persisted origin, never by URL",a
   const privateJob=await f.facade.exportJob({jobId:"job_new"});
   assert.equal(privateJob.jobId,"job_new");
   assert(f.calls.includes("export-job"));
+});
+
+test("QN-PROD.3 committed save replay bypasses frozen preflight",async()=>{
+  const f=gatewayFixture({replayedSave:true});
+  const result=await f.call("saveAnswers",student,{
+    attemptId:"att_new",expectedAnswerVersion:0,
+    changes:[{itemId:"itm_1",value:"4",expectedRevision:0}],
+    requestId:"request_saved_replay_123456789",
+  });
+  assert.equal(result.answerVersion,1);
+  assert.deepEqual(f.calls,["replay-save"],
+    "Previously committed replay must not touch frozen bundle preflight");
 });
