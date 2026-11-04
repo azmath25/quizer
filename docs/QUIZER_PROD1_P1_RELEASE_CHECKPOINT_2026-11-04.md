@@ -43,6 +43,19 @@
    project pinning, private/legacy worker isolation, private grading/export
    and Cloud inventory command allowlists.
 
+## Final source verification
+
+Last tested source commit: `84a607394e1be466a18ebebd4aafe49934623e96`.
+
+[GitHub Actions verification run 41849163278](https://github.com/azmath25/quizer/actions/runs/41849163278) **succeeded**:
+
+- Unit, backend and static tests: **PASS**
+- Firebase emulator integration and transport: **PASS**
+- Chromium mobile runner and teacher-editor checks: **PASS**
+
+These are automated work-branch results; no Cloud Functions deployment or
+live Firebase/Neon integration test is implied.
+
 ## Read-only Neon attestation
 
 Neon project `soft-grass-35754518`, branch
