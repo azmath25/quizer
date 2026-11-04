@@ -45,6 +45,8 @@ jobs:
         run: npm ci --prefix functions
       - name: Synchronize shared modules
         run: npm run prepare:backend
+      - name: Validate guarded one-command release script
+        run: bash -n scripts/release/quizer-one-shot.sh
       - name: Unit regressions (including QN1–QN6)
         run: npm test
       - name: Backend regressions
