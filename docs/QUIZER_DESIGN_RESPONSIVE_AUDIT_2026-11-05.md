@@ -54,6 +54,14 @@ No schema, backend worker, Firebase configuration, database, permission, grading
 - Existing author import, draft save and publish code paths are not modified.
 - CSS braces are balanced and the changed page-controller JavaScript passed syntax-only verification.
 
+## Source-level verification on this design branch
+
+- New `design-responsive-positioning.test.mjs` contract: **6/6 checks passed** in an isolated V8 source-check harness.
+- Existing `qn12-2-author-responsive.test.mjs` source contracts: **15/15 checks passed** under the same harness.
+- Existing `qn12-1-mobile-runner.test.mjs` source contracts: **9/9 checks passed** under the same harness.
+- Changed `js/pages/problems.js` and `js/pages/profile.js` passed syntax-only parsing after removing ES-module import/export wrappers.
+- These checks are **not** the same as running the official Node/npm test suite, Firebase emulator tests, Playwright/Chromium screenshots or a physical-device test. No GitHub Actions workflow was started.
+
 ## Acceptance still needed before release
 
 1. **Real Chromium geometry:** 320/360/390/430/600/760/761/768/844/899/900/1024/1100/1280/1440px; 200% text zoom; inspect bank selection expanded/collapsed, resize across boundaries, profile summary, admin records, desktop editor/preview, student results and exam footer. Confirm zero horizontal overflow, hidden buttons and focus order mismatch.
