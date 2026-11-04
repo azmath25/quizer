@@ -22,3 +22,9 @@ Scope: source inspection only, on `work/quizer-audit-optimization-2026-11`. No p
 
 ## Next safe gate
 Run unit and emulator suites against this work branch in a disposable environment, inspect hybrid action validators and adapt mismatches, then complete student browser E2E regression. Only recommend a deployment after an independently reviewed green checkpoint, a documented rollback path, and explicit authorization.
+
+## Self-service follow-up verification
+- GitHub Actions run 41907236162 (commit be3ea69) **succeeded**: unit/backend/static, Firebase emulator integration + callable transport, and Chromium mobile runner + author QA all passed. https://github.com/azmath25/quizer/actions/runs/41907236162
+- Source inspection of `functions/src/bundles/private-integration.js` confirms callable envelope includes `requestId` for every action, including reads. Legacy dispatcher also accepts it. No reproducible `requestId` rejection is established in the inspected work branch.
+- `tests/unit/prod1-live-factory.test.mjs` checks Firestore timestamp ISO conversion and `tests/unit/prod1-datetime-regression.test.mjs` checks invalid timestamp tolerance. Additional `date-time-compat.test.mjs` was included in green CI.
+- **Remaining distinction:** the full configured production hybrid path has not been exercised against actual serving revisions. A green synthetic/emulator suite must not be described as a production smoke test. No release recommendation yet.
