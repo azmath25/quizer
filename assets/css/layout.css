@@ -310,3 +310,118 @@ main {
 @media (max-width: 520px) {
   #account-link > span:last-child { display: none; }
 }
+
+/* Role-oriented canvas width: teachers and administrators need more room
+   for two-pane editors, management lists and diagnostics. Student screens
+   retain the original focused reading width and mobile navigation. */
+@media (min-width: 1101px) {
+  body:is(
+    [data-page="teaching"],
+    [data-page="quiz-manage"],
+    [data-page="quiz-editor"],
+    [data-page="problem-edit"],
+    [data-page="problems"],
+    [data-page="admin"]
+  ) :is(main, .header-inner, #site-footer) {
+    max-width: 1440px;
+  }
+}
+@media (max-width: 1000px) {
+  /* Tablet home/dashboard cards should not squeeze a narrow side rail. */
+  body[data-page="home"] .workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 761px) {
+  /* Long teacher/admin lists keep their navigation within reach. */
+  body:is(
+    [data-page="teaching"],
+    [data-page="quiz-manage"],
+    [data-page="admin"]
+  ) .tabs {
+    position: sticky;
+    top: 82px;
+    z-index: 18;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+}
+@media (max-width: 760px) {
+  /* Mobile forms, cards and actions should occupy the available width. */
+  body:is([data-page="catalog"],[data-page="activity"],[data-page="profile"])
+    .page-heading,
+  body[data-page="home"] .page-heading {
+    min-width: 0;
+  }
+  body:is([data-page="catalog"],[data-page="activity"])
+    .page-heading .actions > .button {
+    min-width: 0;
+  }
+  body[data-page="activity"] #activity-list .list-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  body[data-page="activity"] #activity-list .list-row .row-main {
+    min-width: 0;
+  }
+  body[data-page="activity"] #activity-list .list-row .actions {
+    margin: 0;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+  }
+  body[data-page="activity"] #activity-list .list-row .actions > .button {
+    min-height: 44px;
+    margin-left: auto;
+  }
+}
+@media (max-width: 520px) {
+  body[data-page="activity"] #activity-list .list-row .actions {
+    gap: 8px;
+  }
+  body[data-page="activity"] #activity-list .list-row .actions > .button {
+    flex: 1 1 auto;
+  }
+}
+
+/* Frontend layout system: predictable spacing and actions across author and
+   learner pages, without changing page routing or element semantics. */
+body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor"],
+  [data-page="problem-edit"],[data-page="problems"],[data-page="admin"]) {
+  --workspace-rail-gap: clamp(16px, 2vw, 28px);
+  --workspace-control-height: 42px;
+}
+body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor"],
+  [data-page="problem-edit"],[data-page="problems"],[data-page="admin"])
+  :is(.page-heading, .section-head, .toolbar, .editor-actions) {
+  min-width: 0;
+}
+body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor"],
+  [data-page="problem-edit"],[data-page="problems"],[data-page="admin"])
+  :is(.page-heading, .toolbar, .editor-actions) .button {
+  min-height: var(--workspace-control-height);
+}
+body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor"],
+  [data-page="problem-edit"],[data-page="problems"],[data-page="admin"])
+  :is(.panel, .workspace-grid > *, .editor-panel, .editor-preview) {
+  min-width: 0;
+}
+:where(.page-heading, .toolbar, .panel, .editor-actions, .selection-panel) {
+  scroll-margin-top: 100px;
+}
+@media (max-width: 760px) {
+  body:is([data-page="home"],[data-page="catalog"],[data-page="quiz"],
+    [data-page="results"],[data-page="activity"]) .page-heading {
+    align-items: flex-start;
+  }
+  body:is([data-page="home"],[data-page="catalog"],[data-page="quiz"],
+    [data-page="results"],[data-page="activity"])
+    :is(.page-heading, .section-head) > :is(h1, h2, div) {
+    min-width: 0;
+  }
+  body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor"],
+    [data-page="problem-edit"],[data-page="problems"],[data-page="admin"]) {
+    --workspace-control-height: 44px;
+  }
+}

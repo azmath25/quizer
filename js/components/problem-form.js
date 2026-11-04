@@ -1,3 +1,4 @@
+import { installEditorWorkspace } from "./workspace-controls.js";
 import { onLeave, onLeaveGuard } from "../core/router.js";
 import { drafts, draftBanner } from "../services/drafts.js";
 import { api } from "../services/api.js";
@@ -98,6 +99,7 @@ export async function problemForm(
     m.bankVisibility,
   )}<p class="muted small">Sharing lets other teachers reuse this problem. They cannot edit your original.</p></section></div><aside class="panel editor-preview"><div class="panel-title"><h2>Preview</h2></div><div id="problem-preview"></div></aside></div><div class="editor-actions"><span class="save-state" id="save-state" role="status" aria-live="polite" aria-atomic="true">${initial.problemId ? "Saved revision " + initial.revisionNumber : "New problem"}</span><div class="actions"><button type="submit" class="button primary" ${readOnly ? "disabled" : ""}>Save problem</button></div></div><div data-message></div></form>`;
   const form = root.querySelector("#problem-form");
+  installEditorWorkspace({ root, form });
   let dirty = false;
   function collect() {
     const f = new FormData(form);
