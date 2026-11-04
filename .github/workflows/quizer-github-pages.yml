@@ -1,0 +1,66 @@
+name: Publish Quizer to GitHub Pages
+
+# Publish ONLY the public frontend from the isolated work branch.
+# Nothing in this workflow invokes Firebase CLI or modifies Firebase hosting.
+on:
+  push:
+    branches:
+      - work/quizer-audit-optimization-2026-11
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Build public static site
+        run: npm run build
+      - name: Validate output has correct Firebase client identity
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,statSync} from 'node:fs';
+          const cfg=readFileSync('dist/js/firebase-config.js','utf8');
+          if(!cfg.includes('sat-quiz-fd317') ||
+             !cfg.includes('1:476816329871:web:057181fe99c4088f1b34fa') ||
+             cfg.includes('quizer-staging-az26') ||
+             cfg.includes('mimo-backend-513412'))
+            throw new Error('GitHub Pages: invalid Firebase public config');
+          for(const path of ['index.html','quiz.html','login.html','problems.html','quizzes.html'])
+            statSync('dist/'+path);
+          if(!statSync('dist/.nojekyll').isFile())
+            throw new Error('GitHub Pages: missing .nojekyll');
+          console.log('Quizer GitHub Pages static bundle verified.');
+          JS
+      - name: Upload only dist to Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages (no Firebase Hosting)
+        id: pages
+        uses: actions/deploy-pages@v4
