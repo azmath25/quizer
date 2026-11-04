@@ -90,3 +90,12 @@ Firebase documentation:
 - https://docs.cloud.google.com/storage/docs/protection-backup-recovery-overview (binary object recovery options).
 
 **Release decision:** Staging deployment remains **NO GO** while runtime identity, server-only secret destination, restricted SQL LOGIN, Firebase Storage/Functions, billable controls and actual restore drill are unverified. The staging project has no verified full working application to roll back to; its current client Firestore rules are intentionally deny-all. Production must stay untouched.
+
+
+## CI and cleanup policy checkpoint (2026-11-04)
+
+**PASS:** [GitHub Actions 41749537524](https://github.com/azmath25/quizer/actions/runs/41749537524), exact source/test SHA `f5761e055f9c3b4e2b3d3cf6d124b1cb0ad8dbb8`. All **3/3 jobs** succeeded: **387/387 unit tests**, **5/5 backend tests**, static verification, Firebase demo emulator regressions/transport and Chromium mobile/author QA. Documentation changes afterward do not change source/test files.
+
+**Updated staging data preference:** The owner states current data is not a high priority. For the isolated Quizer *staging* environment, use fresh synthetic fixtures and allow separately authorized reset/recreation of the disposable staging database instead of making historical-data migration and snapshot/restore a staging prerequisite. Do not infer authorization to delete existing production Firestore quizzes, Storage assets, grades or attempts. Data loss acceptance for *production* must be separately scoped and explicit. A clean-start staging strategy does not waive service credential isolation, IAM, Firebase rules, budget, or technical recovery tests for in-flight writes.
+
+**Result:** STG1-F.3 offline source/cost/identity preflight COMPLETE. Actual staging runtime identity, secret store, billing access, and restricted SQL login remain unverified/unprovisioned. **STG2 NO GO**; no merges, deployment or cloud mutations were performed.
