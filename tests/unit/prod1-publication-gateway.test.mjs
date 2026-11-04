@@ -116,9 +116,10 @@ test("private publication stores only pinned metadata, not answer keys",async()=
   assert.equal(rev.totalPoints,4);
   assert.equal(rev.state,"building");
   assert.equal(f.docs["quizzes/quiz_1"].publishingJobId,result.jobId);
-  assert(f.docs["auditEvents/evt_"+
-    Object.keys(f.docs).find(k=>k.startsWith("auditEvents/")).split("/")[1]]
-    .action==="quiz.publishing");
+  const audit=Object.entries(f.docs)
+    .filter(([path])=>path.startsWith("auditEvents/"));
+  assert.equal(audit.length,1);
+  assert.equal(audit[0][1].action,"quiz.publishing");
   const all=JSON.stringify({job,rev,quiz:f.docs["quizzes/quiz_1"]});
   assert(!all.includes("Solve $x=2$"));
   assert(!all.includes('"acceptedAnswers"'));
