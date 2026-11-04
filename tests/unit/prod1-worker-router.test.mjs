@@ -87,6 +87,9 @@ test("private worker exception never retries in legacy Firestore path",async()=>
   await assert.rejects(r.runJob("job_1"),/storage unavailable/);
   assert.equal(f.stats.legacyCalls,0);
   assert.equal(f.docs["quizzes/quiz_1"].publishedRevisionId,"pub_previous");
+  assert(f.docs["jobs/job_1"].leaseExpiresAt.toMillis()<100);
+  assert.equal(f.docs["jobs/job_1"].error.reason,
+    "PRIVATE_PUBLICATION_RETRY_PENDING");
 });
 test("expired private lease is safely reclaimed; future lease is not stolen",async()=>{
   const f=fixture({status:"running"});
@@ -118,8 +121,10 @@ test("maintenance and cancellation block claiming private publication",async()=>
   assert.equal(maint.stats.writes,0);
   const cancelled=fixture();
   cancelled.docs["quizzes/quiz_1"].publishingJobId="another_job";
-  await assert.rejects(createProd1WorkerRouter(cancelled.deps)
-    .runJob("job_1"),/cancelled or ownership/);
+  assert.equal((await createProd1WorkerRouter(cancelled.deps)
+    .runJob("job_1")).status,"cancelled");
   assert.equal(cancelled.stats.privateCalls,0);
-  assert.equal(cancelled.stats.writes,0);
+  assert.equal(cancelled.docs["jobs/job_1"].status,"failed");
+  assert.equal(cancelled.docs["quizzes/quiz_1"].publishingJobId,"another_job");
+  assert.equal(cancelled.docs["quizzes/quiz_1"].publishedRevisionId,"pub_previous");
 });
