@@ -145,7 +145,7 @@ test("private export only produces internal protected records for authorized job
   await assert.rejects(startFixture({deny:true}).svc.exportSource({
     jobId:"job_export"}),why("RESOURCE_UNAVAILABLE"));
 });
-function gatewayFixture({privateOrigin=true,disabled=false,replayedSave=false}={}){
+function gatewayFixture({privateOrigin=true,disabled=false,replayedSave=false,replayedNavigation=false}={}){
   const calls=[],actorById=new Map([[student.uid,student],
     [teacher.uid,teacher],[admin.uid,admin]]);
   const legacy={async handle(action,firebaseAuth,request){
@@ -179,6 +179,10 @@ function gatewayFixture({privateOrigin=true,disabled=false,replayedSave=false}={
     calls.push("replay-save");
     return {found:true,result:{answerVersion:1,answeredCount:1,
       confirmed:[{itemId:"itm_1",revision:1}]}};
+  };
+  if(replayedNavigation)attemptCommits.replayNavigation=async()=>{
+    calls.push("replay-navigation");
+    return {found:true,result:{currentFrontier:1,uiState:{version:1}}};
   };
   const gradeFinalization={enabled:true,
     async completedManualGrade(){calls.push("receipt-check");
@@ -444,4 +448,14 @@ test("QN-PROD.3 committed save replay bypasses frozen preflight",async()=>{
   assert.equal(result.answerVersion,1);
   assert.deepEqual(f.calls,["replay-save"],
     "Previously committed replay must not touch frozen bundle preflight");
+});
+
+test("QN-PROD.3 navigation replay bypasses frozen position validation",async()=>{
+  const f=gatewayFixture({replayedNavigation:true});
+  const result=await f.call("navigateAttempt",student,{
+    attemptId:"att_new",targetIndex:1,
+    requestId:"request_nav_replay_123456789",
+  });
+  assert.equal(result.currentFrontier,1);
+  assert.deepEqual(f.calls,["replay-navigation"]);
 });
