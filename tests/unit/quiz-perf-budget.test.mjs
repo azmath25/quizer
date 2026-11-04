@@ -19,10 +19,10 @@ test("opening Quizer does not fire unrelated page-data reads",()=>{
 test("quiz runner does not fetch every question when the first opens",()=>{
   assert.doesNotMatch(quiz,/warmAll\(/);
   assert.match(quiz,/function warmNearby\(/);
-  assert.match(quiz,/const start = Math\.floor\(\(index \+ 4\) \/ 12\) \* 12/);
+  assert.match(quiz,/const start = Math\.floor\(\(index \+ 4\) \/ 20\) \* 20/);
   assert.match(quiz,/a\.order\.slice\(start, start \+ 12\)/);
   assert.match(quiz,/concurrency: 1/);
-  assert.match(quiz,/batchSize: 12/);
+  assert.match(quiz,/batchSize: 20/);
   assert.match(quiz,/if \(warming \|\| !a\.settings\.allowBack \|\| stopped\) return/);
   assert.match(quiz,/await prefetchQuestionBatches\(missing/);
   assert.match(scheduling,/shouldStop\(\)/);
