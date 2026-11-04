@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/tokens.css">
+<script src="js/math-config.js" defer></script><script src="assets/mathjax.js" defer></script>
 <!-- SINGLE FILE PROTOTYPE: no js/app.js (the current router does not register ai.html).
   No Firebase, Neon, Mimo, network inference, cloud uploads or credentials.
   For eventual integration, use a separate authenticated backend adapter.
@@ -48,6 +49,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <symbol id="ic-review" viewBox="0 0 24 24"><path d="M4 5h16M4 10h10M4 15h8M17 16l2 2 4-5"/></symbol>
 <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
 <symbol id="ic-pin" viewBox="0 0 24 24"><path d="m15 3 6 6-3 1-3 5-2 1-5-5 1-2 5-3 1-3ZM8 13l-5 8"/></symbol>
+<symbol id="ic-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 4h4M7 7l1 14h8l1-14M10 11v6m4-6v6"/></symbol>
 <symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></symbol>
 <symbol id="ic-bars" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
 <symbol id="ic-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M14 3v18"/></symbol>
@@ -159,7 +161,7 @@ function history(){
  $("#history-count").textContent=state.filter==="jobs"?state.jobs.length:state.chats.length;
  let html="";
  if(state.filter==="jobs")html=state.jobs.slice().sort((a,b)=>b.at-a.at).filter(j=>(j.name+" "+j.status).toLowerCase().includes(query)).map(j=>'<div class="history-row '+(state.selected===j.id?"active":"")+'"><button class="history-open" data-act="select-job" data-id="'+e(j.id)+'"><span class="history-icon">'+ico("clock")+'</span><span class="history-text"><strong>'+e(j.name)+'</strong><small>'+e(j.status)+' · '+j.progress+'%</small></span></button></div>').join("");
- else html=state.chats.filter(c=>(state.filter!=="pinned"||c.pin)&&(c.title+" "+T[c.type].name).toLowerCase().includes(query)).sort((a,b)=>Number(b.pin)-Number(a.pin)||b.updated-a.updated).map(c=>'<div class="history-row '+(state.active===c.id?"active":"")+'"><button class="history-open" data-act="select-chat" data-id="'+e(c.id)+'"><span class="history-icon">'+ico(T[c.type].icon)+'</span><span class="history-text"><strong>'+e(c.title)+'</strong><small>'+e(T[c.type].name)+' · '+ago(c.updated)+'</small></span></button><button class="pin-btn '+(c.pin?"pinned":"")+'" data-act="pin" data-id="'+e(c.id)+'" aria-label="'+(c.pin?"Unpin ":"Pin ")+e(c.title)+'" title="Pin/unpin">'+ico("pin","sm")+'</button></div>').join("");
+ else html=state.chats.filter(c=>(state.filter!=="pinned"||c.pin)&&(c.title+" "+T[c.type].name).toLowerCase().includes(query)).sort((a,b)=>Number(b.pin)-Number(a.pin)||b.updated-a.updated).map(c=>'<div class="history-row '+(state.active===c.id?"active":"")+'"><button class="history-open" data-act="select-chat" data-id="'+e(c.id)+'"><span class="history-icon">'+ico(T[c.type].icon)+'</span><span class="history-text"><strong>'+e(c.title)+'</strong><small>'+e(T[c.type].name)+' · '+ago(c.updated)+'</small></span></button><button class="pin-btn '+(c.pin?"pinned":"")+'" data-act="pin" data-id="'+e(c.id)+'" aria-label="'+(c.pin?"Unpin ":"Pin ")+e(c.title)+'" title="Pin/unpin">'+ico("pin","sm")+'</button><button class="pin-btn" data-act="delete-chat" data-id="'+e(c.id)+'" aria-label="Delete '+e(c.title)+'" title="Delete conversation">'+ico("trash","sm")+'</button></div>').join("");
  $("#history-list").innerHTML=html||'<div class="empty-box">Nothing here yet.<br>Try a new conversation.</div>';
 }
 function head(){
@@ -176,6 +178,7 @@ function messages(keep=false){
  const box=$("#conversation"),bottom=box.scrollHeight-box.scrollTop-box.clientHeight<110,c=chat()||state.chats[0];
  $("#messages").innerHTML='<div class="warning">'+ico("alert")+' <span><strong>Design prototype.</strong> Jobs are simulations. No AI processing, authentication, uploads or cloud saving occurs.</span></div>'+(c.messages.length?c.messages.map(msgHtml).join(""):emptyHtml(c));
  if(!keep||bottom)box.scrollTop=box.scrollHeight;
+ if(window.MathJax && typeof window.MathJax.typesetPromise==="function")window.MathJax.typesetPromise([$("#messages")]).catch(()=>{});
 }
 function attachments(){
  $("#pending").innerHTML=pending.map((f,i)=>'<span class="file">'+ico("paperclip","sm")+'<strong>'+e(f.name)+'</strong><small>'+size(f.size)+'</small><button aria-label="Remove '+e(f.name)+'" data-act="remove-file" data-index="'+i+'">'+ico("x","sm")+'</button></span>').join("");
@@ -236,7 +239,7 @@ function advance(){
  if(changed){save();history();inspector();if(complete)messages(true);}
 }
 function notifyCopy(s){if(navigator.clipboard?.writeText)navigator.clipboard.writeText(s).then(()=>notice("Copied.")).catch(()=>notice("Clipboard permission unavailable."));else notice("Clipboard is unavailable here.");}
-function exampleTex(){return "\\quiztitle{SAMPLE ONLY — NOT EXTRACTED}\\n\\begin{problem}[points=2]\\nSolve $x^2-5x+6=0$.\\n\\answer{$x=2,3$}\\n\\end{problem}\\n";}
+function exampleTex(){return "\\quiztitle{SAMPLE ONLY — NOT EXTRACTED}\n\\begin{problem}[points=2]\nSolve $x^2-5x+6=0$.\n\\answer{$x=2,3$}\n\\end{problem}\n";}
 function exportChat(){const c=chat();if(!c)return;const blob=new Blob([JSON.stringify({format:"quizer-ai-preview-v1",warning:"Prototype — no verified AI outputs",conversation:c},null,2)],{type:"application/json"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="quizer-chat-"+c.id.slice(0,12)+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notice("Chat exported from local storage.");}
 function modal(id){const x=$("#"+id);if(!x.open)x.showModal();}
 function closeModals(){$$("dialog[open]").forEach(d=>d.close());}
@@ -262,6 +265,7 @@ function action(kind,button){
  if(kind==="settings"){$("#spot-toggle").checked=state.spot;$("#motion-toggle").checked=state.motion;modal("settings-dialog");return;}
  if(kind==="search"){if(innerWidth<=760){state.side=true;layout();}$("#history-search").focus();return;}
  if(kind==="pin"){const x=state.chats.find(v=>v.id===id);if(x){x.pin=!x.pin;save();history();}return;}
+ if(kind==="delete-chat"){const x=state.chats.find(v=>v.id===id);if(!x)return;if(!confirm("Delete this local conversation and its sample jobs?"))return;state.chats=state.chats.filter(v=>v.id!==id);state.jobs=state.jobs.filter(j=>j.chatId!==id);if(!state.chats.length){const n=Date.now();state.chats=[{id:uid(),type:"chat",title:"General chat",pin:false,at:n,updated:n,messages:[]}];}if(state.active===id)state.active=state.chats[0].id;if(!state.jobs.some(j=>j.id===state.selected))state.selected=state.jobs[0]?.id||null;pending=[];save();render();notice("Local conversation deleted.");return;}
  if(kind==="rename"&&c){renameId=c.id;$("#rename-input").value=c.title;modal("rename-dialog");$("#rename-input").focus();$("#rename-input").select();return;}
  if(kind==="export"){exportChat();return;}
  if(kind==="attach"){$("#file-input").click();return;}
