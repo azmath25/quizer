@@ -90,41 +90,26 @@ export async function mount(root, session) {
   };
   const panel = root.querySelector("#selection-panel"),
     mine = (p) => p.row.ownerId === session.user.uid;
-  // Mobile dock lives at the document top layer rather than inside animated
-  // page/card stacking contexts. Otherwise 200% text size can put a toolbar
-  // OVER the visible Expand button, making it untappable.
-  const panelHome = panel.parentElement,
-    mobileDock = matchMedia("(max-width: 760px)"),
-    tabletDock = matchMedia("(min-width: 761px) and (max-width: 899px)");
+  // Selection lives beside the bank on wide screens and directly ABOVE it
+  // on narrower screens. Do not portal it to the body or cover content
+  // with a bottom dock: authors must always see the selected controls.
+  const panelHome = panel.parentElement;
+  const compactLayout = matchMedia("(max-width: 899px)");
   const placePanel = () => {
-    if (mobileDock.matches) {
-      // Existing phone portal escapes card/assistant stacking contexts.
-      if (panel.parentElement !== document.body) document.body.append(panel);
-      return;
-    }
-    if (panel.parentElement !== panelHome) panelHome.append(panel);
-    // Match DOM and visual focus order when selection is top-positioned.
-    if (tabletDock.matches && panelHome.firstElementChild !== panel)
-      panelHome.prepend(panel);
-    else if (!tabletDock.matches && panelHome.lastElementChild !== panel)
+    if (compactLayout.matches) {
+      if (panelHome.firstElementChild !== panel) panelHome.prepend(panel);
+    } else if (panelHome.lastElementChild !== panel) {
       panelHome.append(panel);
+    }
   };
-  mobileDock.addEventListener?.("change", placePanel);
-  tabletDock.addEventListener?.("change", placePanel);
+  compactLayout.addEventListener?.("change", placePanel);
   placePanel();
-  onLeave(() => {
-    mobileDock.removeEventListener?.("change", placePanel);
-    tabletDock.removeEventListener?.("change", placePanel);
-    if (panel.parentElement === document.body) panel.remove();
-  });
+  onLeave(() => compactLayout.removeEventListener?.("change", placePanel));
   // Preserve the selection state when its contents are collapsed/reordered.
-  // Preserve the mobile-dock source contract; compact tablets also start collapsed.
-  let collapsed = mobileDock.matches;
-  if (matchMedia("(min-width: 761px) and (max-width: 899px)").matches)
-    collapsed = true;
+  let collapsed = compactLayout.matches;
   // A resized desktop window or rotated tablet must not strand the inspector
   // in its previous position or leave the phone dock expanded by accident.
-  const compactSelection = matchMedia("(max-width: 899px)");
+  const compactSelection = compactLayout;
   const syncSelectionViewport = () => {
     collapsed = compactSelection.matches;
     const details = panel.querySelector("#selection-details");
