@@ -93,6 +93,27 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
 
         # Edit an EXISTING synthetic quiz draft; do not save/publish.
         open_page(page,"upload.html?id="+quiz_id,".slot-row")
+        # Appearance is controlled from the header, never the profile page.
+        appearance=page.locator("#theme-trigger")
+        require(appearance.count()==1, "Missing compact appearance icon")
+        require(rect(appearance)["width"]>=36 and rect(appearance)["height"]>=36,
+                "Appearance icon too small at "+str(width))
+        tap_or_click(appearance,touch)
+        choices=page.locator("#theme-menu [data-theme-choice]")
+        require(choices.count()==3,
+                "Appearance should offer Light, Dark and System")
+        tap_or_click(page.locator('[data-theme-choice="dark"]'),touch)
+        require(page.evaluate("document.documentElement.dataset.theme")=="dark",
+                "Dark theme did not apply immediately")
+        require(page.locator("#theme-trigger").get_attribute("aria-label")=="Appearance: Dark",
+                "Theme icon did not update")
+        tap_or_click(appearance,touch)
+        tap_or_click(page.locator('[data-theme-choice="system"]'),touch)
+        require(page.evaluate("document.documentElement.dataset.theme")=="system",
+                "System theme did not apply")
+        require(page.evaluate("localStorage.getItem('mathquiz.theme.choice')")=="system",
+                "System theme should persist locally without an API call")
+        no_horizontal_overflow(page,"appearance header",width)
         save=page.locator("#save-state")
         require(save.get_attribute("role")=="status" and
                 save.get_attribute("aria-live")=="polite",
