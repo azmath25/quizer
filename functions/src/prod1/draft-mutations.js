@@ -1,7 +1,7 @@
 // PROD1: staged hybrid draft writes. No SQL inside Firestore transactions.
 // No live endpoint registration; immutable Neon revisions are preflighted by
 // trusted server SQL before committing minimal Firebase slot references.
-import {assert,id,fields,text,number,validateSettings} from "../../shared/schema.js";
+import {assert,id,fields,text,number,validateSettings,assetIds} from "../../shared/schema.js";
 import {hash} from "../domain/runtime.js";
 import {requireTeacher} from "../neon/contracts.js";
 
@@ -63,13 +63,7 @@ export function createProd1DraftMutationGateway({
           resolved.problem?.ownerId===actor.uid&&
           resolved.problem?.lifecycle==="active",
           "RESOURCE_UNAVAILABLE","Owner's pinned Neon revision unavailable.");
-        await verifyAssets({actor,assetIds:[
-          ...new Set([
-            ...(resolved.content?.questionAssetBindings??[])
-              .map(x=>typeof x==="string"?x:x.assetId),
-            ...(resolved.grading?.solutionAssetBindings??[])
-              .map(x=>typeof x==="string"?x:x.assetId),
-          ].filter(Boolean))]});
+        await verifyAssets({actor,assetIds:assetIds(resolved.content,resolved.grading)});
       }
       pins.push({item,problemId,revisionId,origin});
     }
@@ -103,7 +97,11 @@ export function createProd1DraftMutationGateway({
         "VERSION_CONFLICT","Quiz, author or draft changed.");
       const extra=await Promise.all(pins.map(async pin=>{
         if(pin.origin==="neon_revision")return null;
-        return read("problems/"+pin.problemId);
+        const [problem,revision]=await Promise.all([
+          read("problems/"+pin.problemId),
+          read("problems/"+pin.problemId+"/revisions/"+pin.revisionId),
+        ]);
+        return {problem,revision};
       }));
       const oldOrder=[...draft.itemOrder], existing=new Set(oldOrder);
       const seen=new Set(),mapping={},order=[...oldOrder],writes=[];
@@ -118,10 +116,10 @@ export function createProd1DraftMutationGateway({
           assert(existing.has(itemId),"INVALID_FIELDS","Unknown draft item.");
         else {mapping[key]=itemId;order.push(itemId);}
         if(origin==="firestore_legacy"){
-          const p=extra[i];
-          assert(p&&(p.ownerId===actor.uid||role.role==="admin"||
+          const {problem:p,revision:rev}=extra[i]??{};
+          assert(p&&rev&&(p.ownerId===actor.uid||role.role==="admin"||
             (p.bankVisibility==="teachers"&&p.lifecycle==="active")),
-            "RESOURCE_UNAVAILABLE","Legacy problem not authorized.");
+            "RESOURCE_UNAVAILABLE","Legacy revision not authorized.");
         }
         writes.push({itemId,problemId,problemRevisionId:revisionId,
           points:number(item.points,"Points",0.00000001,1000),
@@ -132,6 +130,9 @@ export function createProd1DraftMutationGateway({
         removes.every(key=>existing.has(key)&&!seen.has(key)),
         "INVALID_FIELDS","Invalid removed slots.");
       const remaining=order.filter(x=>!removed.has(x));
+      if(r.itemOrder!==undefined)
+        assert(Array.isArray(r.itemOrder),"INVALID_FIELDS",
+          "Invalid draft order.");
       const nextOrder=r.itemOrder?
         r.itemOrder.map(x=>mapping[x]??id(x)):remaining;
       assert(nextOrder.length===remaining.length&&
