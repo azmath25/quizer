@@ -36,7 +36,7 @@ function normalizedSource(loaded){
 }
 export function createProd1PublicationGateway({
   enabled=false,db,resolveActor,resolveOrigin,neonReader,
-  verifyAssets,legacyDispatch,
+  verifyAssets,legacyDispatch,legacySource=null,
 }={}){
   if(enabled!==true)return Object.freeze({enabled:false,
     publish:async()=>({disabled:true})});
@@ -104,15 +104,31 @@ export function createProd1PublicationGateway({
     }
     if(origins.every(x=>x==="firestore_legacy"))
       return (await legacyDispatch(db,auth,request)).data;
-    assert(origins.every(x=>x==="neon_revision"),
+    assert(origins.every(x=>["neon_revision","firestore_legacy"].includes(x)),
+      "RESOURCE_UNAVAILABLE","Unknown private publication source.");
+    const needsLegacy=origins.includes("firestore_legacy");
+    assert(!needsLegacy||typeof legacySource?.preflight==="function",
       "FAILED_PRECONDITION",
-      "Mixed Firestore/Neon publication requires a separate approved migration.");
+      "Mixed Firestore/Neon publication needs a trusted legacy source reader.");
     const sources=[];
     // A 500-question exam must not incur 500 serial round trips or fan
     // out all queries at once. Keep at most eight preflights in flight.
     for(let start=0;start<slots.length;start+=8){
       const group=await Promise.all(slots.slice(start,start+8)
-        .map(async slot=>{
+        .map(async (slot,relativeIndex)=>{
+          if(origins[start+relativeIndex]==="firestore_legacy"){
+            const loaded=await legacySource.preflight({
+              actor,quizId,slot,
+              retainedRevisionId:quiz.publishedRevisionId??
+                quiz.lastPublishedRevisionId??null});
+            assert(loaded?.problemId===slot.problemId&&
+              loaded?.problemRevisionId===slot.problemRevisionId&&
+              loaded?.source?.kind==="firestore_legacy"&&
+              /^[0-9a-f]{64}$/.test(loaded.contentHash),
+              "RESOURCE_UNAVAILABLE","Trusted legacy pin unavailable.");
+            return {...slot,contentHash:loaded.contentHash,
+              source:loaded.source};
+          }
           const loaded=await neonReader.getProblemForTeacher({
             actor,problemId:slot.problemId,
             revisionId:slot.problemRevisionId});
