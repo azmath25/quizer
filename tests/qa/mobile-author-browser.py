@@ -53,8 +53,20 @@ def nav_clear(page,selector,width):
     dock=page.locator(selector)
     nav=page.locator("#mobile-nav")
     require(nav.is_visible(),"Mobile navigation not visible at "+str(width))
+    # Normal-flow selections can scroll below the fixed bottom navigation;
+    # unlike a fixed dock, the user must be able to scroll them clear.
+    if selector=="#selection-panel":
+        position=dock.evaluate("(el) => getComputedStyle(el).position")
+        if position not in ("fixed","sticky"):
+            page.evaluate("""() => {
+              const panel=document.querySelector('#selection-panel');
+              const nav=document.querySelector('#mobile-nav');
+              const delta=panel.getBoundingClientRect().bottom-
+                nav.getBoundingClientRect().top+16;
+              if(delta>0)window.scrollBy(0,delta);
+            }""")
     require(rect(dock)["bottom"]<=rect(nav)["top"]+1,
-            f"{selector} overlaps mobile navigation at {width}: "+
+            f"{selector} cannot be scrolled clear of mobile navigation at {width}: "+
             str({"dock":rect(dock),"nav":rect(nav)}))
 
 def tap_or_click(locator,touch):
