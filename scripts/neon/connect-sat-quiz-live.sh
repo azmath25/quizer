@@ -40,6 +40,34 @@ if [[ -z "$NEON_URL" ]]; then
   echo "STOP: empty connection string"; exit 2
 fi
 
+# For a Neon SQL-created role, the Connect dialog may show a passwordless URL.
+# Prompt separately and inject the password locally without writing secrets
+# to disk, command arguments, logs or shell history. Never guess the password.
+if [[ "$NEON_URL" == "postgresql://quizer_app@"* ||
+      "$NEON_URL" == "postgres://quizer_app@"* ]]; then
+  echo "INFO: Neon URL is missing the password."
+  echo "Reset quizer_app password in Neon Roles and copy the new password."
+  IFS= read -r -s -p "Paste the NEW quizer_app password (hidden): " NEON_PASSWORD
+  printf '\\n'
+  if [[ -z "$NEON_PASSWORD" ]]; then
+    echo "STOP: no password supplied; nothing saved." >&2
+    exit 2
+  fi
+  NEON_URL="$(printf '%s' "$NEON_PASSWORD" |
+    QUIZER_URL="$NEON_URL" node --input-type=module -e '
+      const raw = process.env.QUIZER_URL;
+      const u = new URL(raw);
+      if (u.username !== "quizer_app" || u.password)
+        process.exit(2);
+      let value = "";
+      for await (const bytes of process.stdin) value += bytes;
+      if (!value) process.exit(2);
+      u.password = value;
+      process.stdout.write(u.href);
+    ')"
+  unset NEON_PASSWORD
+fi
+
 # Neon may show the DIRECT endpoint by default. Normalize ONLY the verified
 # same-branch direct hostname to its known pooled counterpart, preserving the
 # role, password, path, TLS and all query parameters unchanged.
