@@ -38,6 +38,10 @@ export function createProd1TrustedWorkerInvoker({firebaseProjectId="",privateRun
       "AUTH_REQUIRED","Trusted PROD1 worker required.");
     assert(job&&typeof job.kind==="string"&&typeof job.jobId==="string",
       "INVALID_FIELDS","Private job payload required.");
+    if(job.kind==="publishJob")
+      assert(typeof job.leaseOwner==="string"&&
+        job.leaseOwner.length>=16&&job.leaseOwner.length<=128,
+        "JOB_LEASE","Claimed private publication lease required.");
     return privateRuntime.runPrivateJob(job);
   };
 }
