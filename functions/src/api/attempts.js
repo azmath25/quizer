@@ -274,7 +274,14 @@ define(
       quizOwnerId: quiz.ownerId,
       affectedUserId: c.actor.uid,
     });
-    return attemptDTO(c, a, attemptId);
+    // The start transaction already has every published item in memory.
+    // Return only the first student-visible row, never grading or solutions.
+    // This removes the second question-fetch round trip for a new attempt.
+    const firstQuestion = {
+      ...studentItem(itemDocs.get(order[0])),
+      answer: { value: "", revision: 0, updatedAt: null },
+    };
+    return { ...attemptDTO(c, a, attemptId), firstQuestion };
   },
   { mutation: true },
 );
