@@ -34,9 +34,11 @@ test("readiness inventory is scoped and never authorizes prod writes",()=>{
   assert.equal(r.identities.firebaseProject,"sat-quiz-fd317");
   assert.equal(r.identities.neonProject,"soft-grass-35754518");
   const cmd=calls.flat().join(" ");
-  for(const bad of ["versions access","deploy","set-iam-policy",
-    "delete","create","enable","mimo-backend-513412"])
-    assert.equal(cmd.includes(bad),false,cmd);
+  // Match whole command arguments, not the harmless --enabled filter.
+  for(const bad of ["deploy","set-iam-policy","delete","create","enable"])
+    assert.equal(calls.some(parts=>parts.includes(bad)),false,cmd);
+  assert.equal(cmd.includes("secrets versions access"),false,cmd);
+  assert.equal(cmd.includes("mimo-backend-513412"),false,cmd);
 });
 test("missing secret or service or wrong branch never reports ready",()=>{
   for(const config of [
