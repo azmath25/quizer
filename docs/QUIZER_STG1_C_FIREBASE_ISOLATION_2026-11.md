@@ -164,3 +164,15 @@ The user ran a read-only, explicitly scoped `gcloud projects get-iam-policy quiz
 **Verified:** no project-wide `allUsers` or `allAuthenticatedUsers` binding, only one human owner, and service-only Firebase-related grants. The presence of an impersonation privilege needs exact service-identity/role-reason verification before runtime access is considered hardened. This does not inspect IAM of individual resources, inherited organization/folder permissions, or whether the underlying service identities have been modified. No IAM changes were made.
 
 **Remaining:** budget alerts before any billing activation, disabled-billing constraints on Functions/Storage, dedicated Neon `quizer_app` SQL LOGIN with secure secrets, version-ledger persistence and runner, final staging-only deploy/recovery plan, real auth and end-to-end tests. STG2 is still NO GO.
+
+## Staging cost budget decision — 2026-11-04
+
+**Owner-selected spending target: USD $1 per calendar month for `quizer-staging-az26`.**
+
+- Budget **target**, not an automatically enforced maximum. Google Cloud alert-only budgets generate notifications and do not necessarily stop services or billable usage at $1. Cost-reporting delay also creates overspend risk.
+- **Billing remains DISABLED** on Quizer staging, as last verified; do NOT link a billing account, upgrade to Blaze, deploy Cloud Functions, create a Cloud Storage bucket, or enable paid services without a separate explicit go/no-go approval.
+- If billing activation is separately authorized, configure a **project-scoped** $1 monthly budget and alerts at 25%, 50%, 80%, and 100% before any workload. Verify the actual supported spend cap mechanism (only available for eligible services) and appropriate quotas; absent a verified hard cap, no guarantee is made that total spend will stay at or below $1.
+- Prefer Spark-tier Firestore and Google Auth with local Firebase emulators and offline checks while billing is disabled. Document billable service needs, usage estimates, and a teardown/disable-billing playbook before any upgrade.
+- The Quizer staging budget does NOT imply permission to alter `mimo-backend-513412`, `sat-quiz-fd317`, their billing accounts, or other projects.
+
+Source guidance: Google Cloud billing budget documentation — https://docs.cloud.google.com/billing/docs/how-to/budgets — and https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps.
