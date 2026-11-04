@@ -73,3 +73,21 @@ test("STG1-F.1 is offline-only and has no runtime/credential adapters",()=>{
   assert.doesNotMatch(src,/\b(?:fetch|createPool|client\.query|process\.env|execSync)\s*\(/);
   assert.doesNotMatch(src,/\b(?:ALTER ROLE|CREATE ROLE|GRANT\s|DROP ROLE)\b/i);
 });
+
+test("STG1-F.1 SQL attestation remains a single read-only SELECT",()=>{
+  const raw=readFileSync(new URL(
+    "../sql/stg1f_runtime_access_attestation_READ_ONLY.sql",import.meta.url),
+    "utf8");
+  const sql=raw.split("\n").filter(l=>!l.trimStart().startsWith("--")).join("\n").trim();
+  assert.match(sql,/^SELECT\b/i);
+  assert.equal((sql.match(/;\s*$/g)||[]).length,1);
+  assert.doesNotMatch(sql,/\b(CREATE|ALTER|DROP|GRANT|REVOKE|TRUNCATE|DELETE\s+FROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET)\b/i);
+  for(const table of [
+    "problems","problem_revisions","problem_tags","import_receipts",
+    "activity_events","quiz_revision_mirrors","mutation_receipts",
+  ])assert.ok(sql.includes("'quizer."+table+"'"));
+  assert.match(sql,/pg_stat_ssl/);
+  assert.match(sql,/rolbypassrls/);
+  assert.match(sql,/inherited_neon_superuser/);
+  assert.match(sql,/NULL::boolean AS endpoint_attested/);
+});
