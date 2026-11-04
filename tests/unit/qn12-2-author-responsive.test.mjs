@@ -29,7 +29,7 @@ test("QN12.2 points field no longer placed in implicit 28px grid column",()=>{
   assert.match(editor,/\.sel-row\s*\{[^}]*grid-template-areas:\s*"number title points" "controls controls controls"/s);
 });
 test("QN12.2 mobile selection can collapse without clearing its chosen revisions",()=>{
-  assert.match(bank,/let collapsed = mobileDock\.matches/);
+  assert.match(bank,/let collapsed = compactLayout\.matches/);
   assert.match(bank,/id="toggle-selection" aria-controls="selection-details"/);
   assert.match(bank,/id="selection-details"/);
   assert.match(bank,/panel\.dataset\.collapsed = String\(collapsed\)/);
@@ -56,7 +56,7 @@ test("QN12.2 nav clearance is measured for all author routes, not hardcoded 76px
   assert.match(device,/ResizeObserver/);
   assert.match(device,/visualViewport\?\.addEventListener\("resize"/);
   assert.match(editor,/\.editor-actions,\s*\.selection-tray\s*\{[^}]*bottom:\s*var\(--mobile-nav-clearance,/s);
-  assert.match(editor,/\.selection-panel\s*\{[^}]*bottom:\s*var\(--mobile-nav-clearance,/s);
+  assert.match(editor,/body\[data-page="problems"\] \.bank-layout > \.selection-panel,[\s\S]*?position:\s*relative;/s);
 });
 test("QN12.2 import source, images and preview stay within mobile column",()=>{
   assert.match(editor,/\.source-input,\s*\.editor-grid,\s*\.editor-panel,\s*\.editor-preview,\s*\.preview-question,\s*\.image-row\s*\{[^}]*min-width:\s*0/s);
@@ -83,9 +83,11 @@ test("QN12.2 bank card toolbar wraps into 44px buttons on small viewports",()=>{
   assert.match(cards,/@media \(hover: none\)\s*\{[^}]*\.action-btn\[data-tooltip\]:hover::before\s*\{[^}]*opacity:\s*0;/s);
 });
 
-test("QN12.2 selected-problem dock sits above card and assistant overlays",()=>{
-  assert.match(editor,/\.selection-panel\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*70;[^}]*pointer-events:\s*auto;/s);
-  assert.match(editor,/\.sel-head #toggle-selection\s*\{[^}]*order:\s*-1;/s);
+test("QN12.2 selected-problem controls remain in page flow above cards",()=>{
+  assert.match(editor,/body\[data-page="problems"\] \.bank-layout > \.selection-panel,[\s\S]*?position:\s*relative;/s);
+  assert.match(editor,/grid-template-areas:\s*"selection" "bank"/);
+  assert.match(bank,/panelHome\.prepend\(panel\)/);
+  assert.doesNotMatch(bank,/document\.body\.append\(panel\)/);
 });
 
 test("QN12.2 problem bank selection label is 44px at phone and tablet widths",()=>{
@@ -93,12 +95,11 @@ test("QN12.2 problem bank selection label is 44px at phone and tablet widths",()
   assert.match(cards,/\.prob-select input\s*\{[^}]*width:\s*22px;[^}]*height:\s*22px;/s);
 });
 
-test("QN12.2 mobile selection portal escapes animated author stacking contexts",()=>{
-  assert.match(bank,/const panelHome = panel\.parentElement,\s*mobileDock = matchMedia/);
-  assert.match(bank,/document\.body\.append\(panel\)/);
+test("QN12.2 compact selection panel stays in bank layout",()=>{
+  assert.match(bank,/compactLayout = matchMedia\("\(max-width: 899px\)"\)/);
+  assert.match(bank,/panelHome\.prepend\(panel\)/);
   assert.match(bank,/panelHome\.append\(panel\)/);
-  assert.match(bank,/onLeave\(\(\) => \{\s*mobileDock\.removeEventListener\?\.\("change", placePanel\)/);
-  assert.match(bank,/panel\.parentElement === document\.body\) panel\.remove\(\)/);
+  assert.doesNotMatch(bank,/document\.body\.append\(panel\)/);
 });
 
 test("QN12.2 mobile header prevents large-text min-content width and preserves profile accessibility",()=>{
