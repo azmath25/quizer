@@ -21,9 +21,7 @@ echo "Never paste the URL into chat, GitHub or the visible terminal prompt."
 IFS= read -r -s -p "Paste private quizer_owner URL (hidden): " OWNER_URL
 printf '\n'
 if [[ -z "$OWNER_URL" ]]; then echo "STOP: missing owner URL."; exit 2; fi
-printf '%s' "$OWNER_URL" | node --input-type=module <<'JS'
-JS
-# The SQL helper is a separate JS file to avoid mixing stdin/heredoc.
+# Pipe the URL only to the local verifier; it never reaches argv or logs.
 printf '%s' "$OWNER_URL" |
   node scripts/neon/repair-quizer-app-password.mjs
 unset OWNER_URL
