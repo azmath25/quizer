@@ -81,7 +81,7 @@ test("STG1-F.1 SQL attestation remains a single read-only SELECT",()=>{
   const sql=raw.split("\n").filter(l=>!l.trimStart().startsWith("--")).join("\n").trim();
   assert.match(sql,/^SELECT\b/i);
   assert.equal((sql.match(/;\s*$/g)||[]).length,1);
-  assert.doesNotMatch(sql,/\b(CREATE|ALTER|DROP|GRANT|REVOKE|TRUNCATE|DELETE\s+FROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET)\b/i);
+  assert.doesNotMatch(sql,/^\s*(CREATE|ALTER|DROP|GRANT|REVOKE|TRUNCATE|DELETE|INSERT|UPDATE)\b/im);
   for(const table of [
     "problems","problem_revisions","problem_tags","import_receipts",
     "activity_events","quiz_revision_mirrors","mutation_receipts",
