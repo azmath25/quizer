@@ -13,6 +13,7 @@ import {createProd1PublicationGateway}
   from "./publication-gateway.js";
 import {createProd1WorkerRouter}
   from "./worker-router.js";
+import {createProd1ImportFinisher} from "./import-finisher.js";
 import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
 import {createProd1DraftReader} from "./draft-reader.js";
 import {createProd1DraftMutationGateway} from "./draft-mutations.js";
@@ -76,6 +77,9 @@ export async function createProd1LiveRuntime({
       resolveOrigin:ports.resolveProblemOrigin,neonReader:bank.read,
       verifyAssets:ports.verifyAssets,legacyDispatch,
       legacySource});
+    const finisher=createProd1ImportFinisher({
+      enabled:true,db,resolveActor:ports.resolveFirebaseActor,
+      legacyDispatch});
     const runtime=createProd1PrivateRuntime({
       enabled:true,firebaseProjectId,db,bucket,authFor,
       bankRuntime:bank,legacyDispatch,
@@ -101,6 +105,11 @@ export async function createProd1LiveRuntime({
           const data=await draftMutations.handle(verifiedAuth,request);
           return {apiVersion:2,serverTime:new Date().toISOString(),
             data:data===undefined?null:data};
+        }
+        if(request.action==="finishImportJob"){
+          const data=await finisher.finish(verifiedAuth,request);
+          return {apiVersion:2,serverTime:new Date().toISOString(),
+            data};
         }
         if(request.action==="publishQuiz"){
           const data=await publication.publish(verifiedAuth,request);
