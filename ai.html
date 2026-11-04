@@ -36,6 +36,39 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 @media(max-width:430px){.brand{font-size:14px}.prompt-grid{grid-template-columns:1fr}.prompt-card{padding:12px}.head-tools .tag{display:none}.head-tools .icon-btn[data-act="export"]{display:none}.types{grid-template-columns:1fr}.type-card:first-child{grid-column:auto}.compose-btn span{display:none}.top-avatar{display:none}}
 @media(hover:none){.pin-btn{opacity:1}.new:hover,.prompt-card:hover,.type-card:hover{transform:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.stage:after{display:none}}
+
+/* Focused mode: narrow history, hidden-by-default inspector and quiet welcome. */
+.studio-name{font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap}
+.shell{grid-template-columns:232px minmax(0,1fr) 304px}
+.side-top{padding:15px 12px 8px}.sidenav{padding:3px 9px 8px}.nav-row{padding:9px 11px}
+.conversation-head{height:62px;padding:0 24px}.title-symbol{width:32px;height:32px}
+.conversation{padding-top:18px}.message{margin-bottom:18px}
+.welcome{padding:28px 0 24px}
+.welcome-symbol{width:54px;height:54px;border-radius:17px;margin-bottom:18px;box-shadow:none}
+.welcome-symbol .ico{width:25px;height:25px}.welcome-symbol:after{display:none}
+.welcome h2{font-size:clamp(21px,2.1vw,27px);letter-spacing:-.045em}
+.welcome p{margin-bottom:20px;font-size:12px;line-height:1.6}
+.prompt-grid{max-width:445px;gap:9px}
+.prompt-card{min-height:50px;padding:11px 13px;align-items:center;gap:9px;background:var(--surface)}
+.prompt-card>span:first-child{width:25px;height:25px;border-radius:7px}
+.prompt-card strong{font-size:11px;margin:0}
+.more-prompts{max-width:445px;margin:11px auto 0;text-align:center}
+.more-prompts summary{display:inline-block;padding:8px 12px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
+.more-prompts summary::-webkit-details-marker{display:none}
+.more-prompts[open] summary{margin-bottom:9px;color:var(--cyan)}
+.chat-options{position:relative;z-index:20}
+.chat-options summary{min-height:36px;display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--muted);border:1px solid var(--line);border-radius:9px;padding:0 12px;font-size:11px;font-weight:700;list-style:none;background:var(--surface)}
+.chat-options summary::-webkit-details-marker{display:none}
+.chat-options[open] summary,.chat-options summary:hover{color:var(--cyan);border-color:var(--cyan)}
+.chat-actions{position:absolute;right:0;top:calc(100% + 6px);z-index:25;min-width:160px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px}
+.chat-actions button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);text-align:left;padding:10px 11px;border-radius:8px;font-size:11px}
+.chat-actions button:hover{background:var(--wash)}
+.warning{font-size:10px;padding:8px 11px;margin-bottom:18px}
+.composer-area{padding-bottom:10px}.composer-note{padding-top:8px}
+@media(min-width:761px){.tools [data-act="search"]{display:none}}
+@media(max-width:1060px){.shell{grid-template-columns:232px minmax(0,1fr)}}
+@media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.topbar{padding:0 12px}.studio-name{font-size:11px}.conversation-head{height:59px;padding:0 13px}.welcome{padding:24px 0}.conversation{padding:16px}.composer-area{padding:0 12px max(10px,env(safe-area-inset-bottom))}}
+@media(max-width:430px){.prompt-grid{grid-template-columns:1fr}.toplink,.studio-name{display:none}.chat-options summary{min-height:34px}}
 </style>
 </head>
 <body data-page="ai">
