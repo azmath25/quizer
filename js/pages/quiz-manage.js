@@ -508,9 +508,11 @@ export async function mount(root) {
   }
   async function showHistory() {
     panel.innerHTML =
-      '<section class="panel"><h2>Quiz activity</h2><div class="history-feed"></div></section>';
+      '<section class="panel"><div class="section-head"><h2>Quiz activity</h2><div class="actions"><button type="button" class="button primary" id="history-load">Load history</button><button type="button" class="button secondary" id="history-download">Download CSV</button></div></div><div class="history-feed"></div></section>';
     const list = panel.querySelector(".history-feed"),
       setPage = pagination(list, load);
+    list.innerHTML = empty("History not loaded",
+      "Load the activity only when you need it, or download a CSV.");
     async function load(cursor) {
       const result = await api("getQuizHistory", {
         quizId,
@@ -523,7 +525,39 @@ export async function mount(root) {
         list.innerHTML = empty("No activity recorded");
       setPage(result.nextCursor);
     }
-    await load();
+    action(panel, "#history-load", async () => {
+      await load();
+      panel.querySelector("#history-load").textContent = "Refresh history";
+    });
+    action(panel, "#history-download", async () => {
+      const records = [];
+      let cursor;
+      const seen = new Set();
+      // Explicit export only. Bound pagination to prevent unlimited calls.
+      for (let page = 0; page < 100; page++) {
+        const result = await api("getQuizHistory", {
+          quizId, limit: 100, ...(cursor ? { cursor } : {}),
+        });
+        records.push(...result.items);
+        if (!result.nextCursor) { cursor = null; break; }
+        if (seen.has(result.nextCursor))
+          throw new Error("History pagination repeated a cursor.");
+        seen.add(result.nextCursor);
+        cursor = result.nextCursor;
+      }
+      if (cursor) throw new Error(
+        "More than 10,000 activity records. Narrow the export before retrying.");
+      const cell = (v) => {
+        let text = String(v ?? "");
+        if (/^[=+\\-@\\t\\r]/.test(text)) text = "'" + text;
+        return '"' + text.replace(/"/g, '""') + '"';
+      };
+      const rows = [["Time", "Action", "Actor ID", "Role", "Target type", "Target ID"],
+        ...records.map((r) => [r.occurredAt, r.action, r.actorId,
+          r.actorRoleAtTime, r.targetType, r.targetId])];
+      downloadBlob(rows.map((row) => row.map(cell).join(",")).join("\r\n"),
+        "quiz-history.csv", "text/csv");
+    });
   }
   async function show(value) {
     tab = ["content", "access", "results", "history"].includes(value)
