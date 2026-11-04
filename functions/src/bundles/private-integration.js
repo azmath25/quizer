@@ -298,7 +298,7 @@ export function createQuizerPrivateIntegration({
     return gradeFinalization.finalizeGradeJob({jobId,attemptId,leaseOwner});
   }
   return Object.freeze({enabled:true,handle,
-    publishJob:({jobId})=>publisher.publish({jobId}),
+    publishJob:({jobId,leaseOwner})=>publisher.publish({jobId,leaseOwner}),
     gradeJobBatch,finalizeGradeJob,
     exportSource:({jobId})=>startExport.exportSource({jobId}),
     exportJob:async({jobId})=>{
