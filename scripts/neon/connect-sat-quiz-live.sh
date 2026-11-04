@@ -42,20 +42,43 @@ fi
 # Connect with a restricted user and check actual grants before storing URL.
 QUIZER_URL="$NEON_URL" EXPECTED_HOST="$EXPECTED_HOST" node --input-type=module <<'JS'
 import pg from "pg";
-const bad = () => {throw new Error("Wrong Neon branch, role, TLS, or SQL privileges. Nothing saved.");};
-const raw = process.env.QUIZER_URL;
+const bad = (why) => {
+  // Only safe metadata is printed: NEVER the URL, password, token or query values.
+  console.error("STOP: " + why);
+  console.error("Nothing was saved; copy the RAW pooled PostgreSQL URL from the exact Neon branch.");
+  process.exit(2);
+};
+const raw = process.env.QUIZER_URL ?? "";
+if(!raw || /^\\s*psql\\s/i.test(raw) || /^\\s*["']/.test(raw) ||
+   /["']\\s*$/.test(raw))
+  bad("Paste the PostgreSQL URL only, without psql, quotes or command wrappers.");
 let uri;
-try {uri=new URL(raw);}catch {bad();}
+try {uri=new URL(raw);}catch {
+  bad("Input is not a PostgreSQL URL. Copy the URI, not a SQL/psql command.");
+}
 const params=new Set([...uri.searchParams.keys()]);
-if(!["postgres:","postgresql:"].includes(uri.protocol) ||
-   uri.hostname!==process.env.EXPECTED_HOST ||
-   decodeURIComponent(uri.username)!=="quizer_app" ||
-   decodeURIComponent(uri.pathname.slice(1))!=="quizer" ||
-   !uri.password || uri.searchParams.get("sslmode")!=="require" ||
-   (params.has("channel_binding") &&
-     uri.searchParams.get("channel_binding")!=="require") ||
-   [...params].some(p=>!["sslmode","channel_binding"].includes(p)) ||
-   uri.hash)bad();
+if(!["postgres:","postgresql:"].includes(uri.protocol))
+  bad("Wrong URL protocol; expected postgresql://.");
+if(uri.hostname!==process.env.EXPECTED_HOST)
+  bad("Wrong Neon endpoint host: " + uri.hostname +
+      ". Re-select branch sat-quiz-live-2026-11 and the POOLED endpoint.");
+if(decodeURIComponent(uri.username)!=="quizer_app")
+  bad("Wrong Neon role: " + decodeURIComponent(uri.username) +
+      ". Select quizer_app, not quizer_owner.");
+if(decodeURIComponent(uri.pathname.slice(1))!=="quizer")
+  bad("Wrong Neon database: " + decodeURIComponent(uri.pathname.slice(1)) +
+      ". Select quizer.");
+if(!uri.password)
+  bad("No password is present. Set/reset quizer_app password in Neon Roles first.");
+if(uri.searchParams.get("sslmode")!=="require")
+  bad("Missing sslmode=require. Copy Neon Connect's pooled URL with TLS required.");
+if(params.has("channel_binding") &&
+   uri.searchParams.get("channel_binding")!=="require")
+  bad("Unsafe channel_binding option. Only channel_binding=require is accepted.");
+const unknown=[...params].filter(p=>!["sslmode","channel_binding"].includes(p));
+if(unknown.length)
+  bad("Unexpected URL parameter names: " + unknown.join(", "));
+if(uri.hash)bad("URL must not have a fragment.");
 const client=new pg.Client({connectionString:raw,connectionTimeoutMillis:8000});
 try{
   await client.connect();
