@@ -505,3 +505,57 @@
   .dock-card .dock-row select { min-width: 0; flex: 1 1 120px; }
   .dock-card .dock-row .button { flex: 0 0 auto; }
 }
+
+/* Desktop-first editing: leave more room for source and controls, while the
+   live preview remains visible in a narrower but readable right column. */
+@media (min-width: 1101px) {
+  body:is([data-page="quiz-editor"],[data-page="problem-edit"]) .editor-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, .9fr);
+    gap: clamp(20px, 2.3vw, 34px);
+  }
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 420px);
+    gap: 22px;
+  }
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) #bank-list {
+    max-width: none;
+  }
+}
+@media (min-width: 1280px) {
+  /* Two bank cards only when the selection inspector is absent; otherwise
+     long mathematical statements retain a legible single-column width. */
+  body[data-page="problems"] .bank-layout:not(:has(.selection-panel:not([hidden]))) #bank-list {
+    max-width: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 22px;
+  }
+}
+@media (min-width: 761px) {
+  /* On desktop/tablet the collapse affordance belongs on the right side. */
+  body[data-page="problems"] .sel-head #toggle-selection {
+    order: 0;
+    margin-left: auto;
+  }
+}
+@media (min-width: 761px) and (max-width: 899px) {
+  /* Top-positioned, initially collapsed selection avoids a bottom overlay
+     on landscape tablets and compact laptop browser windows. */
+  body[data-page="problems"] .selection-panel[data-collapsed="true"] {
+    max-height: none;
+  }
+}
+@media (max-width: 760px) {
+  /* Keep labels and controls reachable at zoomed phone sizes. */
+  body[data-page="problems"] .selection-panel {
+    width: auto;
+    max-width: 100%;
+  }
+  body[data-page="problems"] .selection-panel #selection-details:not([hidden]) {
+    overscroll-behavior: contain;
+  }
+  body[data-page="quiz-editor"] .editor-grid,
+  body[data-page="problem-edit"] .editor-grid {
+    gap: 12px;
+  }
+}
