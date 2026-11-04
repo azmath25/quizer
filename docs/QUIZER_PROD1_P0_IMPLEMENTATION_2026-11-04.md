@@ -31,6 +31,21 @@ duplicate request receipts, old/new source composition, protected answer materia
 creation versus final activation, cancellation, worker retry fencing, exhaust behavior and
 legacy import compatibility.
 
+## Final P0 CI checkpoint
+
+Latest code SHA: `1b43c03481922745a49735ad137d00b3a1d74e4d`.
+
+[GitHub Actions run 41841719728](https://github.com/azmath25/quizer/actions/runs/41841719728):
+
+- Unit + backend + static: **PASS**
+- Firebase emulator regressions: **PASS**
+- Chromium mobile runner + author QA: **PASS**
+
+The CI result verifies synthetic/unit/emulator/browser behavior for the
+work-branch sources. It does **not** prove live SAT QUIZ Secret Manager
+credentials, Google Cloud IAM, real Neon ↔ Firebase service connectivity,
+or production backend cutover.
+
 ## Release boundary
 
 - NO merge to `main`, NO Firebase Cloud Functions/Hosting/Storage deploy,
@@ -51,7 +66,7 @@ legacy import compatibility.
 
 ## Decision
 
-**P0 source implementation: staged for verification.**
+**P0 source implementation: COMPLETE and CI-VERIFIED on the work branch.**
 **Production activation: NO-GO** pending CI and P1 real-cloud gates.
 See `.github/workflows/quizer-verify.yml` for the authoritative latest
 unit, emulator and Chromium results for the current head.
