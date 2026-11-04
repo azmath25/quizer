@@ -33,7 +33,7 @@ function fixture({corruptLegacy=false,failActivation=false}={}){
   ];
   const plan={
     jobId:"job_mix",quizId:"quiz_mix",revisionId:"pub_mix",
-    leaseOwner:"lease_worker",sources,
+    leaseOwner:"lease_worker_claim_12345",sources,
     revision:{revisionNumber:1,title:"Mixed Quiz",
       description:"",subject:"Math",difficulty:"",
       settings:{...DEFAULT_SETTINGS},
@@ -60,7 +60,12 @@ function fixture({corruptLegacy=false,failActivation=false}={}){
     },
   };
   const publicationStore={
-    async load(){return plan;},
+    async load(_jobId,expectedLeaseOwner){
+      if(expectedLeaseOwner!==undefined&&
+        expectedLeaseOwner!==plan.leaseOwner)
+        throw Error("claimed publication lease mismatch");
+      return plan;
+    },
     async activate({manifest,assetRetention}){
       assert.equal(assetRetention,"retained");
       assert.equal(manifest.itemCount,2);
@@ -133,4 +138,19 @@ test("missing trusted legacy adapter must fail closed",async()=>{
   await assert.rejects(publisher.publish({jobId:"job_mix"}),
     /Trusted pinned legacy publication reader not configured/);
   assert.equal(f.stats.objectCount,0);
+});
+
+test("publisher refuses stale worker claim before touching private sources",async()=>{
+  const f=fixture();
+  await assert.rejects(f.publisher.publish({
+    jobId:"job_mix",leaseOwner:"stale_worker_claim_12345",
+  }),/claimed publication lease mismatch/);
+  assert.equal(f.stats.legacyReads,0);
+  assert.equal(f.stats.neonReads,0);
+  assert.equal(f.stats.activated,0);
+  assert.equal(f.stats.objectCount,0);
+  const valid=await f.publisher.publish({
+    jobId:"job_mix",leaseOwner:"lease_worker_claim_12345",
+  });
+  assert.equal(valid.activated,true);
 });
