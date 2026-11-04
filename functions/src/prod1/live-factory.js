@@ -137,7 +137,9 @@ export async function createProd1LiveRuntime({
       createWorker({runLegacy,now}={}){
         return createProd1WorkerRouter({
           enabled:true,db,runLegacy,now,
-          runPrivateJob:args=>runtime.runPrivateJob(args),
+          runPrivateJob:args=>runtime.runPrivateJob({
+            firebaseProjectId:PROJECT,trustedServerInvocation:true,
+          },args),
         });
       },
       close:()=>runtime.close(),
