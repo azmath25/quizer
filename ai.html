@@ -168,14 +168,18 @@ function history(){
 }
 function head(){
  const c=chat()||state.chats[0],t=T[c.type];
- $("#conversation-head").innerHTML='<div class="current-title"><span class="title-symbol">'+ico(t.icon)+'</span><span class="title-copy"><h1>'+e(c.title)+'</h1><p>'+e(t.desc)+'</p></span></div><div class="head-tools"><span class="tag">Local only</span><button class="icon-btn" data-act="pin" data-id="'+e(c.id)+'" title="Pin chat" aria-label="Pin chat">'+ico("pin","sm")+'</button><button class="icon-btn" data-act="rename" title="Rename chat" aria-label="Rename chat">'+ico("edit","sm")+'</button><button class="icon-btn" data-act="export" title="Export chat JSON" aria-label="Export chat">'+ico("download","sm")+'</button></div>';
+ $("#conversation-head").innerHTML='<div class="current-title"><span class="title-symbol">'+ico(t.icon)+'</span><span class="title-copy"><h1>'+e(c.title)+'</h1><p>'+e(t.desc)+'</p></span></div><div class="head-tools"><details class="chat-options"><summary aria-label="Conversation actions" title="Conversation actions">More <span aria-hidden="true">⋯</span></summary><div class="chat-actions"><button type="button" data-act="pin" data-id="'+e(c.id)+'">'+ico("pin","sm")+' Pin</button><button type="button" data-act="rename">'+ico("edit","sm")+' Rename</button><button type="button" data-act="export">'+ico("download","sm")+' Export JSON</button></div></details></div>';
  $("#prompt").placeholder=t.placeholder;$("#compose-mode").innerHTML=ico(t.icon,"sm")+" "+e(t.name);
 }
 function attachHtml(f){return '<span class="file">'+ico("doc","sm")+'<strong>'+e(f.name)+'</strong><small>'+size(f.size)+'</small></span>';}
 function msgHtml(m){
  return '<article class="message '+e(m.role)+'"><span class="msg-icon">'+ico(m.role==="user"?"chat":"spark")+'</span><div class="msg-content"><div class="msg-meta"><strong>'+(m.role==="user"?"You":"Studio preview")+'</strong><time>'+time(m.at)+'</time></div><div class="msg-body">'+e(m.text)+'</div>'+(m.files?.length?'<div class="attachments-line">'+m.files.map(attachHtml).join("")+'</div>':'')+'<div class="msg-actions"><button data-act="copy-msg" data-id="'+e(m.id)+'">'+ico("copy","sm")+' Copy</button></div></div></article>';
 }
-function emptyHtml(c){return '<div class="welcome"><span class="welcome-symbol">'+ico("spark")+'</span><h2>Where shall we begin?</h2><p>'+e(T[c.type].desc)+'<br>Try a starting point or write your own request below.</p><div class="prompt-grid">'+T[c.type].prompts.map((v,i)=>'<button class="prompt-card" data-act="suggest" data-prompt="'+e(v[1])+'"><span>'+ico(["spark","math","doc","review"][i])+'</span><span><strong>'+e(v[0])+'</strong><small>'+e(v[1])+'</small></span></button>').join("")+'</div></div>';}
+function emptyHtml(c){
+ const prompts=T[c.type].prompts;
+ const cards=items=>items.map(([title,prompt])=>'<button class="prompt-card" data-act="suggest" data-prompt="'+e(prompt)+'"><span>'+ico("spark","sm")+'</span><strong>'+e(title)+'</strong></button>').join("");
+ return '<div class="welcome"><span class="welcome-symbol">'+ico("spark")+'</span><h2>What would you like to do?</h2><p>'+e(T[c.type].desc)+'</p><div class="prompt-grid">'+cards(prompts.slice(0,2))+'</div><details class="more-prompts"><summary>More ideas</summary><div class="prompt-grid">'+cards(prompts.slice(2))+'</div></details></div>';
+}
 function messages(keep=false){
  const box=$("#conversation"),bottom=box.scrollHeight-box.scrollTop-box.clientHeight<110,c=chat()||state.chats[0];
  $("#messages").innerHTML='<div class="warning">'+ico("alert")+' <span><strong>Design prototype.</strong> Jobs are simulations. No AI processing, authentication, uploads or cloud saving occurs.</span></div>'+(c.messages.length?c.messages.map(msgHtml).join(""):emptyHtml(c));
