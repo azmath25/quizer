@@ -5,6 +5,7 @@ import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {firebaseConfig as staging}
   from "../../config/firebase.staging.js";
+import {auditStagingBundle} from "../../scripts/staging/stg2-frontend-audit.mjs";
 
 const source=new URL("../../js/firebase-config.js",import.meta.url);
 const buildScript=fileURLToPath(
@@ -42,4 +43,10 @@ test("STG1-C explicit offline staging build replaces only distribution config",(
   assert.equal(readFileSync(source,"utf8"),before);
   assert.equal(readFileSync(new URL(
     "../../dist/index.html",import.meta.url),"utf8").includes("js/app.js"),true);
+  const audit=auditStagingBundle();
+  assert.equal(audit.stagingProject,"quizer-staging-az26");
+  assert.equal(audit.generatedBundleAudited,true);
+  assert.equal(audit.readyToDeploy,false);
+  assert.equal(audit.cloudBackendVerified,false);
+  assert(audit.filesScanned>20);
 });
