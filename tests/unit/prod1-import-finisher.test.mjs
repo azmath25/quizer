@@ -55,7 +55,7 @@ test("missing, altered and mismatched receipts fail before any writer",async()=>
     f=>{delete f.docs["jobs/job_1/mappings/key_2"];},
     f=>{f.docs["jobs/job_1/mappings/key_2"].hash="bad";},
     f=>{f.docs["jobs/job_1/mappings/key_2"].version=9;},
-    f=>{f.docs["quizzes/quiz_import/draftItems/itm_2"]=null;},
+    f=>{f.docs["quizzes/quiz_import/draftItems/itm_1"]=null;},
     f=>{f.docs["quizzes/quiz_import/draftItems/itm_1"].points=20;},
   ]){
     const f=fixture();
