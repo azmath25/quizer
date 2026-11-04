@@ -12,7 +12,7 @@ const FUNCTIONS=["api","processJob","scheduledMaintenance"];
 const parse=(r)=>{try{return JSON.parse(r.text);}catch{return null;}};
 export function gcloud(args){
   const r=spawnSync("gcloud",args,{
-    encoding:"utf8",timeout:12000,
+    encoding:"utf8",timeout:30000,
     stdio:["ignore","pipe","pipe"],
     env:{...process.env,CLOUDSDK_CORE_DISABLE_PROMPTS:"1"},
   });
@@ -24,16 +24,26 @@ export function audit({exec=gcloud,getBranch=()=>{
   });
   return r.status===0?r.stdout.trim():"";
 }}={}){
-  const project=exec(["projects","describe",PROJECT,
-    "--format=value(projectNumber)"]);
+  // A transient gcloud/auth/network error is not proof the project is
+  // incorrect. Retry command failures, never a returned identity mismatch.
+  let project={ok:false,text:""};
+  for(let attempt=0;attempt<3;attempt++){
+    project=exec(["projects","describe",PROJECT,
+      "--format=value(projectNumber)"]);
+    if(project.ok)break;
+  }
   const identity=project.ok&&project.text===NUMBER;
   const info={scope:"QUIZER_PROD1_READ_ONLY",
     verifiedProject:identity,
     verifiedBranch:null,secrets:{},functions:{},storage:false,
     serviceAccountsReviewed:false,activate:false,deploy:false,
     blockedBy:[]};
-  if(!identity){info.blockedBy.push("Wrong/unavailable project");
-    return info;}
+  if(!identity){
+    info.blockedBy.push(project.ok
+      ? "Wrong/unavailable project: returned project number mismatches the pinned SAT QUIZ identity"
+      : "Wrong/unavailable project: gcloud project lookup failed after retries; inspect the CLI error directly");
+    return info;
+  }
   // First inspect the user-selected branch (no output of repository files).
   info.verifiedBranch=
     getBranch()==="work/quizer-audit-optimization-2026-11";
