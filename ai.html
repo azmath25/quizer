@@ -88,6 +88,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <symbol id="ic-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M14 3v18"/></symbol>
 <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M20 15a8 8 0 0 1-11-11 8 8 0 1 0 11 11Z"/></symbol>
 <symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+<symbol id="ic-monitor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="15" rx="2"/><path d="M12 18v3M8 21h8"/></symbol>
 <symbol id="ic-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
 <symbol id="ic-paperclip" viewBox="0 0 24 24"><path d="m9 13 6-6a4 4 0 0 1 6 6l-8 8a7 7 0 0 1-10-10l8-8"/></symbol>
 <symbol id="ic-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7ZM11 13l11-11"/></symbol>
@@ -134,7 +135,9 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <script>
 (() => {
 "use strict";
-const STORE="quizer.ai.single-page.v1", THEME="quizer.ai.preview.theme";
+const STORE="quizer.ai.single-page.v1", THEME="quizer.ai.preview.theme", GLOBAL_THEME="mathquiz.theme.choice";
+const THEME_MODES=["light","dark","system"];
+let chosenThemeMode=null;
 const T={
  chat:{name:"General chat",icon:"chat",desc:"Think, explain, brainstorm and plan.",placeholder:"Ask a question or brainstorm an idea...",prompts:[["Understand a concept","Explain a difficult mathematical concept with examples"],["Plan a lesson","Outline a lesson on modular arithmetic"],["Explore an idea","Brainstorm an original olympiad problem"],["Compare methods","Compare two different solution methods"]]},
  solver:{name:"Problem solver",icon:"math",desc:"Reason through mathematics, notation and proofs.",placeholder:"Enter a problem or a LaTeX expression...",prompts:[["Solve step by step","Solve $x^2-5x+6=0$ step by step"],["Audit a proof","Identify gaps in the following mathematical proof"],["Find alternatives","Find two approaches to this problem"],["Get a hint","Give me a hint rather than the full solution"]]},
@@ -179,7 +182,31 @@ function chat(){return state.chats.find(c=>c.id===state.active);}
 function job(){return state.jobs.find(j=>j.id===state.selected);}
 function newestJob(c){return state.jobs.filter(j=>j.chatId===c.id).sort((a,b)=>b.at-a.at)[0];}
 function notice(text){const n=$("#toast");n.replaceChildren();const div=document.createElement("div");div.className="toast";div.textContent=text;n.append(div);const id=++toastId;setTimeout(()=>{if(toastId===id)n.replaceChildren();},3200);}
-function theme(){let v="light";try{v=localStorage.getItem(THEME)==="dark"?"dark":"light";}catch{}document.documentElement.dataset.theme=v;$("#theme-icon").innerHTML='<use href="#ic-'+(v==="dark"?"sun":"moon")+'"/>';}
+function themeMode(){
+ if(chosenThemeMode&&THEME_MODES.includes(chosenThemeMode))return chosenThemeMode;
+ try{
+  const global=localStorage.getItem(GLOBAL_THEME);
+  if(THEME_MODES.includes(global))return global;
+  const shared=JSON.parse(localStorage.getItem("mathquiz.appearance")||"{}");
+  if(THEME_MODES.includes(shared.theme))return shared.theme;
+  const legacy=localStorage.getItem(THEME);
+  if(THEME_MODES.includes(legacy))return legacy;
+ }catch{}
+ return "light";
+}
+function theme(){
+ const mode=themeMode();
+ const resolved=mode==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):mode;
+ document.documentElement.dataset.theme=resolved;
+ const icons={light:"sun",dark:"moon",system:"monitor"};
+ $("#theme-icon").innerHTML='<use href="#ic-'+icons[mode]+'"/>';
+ const button=document.querySelector('[data-act="theme"]');
+ if(button){
+   const label=mode.charAt(0).toUpperCase()+mode.slice(1);
+   button.title="Appearance: "+label+" · change mode";
+   button.setAttribute("aria-label","Appearance: "+label+"; change mode");
+ }
+}
 function layout(){
  theme();$("#workspace").style.setProperty("--spotlight",state.spot?"1":"0");$("#workspace").style.setProperty("--aurora",state.motion?"block":"none");
  $("#app").classList.toggle("show-sidebar",innerWidth<=760&&state.side);
@@ -300,7 +327,18 @@ function action(kind,button){
  if(kind==="sidebar"){state.side=!state.side;state.inspector=false;layout();return;}
  if(kind==="inspector"){state.inspector=!state.inspector;state.side=false;save();layout();return;}
  if(kind==="close-drawers"){state.side=false;state.inspector=false;layout();return;}
- if(kind==="theme"){let v=document.documentElement.dataset.theme==="dark"?"light":"dark";try{localStorage.setItem(THEME,v);}catch{}theme();return;}
+ if(kind==="theme"){
+  const mode=THEME_MODES[(THEME_MODES.indexOf(themeMode())+1)%THEME_MODES.length];
+  chosenThemeMode=mode;
+  try{
+    localStorage.setItem(GLOBAL_THEME,mode);
+    localStorage.setItem(THEME,mode);
+    const shared=JSON.parse(localStorage.getItem("mathquiz.appearance")||"{}");
+    localStorage.setItem("mathquiz.appearance",JSON.stringify({...shared,theme:mode}));
+  }catch{}
+  theme();
+  return;
+ }
  if(kind==="settings"){$("#spot-toggle").checked=state.spot;$("#motion-toggle").checked=state.motion;modal("settings-dialog");return;}
  if(kind==="search"){if(innerWidth<=760){state.side=true;layout();}$("#history-search").focus();return;}
  if(kind==="pin"){const x=state.chats.find(v=>v.id===id);if(x){x.pin=!x.pin;save();history();}return;}
@@ -335,6 +373,7 @@ function init(){
  $("#spot-toggle").addEventListener("change",ev=>{state.spot=ev.target.checked;save();layout();});
  $("#motion-toggle").addEventListener("change",ev=>{state.motion=ev.target.checked;save();layout();});
  window.addEventListener("resize",layout,{passive:true});
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>{if(themeMode()==="system")theme();});
  $("#workspace").addEventListener("pointermove",ev=>{if(!state.spot||ev.pointerType==="touch"||matchMedia("(prefers-reduced-motion:reduce)").matches)return;if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{const r=$("#workspace").getBoundingClientRect();$("#workspace").style.setProperty("--mx",ev.clientX-r.left+"px");$("#workspace").style.setProperty("--my",ev.clientY-r.top+"px");raf=0;});},{passive:true});
  $("#workspace").addEventListener("dragover",ev=>{ev.preventDefault();$("#composer").classList.add("drag");});
  $("#workspace").addEventListener("dragleave",ev=>{if(!$("#workspace").contains(ev.relatedTarget))$("#composer").classList.remove("drag");});
