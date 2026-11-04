@@ -35,6 +35,17 @@ try:
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 page.locator("#conversation-head .chat-options").wait_for()
+                theme = page.locator('.tools [data-act="theme"]')
+                check("Light" in theme.get_attribute("aria-label"),
+                      "AI Studio must default to light for a new local user")
+                theme.click()
+                check(page.evaluate("document.documentElement.dataset.theme") == "dark",
+                      "AI Studio did not switch to dark")
+                theme.click()
+                check(page.evaluate("localStorage.getItem('mathquiz.theme.choice')") == "system",
+                      "AI Studio did not synchronize System preference")
+                check("System" in theme.get_attribute("aria-label"),
+                      "AI Studio theme icon did not announce System")
                 check(page.locator(".welcome .prompt-card").count() == 2,
                       f"Starter content overcrowded at {width}px")
                 check(page.locator("#app").get_attribute("class") == "app",
