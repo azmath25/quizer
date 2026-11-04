@@ -247,11 +247,12 @@ async function runner(root, initial, session) {
   let warming = false;
   async function warmNearby() {
     if (warming || !a.settings.allowBack || stopped) return;
-    const near = a.order
-      .map((id, i) => [id, Math.abs(i - index)])
-      .sort((x, y) => x[1] - y[1])
-      .map(([id]) => id);
-    const missing = near.filter((id) => !itemCache.has(id)).slice(0, 12);
+    // Chunk-aligned lookahead: avoid making one new request every time the
+    // student advances by a single problem. Begin the next 12-item batch
+    // four positions before the boundary, so navigation is usually instant.
+    const start = Math.floor((index + 4) / 12) * 12;
+    const missing = a.order.slice(start, start + 12)
+      .filter((id) => !itemCache.has(id));
     if (!missing.length) return;
     warming = true;
     try {
