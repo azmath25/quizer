@@ -5,6 +5,7 @@ const links = [
   ["quiz", "quizzes.html", "Quizzes"],
   ["activity", "activity.html", "My activity"],
   ["teach", "teaching.html", "Teaching"],
+  ["ai", "ai.html", "AI Studio"],
   ["admin", "admin.html", "Admin"],
 ];
 const EQUATIONS = ["e^{iπ}+1=0", "∑ 1/n²=π²/6", "∫ x² dx", "a²+b²=c²", "φ=(1+√5)/2", "lim n→∞", "∇·F", "x=(-b±√Δ)/2a", "sin²+cos²=1", "dy/dx", "∞", "π", "√2", "n!"];
@@ -31,7 +32,8 @@ export function mountShell() {
     const page = document.body.dataset.page;
     const nav = links
       .filter(([key]) => key !== "teach" || s.capabilities.teach)
-      .filter(([key]) => key !== "admin" || s.capabilities.admin);
+      .filter(([key]) => key !== "admin" || s.capabilities.admin)
+      .filter(([key]) => key !== "ai" || s.capabilities.teach || s.capabilities.admin);
     const active = (url) =>
       url.split(".")[0] === page ||
       (page === "home" && url === "index.html") ||
