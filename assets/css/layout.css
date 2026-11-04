@@ -80,7 +80,12 @@
   min-width: 0;
 }
 .header-controls .profile-link { margin-left: 0; }
+/* When opened, keep the flyout above animated page-heading stacking
+   contexts and mobile author workspaces. */
+#site-header:has(.theme-menu[open]) { z-index: 250; overflow: visible; }
 .theme-menu { position: relative; flex: 0 0 auto; }
+.theme-menu[open] { z-index: 251; }
+.theme-menu[open] .theme-options { pointer-events: auto; }
 .theme-trigger {
   display: flex;
   width: 42px;
