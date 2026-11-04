@@ -1,3 +1,4 @@
+import { installEditorWorkspace } from "../components/workspace-controls.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { bindAccessibleTabs } from "../components/accessibility-tabs.js";
 import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
@@ -454,6 +455,7 @@ async function edit(root, quizId) {
   const form = root.querySelector("#quiz-form"),
     saveState = root.querySelector("#save-state"),
     preview = root.querySelector("#editor-preview");
+  installEditorWorkspace({ root, form });
   let previewOffset = 0;
   const store = drafts(`quiz.${quizId}`),
     snapshot = () => ({

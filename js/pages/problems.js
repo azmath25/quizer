@@ -1,3 +1,4 @@
+import { installBankSearchShortcut } from "../components/workspace-controls.js";
 import { go, onLeave } from "../core/router.js";
 import { api, apiSWR } from "../services/api.js";
 import {
@@ -52,6 +53,7 @@ export async function mount(root, session) {
       `<div class="actions">${linkButton("Import problems", "upload.html?bank=1", "secondary", "upload")}${linkButton("New problem", "problem-edit.html", "primary", "plus")}</div>`,
     ) +
     `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="grid" id="bank-list"></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
+  installBankSearchShortcut(root);
   const list = root.querySelector("#bank-list"),
     PAGE = 12,
     pager = document.createElement("nav");
@@ -92,21 +94,51 @@ export async function mount(root, session) {
   // page/card stacking contexts. Otherwise 200% text size can put a toolbar
   // OVER the visible Expand button, making it untappable.
   const panelHome = panel.parentElement,
-    mobileDock = matchMedia("(max-width: 760px)");
+    mobileDock = matchMedia("(max-width: 760px)"),
+    tabletDock = matchMedia("(min-width: 761px) and (max-width: 899px)");
   const placePanel = () => {
-    if (mobileDock.matches && panel.parentElement !== document.body)
-      document.body.append(panel);
-    else if (!mobileDock.matches && panel.parentElement !== panelHome)
+    if (mobileDock.matches) {
+      // Existing phone portal escapes card/assistant stacking contexts.
+      if (panel.parentElement !== document.body) document.body.append(panel);
+      return;
+    }
+    if (panel.parentElement !== panelHome) panelHome.append(panel);
+    // Match DOM and visual focus order when selection is top-positioned.
+    if (tabletDock.matches && panelHome.firstElementChild !== panel)
+      panelHome.prepend(panel);
+    else if (!tabletDock.matches && panelHome.lastElementChild !== panel)
       panelHome.append(panel);
   };
   mobileDock.addEventListener?.("change", placePanel);
+  tabletDock.addEventListener?.("change", placePanel);
   placePanel();
   onLeave(() => {
     mobileDock.removeEventListener?.("change", placePanel);
+    tabletDock.removeEventListener?.("change", placePanel);
     if (panel.parentElement === document.body) panel.remove();
   });
   // Preserve the selection state when its contents are collapsed/reordered.
+  // Preserve the mobile-dock source contract; compact tablets also start collapsed.
   let collapsed = mobileDock.matches;
+  if (matchMedia("(min-width: 761px) and (max-width: 899px)").matches)
+    collapsed = true;
+  // A resized desktop window or rotated tablet must not strand the inspector
+  // in its previous position or leave the phone dock expanded by accident.
+  const compactSelection = matchMedia("(max-width: 899px)");
+  const syncSelectionViewport = () => {
+    collapsed = compactSelection.matches;
+    const details = panel.querySelector("#selection-details");
+    const toggle = panel.querySelector("#toggle-selection");
+    if (!details || !toggle) return;
+    panel.dataset.collapsed = String(collapsed);
+    details.hidden = collapsed;
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label",
+      collapsed ? "Expand selected problems" : "Collapse selected problems");
+    toggle.textContent = collapsed ? "▴" : "▾";
+  };
+  compactSelection.addEventListener?.("change", syncSelectionViewport);
+  onLeave(() => compactSelection.removeEventListener?.("change", syncSelectionViewport));
   const total = () =>
     [...selected.values()].reduce((sum, p) => sum + (Number(p.points) || 0), 0);
   function updateTotal() {

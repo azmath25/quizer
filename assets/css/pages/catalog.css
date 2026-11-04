@@ -21,3 +21,36 @@
 .catalog-section {
   margin-top: 28px;
 }
+
+/* Student discovery: title search gets the first full-width row. */
+@media (max-width: 760px) {
+  body[data-page="catalog"] .catalog-search {
+    max-width: none;
+    width: 100%;
+    flex: 1 1 100% !important;
+  }
+  body[data-page="catalog"] .toolbar .field { min-width: 0; }
+  body[data-page="catalog"] .toolbar > .button { min-height: 44px; }
+  body[data-page="catalog"] .tabs { margin-bottom: 16px; }
+}
+@media (max-width: 520px) {
+  body[data-page="catalog"] form.toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  body[data-page="catalog"] form.toolbar .catalog-search {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  body[data-page="catalog"] form.toolbar > .field:not(.catalog-search) {
+    grid-column: 1;
+    min-width: 0;
+  }
+  body[data-page="catalog"] form.toolbar > .button {
+    grid-column: 2;
+    align-self: end;
+  }
+}
