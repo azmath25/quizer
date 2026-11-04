@@ -7,7 +7,7 @@ Branch: work/quizer-audit-optimization-2026-11
 - Read actual v2 frontend callable transport, quiz runner submission path, legacy attempt transaction, hybrid entrypoint, private integration request validator, worker provenance router, results parser, and GitHub Actions workflow.
 - Added `tests/unit/qn-prod2-submit-boundary.test.mjs`: confirms the hybrid-enabled entrypoint leaves `submitAttempt` on legacy Firestore dispatcher; repeated identical submission request routes consistently and does not initialize Neon; `getAttemptResult`, `getAttemptQuestions`, `saveAnswers`, and `navigateAttempt` remain hybrid.
 - Existing `tests/integration/core.test.mjs` verifies duplicate legacy submit returns same grading job. Existing `tests/unit/qn11-5-private-integration.test.mjs` includes the read-only `requestId` regression. Existing `tests/unit/prod1-live-factory.test.mjs` and result-page parsing tests cover ISO and Firestore timestamp objects.
-- GitHub Actions run: https://github.com/azmath25/quizer/actions/runs/41908803810. The unit/backend/static job passed on the new test commit; emulator and Chromium jobs were still in progress at the time of writing. Check their final GitHub results before accepting a green checkpoint.
+- GitHub Actions run: https://github.com/azmath25/quizer/actions/runs/41908803810. All three jobs completed successfully on the new test commit: unit/backend/static, Firebase emulator integration and transport, Chromium mobile runner and author QA.
 - Earlier complete green run: https://github.com/azmath25/quizer/actions/runs/41907236162.
 
 ## Distinct boundaries and release risks
