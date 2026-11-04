@@ -6,6 +6,8 @@ import {requireTeacher} from "../neon/contracts.js";
 import {createProd1FirebaseBankPorts} from "./firebase-bank-ports.js";
 import {createProd1LegacyPublicationSource}
   from "./legacy-publication-source.js";
+import {createProd1DraftReader} from "./draft-reader.js";
+import {createProd1AuthorImagePorts} from "./author-image-ports.js";
 import {createQuizerStagedPrivateRuntime}
   from "../bundles/private-staging-runtime.js";
 
@@ -64,10 +66,18 @@ export function createProd1PrivateRuntime({
   const legacySource=createProd1LegacyPublicationSource({
     enabled:true,db,resolvePublicationActor,
     verifyAssets:verifyPublicationAssets});
+  const draftCompat=createProd1DraftReader({
+    enabled:true,db,resolveActor:firebase.resolveFirebaseActor,
+    resolveProblemOrigin:firebase.resolveProblemOrigin,
+    neonReader:bankRuntime.read});
+  const authorImagePorts=createProd1AuthorImagePorts({
+    enabled:true,db,
+    resolveProblemOrigin:firebase.resolveProblemOrigin,draftCompat});
   const privateRuntime=createQuizerStagedPrivateRuntime({
     enabled:true,db,bucket,authFor,neonReader:bankRuntime.read,
     resolvePublicationActor,verifyPublicationAssets,
     resolveLegacyPublication:legacySource.resolve,
+    authorImagePorts,
     // Absent shared-asset grant callback is deliberately fail-closed.
     authorizeSharedAsset:null,
     legacyHandle:firebase.legacyHandle,
