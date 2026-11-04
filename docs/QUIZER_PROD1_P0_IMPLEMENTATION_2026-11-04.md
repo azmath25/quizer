@@ -15,6 +15,7 @@ or imported into `functions/src/index.js` or `functions/src/jobs/worker.js`.
 | Mixed-source private bundle | `functions/src/prod1/legacy-publication-source.js`, `functions/src/bundles/publish-writer.js` and `functions/src/bundles/private-staging-runtime.js`; a single protected bundle can freeze both a pinned Firestore legacy revision and an immutable Neon revision. Revoked legacy access can use an *exact*, previously published legacy slot snapshot, never an arbitrary revision or fallback after Neon failure. |
 | Draft and import compatibility | `functions/src/prod1/draft-reader.js`, `functions/src/prod1/draft-mutations.js`, and `functions/src/prod1/import-finisher.js`. Read-only source resolution is transactionally revalidated; changed Neon draft slots store refs only. Import finalization validates bounded receipt batches, mapped items, slot identity and older pre-Neon Firestore receipts before invoking the existing atomic Firebase finalizer. |
 | Full staged composition | `functions/src/prod1/live-factory.js`, `functions/src/prod1/private-runtime.js`; the disabled-by-default server factory now intercepts staged `publishQuiz`, `saveQuizDraft`, `getQuizDraftItems` and `finishImportJob` and offers an exclusive private/legacy worker factory. Other existing API behavior remains behind its original trusted gateway. |
+| Author images and hybrid drafts | `functions/src/prod1/author-image-ports.js`; resolves Neon-only and mixed draft image scopes, rechecks Firebase role/ownership/draft order and version before allowing any author-only signed figure link. Uses the existing `private-author-image-scope.js` and `private-image-signer.js` authorization and signing contracts. |
 
 ## New regression suites
 
@@ -23,8 +24,9 @@ or imported into `functions/src/index.js` or `functions/src/jobs/worker.js`.
 - `tests/unit/prod1-mixed-bundle-worker.test.mjs`
 - `tests/unit/prod1-worker-router.test.mjs`
 - `tests/unit/prod1-import-finisher.test.mjs`
+- `tests/unit/prod1-author-image-ports.test.mjs`
 
-These test immutable pinning, owner/role loss, stale Firestore versions, source hash mismatch,
+These test author figure scopes and immutable pinning, owner/role loss, stale Firestore versions, source hash mismatch,
 duplicate request receipts, old/new source composition, protected answer material, Storage
 creation versus final activation, cancellation, worker retry fencing, exhaust behavior and
 legacy import compatibility.
