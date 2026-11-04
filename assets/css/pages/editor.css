@@ -631,7 +631,7 @@ body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
      the card so phone bottom navigation is never covered. */
   body[data-page="problems"] .bank-layout > .selection-panel,
   body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) .selection-panel {
-    max-height: min(56dvh, 440px);
+    max-height: min(48dvh, 380px);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
