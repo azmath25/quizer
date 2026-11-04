@@ -99,3 +99,9 @@ Cloud Shell reported `firestore.rules compiled successfully`, `released rules fi
 **Checkpoint: PASS for deployment of deny-all client SDK rules**. This blocks client Firestore reads and writes, including signed-in clients; server Admin SDK/IAM calls bypass rules. This is intentionally a temporary locked state, **not Quizer's final role-aware `firebase/firestore.rules`**, which will need a separate tested staging-only release before runtime testing. This procedure did not deploy a frontend, Function, storage rule, indexes or auth provider and did not mutate Mimo or production.
 
 **Next gate:** configure Google as a sign-in method **only** in Firebase Console for `quizer-staging-az26`; verify project ID, project support email and authorized domains, save, then independently check. Do not enable Email/Password or anonymous providers unless separately required. No real sign-in verification can pass before runtime endpoints and suitable stage-only authorization are ready.
+
+## Google Authentication (user-confirmed; independent API check pending)
+
+On 2026-11-04 the user reported completing the Firebase Console step to enable Google sign-in in `quizer-staging-az26`.
+
+**Status:** reported enabled, not independently API-verified yet. No Auth user/session/redirect-domain test has been performed. Do **not** state full STG1-C success until stage-only provider status and authorized domains are inspected. Project Mimo stays unmodified. The next safe validation is the read-only Identity Toolkit API `projects.defaultSupportedIdpConfigs.get`, printing **only** the `enabled` and `name` fields (never OAuth `clientSecret`).
