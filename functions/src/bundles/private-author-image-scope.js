@@ -53,9 +53,13 @@ export function createQuizerAuthorImageScope({
       snap.draft.itemOrder.length<=500 &&
       new Set(snap.draft.itemOrder).size===snap.draft.itemOrder.length,
       "RESOURCE_UNAVAILABLE","Invalid pinned draft state.");
+    // Copy immutable expected values BEFORE any awaits: the in-memory
+    // snapshot object must not shift the final Firestore version check.
+    const expectedVersion=snap.draft.version;
+    const expectedOrder=[...snap.draft.itemOrder];
     const out=new Set();
-    for(let index=0;index<snap.draft.itemOrder.length;index+=20){
-      const ids=snap.draft.itemOrder.slice(index,index+20).map(v=>id(v));
+    for(let index=0;index<expectedOrder.length;index+=20){
+      const ids=expectedOrder.slice(index,index+20).map(v=>id(v));
       if(!ids.length)continue;
       const page=await draftCompat.getItems({
         auth:firebaseAuth,quizId:target,itemIds:ids});
@@ -67,8 +71,8 @@ export function createQuizerAuthorImageScope({
     }
     // Recheck owner and draft version after ALL cross-store reads.
     assert(await recheckDraft({
-      actor,quizId:target,draftVersion:snap.draft.version,
-      itemOrder:snap.draft.itemOrder,
+      actor,quizId:target,draftVersion:expectedVersion,
+      itemOrder:expectedOrder,
     })===true,
       "VERSION_CONFLICT","Draft changed during image lookup.");
     return {route:"private",assetIds:[...out].sort()};
