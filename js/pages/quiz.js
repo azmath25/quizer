@@ -240,21 +240,33 @@ async function runner(root, initial, session) {
       itemCache.set(id, p);
     }
   }
-  // Warm question JSON in bounded 20-item pages, at most two RPCs
-  // concurrently. Figures load on display, avoiding 500 image downloads.
+  // Prefetch only the immediate neighborhood, not an entire 500-item quiz.
+  // This protects the foreground request and avoids repeated storage/bundle
+  // reads for questions the student may never visit. Each request is ≤20 items
+  // (server limit is 20) and only one batch can warm at any given time.
   let warming = false;
-  async function warmAll() {
-    if (warming || !a.settings.allowBack) return;
+  async function warmNearby() {
+    if (warming || !a.settings.allowBack || stopped) return;
+    // Chunk-aligned lookahead: avoid making one new request every time the
+    // student advances by a single problem. Begin the next 20-item batch
+    // four positions before the boundary, so navigation is usually instant.
+    const start = Math.floor((index + 4) / 20) * 20;
+    const missing = a.order.slice(start, start + 20)
+      .filter((id) => !itemCache.has(id));
+    if (!missing.length) return;
     warming = true;
-    const near = a.order
-      .map((id, i) => [id, Math.abs(i - index)])
-      .sort((x, y) => x[1] - y[1])
-      .map(([id]) => id);
-    const missing = near.filter((id) => !itemCache.has(id));
-    await prefetchQuestionBatches(missing, async (ids) => {
-      fetchBatch(ids);
-      await Promise.allSettled(ids.map((id) => fetchItem(id)));
-    }, {shouldStop: () => stopped || getSession().epoch !== epoch});
+    try {
+      await prefetchQuestionBatches(missing, async (ids) => {
+        fetchBatch(ids);
+        await Promise.allSettled(ids.map((id) => fetchItem(id)));
+      }, {
+        batchSize: 20,
+        concurrency: 1,
+        shouldStop: () => stopped || getSession().epoch !== epoch,
+      });
+    } finally {
+      warming = false;
+    }
   }
   async function showQuestion() {
     if (stopped) return;
@@ -263,7 +275,7 @@ async function runner(root, initial, session) {
     if (!ready.has(itemId)) question.innerHTML = loading("Loading problem…");
     const item = await fetchItem(itemId);
     if (getSession().epoch !== epoch) return;
-    warmAll();
+    warmNearby().catch(() => {});
     if (!pending.has(itemId) && !answers.has(itemId))
       answers.set(itemId, item.answer);
     const current =
