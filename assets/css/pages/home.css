@@ -150,3 +150,54 @@ body[data-page="home"] .home-resource-links {
   body[data-page="home"] .quick-links { margin-bottom: 15px; }
   body[data-page="home"] .home-simple .panel { padding: 14px; }
 }
+
+/* Symmetric dashboard headings and aligned content surfaces. */
+body[data-page="home"] .home-simple {
+  align-items: stretch;
+  gap: 22px;
+}
+body[data-page="home"] .home-simple .home-section > .section-head {
+  min-height: 40px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+body[data-page="home"] .home-simple .home-section > .section-head h2 {
+  margin: 0;
+  line-height: 1.3;
+}
+body[data-page="home"] .home-simple .home-section > .section-head a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+body[data-page="home"] .home-results-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+body[data-page="home"] .home-results {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+body[data-page="home"] .home-results-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
+}
+body[data-page="home"] .home-results-panel .home-resource-links {
+  margin-top: auto;
+}
+body[data-page="home"] .home-result-list {
+  min-width: 0;
+}
+body[data-page="home"] .home-result-list .list-row:first-child {
+  padding-top: 6px;
+}
+@media (max-width: 760px) {
+  body[data-page="home"] .home-results-column { display: block; }
+  body[data-page="home"] .home-results-panel { min-height: 0; }
+}
