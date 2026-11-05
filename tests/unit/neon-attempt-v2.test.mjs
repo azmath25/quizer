@@ -6,7 +6,7 @@ const actor={uid:"student_1",verifiedFirebaseAuth:true,
   emailVerified:true,accountStatus:"active"};
 const authorizedPlan=Object.freeze({
   verified:true,studentUid:"student_1",firebaseProjectId:"sat-quiz-fd317",
-  attemptId:"att_abc",quizId:"quiz_1",quizRevisionId:"qrv_1",
+  attemptId:"atn_abc",quizId:"quiz_1",quizRevisionId:"qrv_1",
   bundleSha256:"a".repeat(64),bundleGeneration:"123",
   teacherUid:"teacher_1",settings:{durationSeconds:1200},
   deadlineAt:null,
@@ -57,7 +57,7 @@ test("verified start pins exact bundle and creates attempt, item pins, receipt, 
   const db=fakeSql(),engine=createNeonAttemptV2Engine({
     enabled:true,pool:db.pool,verifyStart:async()=>authorizedPlan});
   const result=await engine.start({actor,requestId,quizId:"quiz_1"});
-  assert.deepEqual(result,{attemptId:"att_abc",quizId:"quiz_1",
+  assert.deepEqual(result,{attemptId:"atn_abc",quizId:"quiz_1",
     quizRevisionId:"qrv_1",status:"active",answerVersion:0});
   assert.equal(db.queries[0].sql,"BEGIN");
   assert.equal(db.queries.at(-2).sql,"COMMIT");
@@ -71,7 +71,7 @@ test("answer batches use a single SQL upsert/answer-event CTE and one version co
     state:"active",deadline_at:null,answer_version:"0"}});
   const engine=createNeonAttemptV2Engine({enabled:true,pool:db.pool,
     verifyStart:async()=>authorizedPlan});
-  const out=await engine.saveAnswers({actor,requestId,attemptId:"att_abc",
+  const out=await engine.saveAnswers({actor,requestId,attemptId:"atn_abc",
     expectedAnswerVersion:0,changes:[{itemId:"itm_1",value:"4"}]});
   assert.equal(out.answerVersion,1);
   assert.deepEqual(out.confirmed.map(x=>[x.itemId,x.revision]),[["itm_1",1]]);
@@ -84,7 +84,7 @@ test("version conflicts roll back and never write answers",async()=>{
   const engine=createNeonAttemptV2Engine({enabled:true,pool:db.pool,
     verifyStart:async()=>authorizedPlan});
   await assert.rejects(engine.saveAnswers({actor,requestId,
-    attemptId:"att_abc",expectedAnswerVersion:2,
+    attemptId:"atn_abc",expectedAnswerVersion:2,
     changes:[{itemId:"itm_1",value:"4"}]}),
     e=>e.reason==="VERSION_CONFLICT");
   assert(db.queries.some(q=>q.sql==="ROLLBACK"));
@@ -95,8 +95,8 @@ test("submit atomically freezes the attempt and records one grading outbox event
     state:"active",deadline_at:null,answer_version:"4"}});
   const engine=createNeonAttemptV2Engine({enabled:true,pool:db.pool,
     verifyStart:async()=>authorizedPlan});
-  const out=await engine.submit({actor,requestId,attemptId:"att_abc"});
-  assert.deepEqual(out,{attemptId:"att_abc",status:"submitted",
+  const out=await engine.submit({actor,requestId,attemptId:"atn_abc"});
+  assert.deepEqual(out,{attemptId:"atn_abc",status:"submitted",
     answerVersion:4,gradeState:"not_started"});
   assert(db.queries.some(q=>q.sql.includes("UPDATE quizer.attempts_v2 SET state")));
   assert(db.queries.some(q=>q.sql.includes("'attempt.submitted'") ||
@@ -110,11 +110,11 @@ test("expired attempts cannot accept answer changes even when browser clock diff
   const engine=createNeonAttemptV2Engine({enabled:true,pool:db.pool,
     verifyStart:async()=>authorizedPlan});
   await assert.rejects(engine.saveAnswers({actor,requestId,
-    attemptId:"att_abc",expectedAnswerVersion:0,
+    attemptId:"atn_abc",expectedAnswerVersion:0,
     changes:[{itemId:"itm_1",value:"late"}]}),
     e=>e.reason==="ATTEMPT_EXPIRED");
   const result=await engine.submit({actor,requestId:"another_request_123456",
-    attemptId:"att_abc"});
+    attemptId:"atn_abc"});
   assert.equal(result.status,"expired");
 });
 
