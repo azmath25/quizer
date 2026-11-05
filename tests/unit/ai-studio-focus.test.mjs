@@ -14,7 +14,7 @@ test("AI Studio's standalone inline script parses and keeps its existing actions
     .map(m=>m[1]).filter(s=>s.trim());
   assert.equal(scripts.length,1);
   assert.doesNotThrow(()=>new Script(scripts[0],{filename:"ai.html:inline"}));
-  for(const action of ["send","new","attach","snip","inspector","settings","theme",
+  for(const action of ["send","new","attach","snip","inspector","settings",
     "rename","export","pin","select-chat","select-job","choose-type"])
     assert.match(ai,new RegExp('(?:data-act="' + action + '"|kind==="' + action + '")'));
 });
@@ -35,7 +35,12 @@ test("AI Studio is linked to teacher navigation and quick home links",()=>{
   assert.match(shell,/\["ai", "ai\.html", "AI Studio"\]/);
   assert.match(home,/href="ai\.html"/);
   assert.match(profile,/AI Studio \(preview\)/);
-  assert.match(ai,/<a[^>]*href="index\.html"[^>]*class="brand"/);
+  assert.match(ai, /<header id="site-header"/);
+  assert.match(ai, /<nav id="mobile-nav"/);
+  assert.match(ai, /siteShell\.mountShell\(\{ showAssistant: false, showBackdrop: false \}\)/);
+  assert.doesNotMatch(ai, /class="quizer-site-menu"/);
+  assert.doesNotMatch(ai, /data-act="theme"/);
+  assert.match(shell, /showAssistant = true, showBackdrop = true/);
 });
 
 test("AI Studio updates inspector accessibility over a node list, not one node",()=>{
