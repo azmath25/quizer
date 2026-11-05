@@ -340,7 +340,13 @@ async function runner(root, initial, session) {
     const images = Object.fromEntries(
       Object.keys(bindings).map((alias) => [alias, pendingImageURL])
     );
-    const options = (a.optionOrder[itemId] ?? []).map((id) =>
+    // On unshuffled attempts the server can omit 499 redundant option-order
+    // arrays and avoid loading every question during start. Preserve exactly
+    // the original pinned option order; shuffled attempts still honor their
+    // server-generated per-item permutation.
+    const optionIds = a.optionOrder?.[itemId] ??
+      (item.options ?? []).map((choice) => choice.id);
+    const options = optionIds.map((id) =>
       item.options.find((o) => o.id === id),
     );
     if (view !== viewSequence || stopped) return;
