@@ -444,6 +444,14 @@ main {
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
   }
+  /* Manage Quiz uses ordinary in-flow section navigation. Floating the four
+     section tabs over content obscures form headings and action controls. */
+  body[data-page="quiz-manage"] .tabs[aria-label="Quiz management"] {
+    position: static;
+    top: auto;
+    z-index: auto;
+    box-shadow: none;
+  }
 }
 @media (max-width: 760px) {
   /* Mobile forms, cards and actions should occupy the available width. */
