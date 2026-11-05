@@ -111,12 +111,20 @@ export function createNeonAttemptV2Engine({enabled=false,pool=null,
   if(typeof pool?.connect!=="function"||typeof verifyStart!=="function")
     fail("FAILED_PRECONDITION","Trusted SQL and bundle gateway required.");
 
-  async function start({actor,requestId,authorizedPlan}={}){
-    const uid=actorUid(actor),key=idempotency(requestId);
-    // This trusted server function must check Firestore access, attempt
-    // allowance, revision availability and exact private Storage SHA/generation.
-    const plan=await verifyStart({actor,authorizedPlan});
+  async function start({actor,requestId,quizId,sourceAttemptId=null}={}){
+    const uid=actorUid(actor),key=idempotency(requestId),
+      requestedQuiz=requireId(quizId,"quiz");
+    if(sourceAttemptId!==null)
+      requireId(sourceAttemptId,"retry source attempt");
+    // The caller can supply ONLY a quiz ID and optional retry attempt ID.
+    // This injected trusted gateway must verify Firebase role, admissions,
+    // attempt allowance, active-attempt replay, the exact published pointer,
+    // Storage SHA/generation, and selected item pins. No client-provided plan
+    // or grading payload can be forwarded into this SQL transaction.
+    const plan=await verifyStart({actor,quizId:requestedQuiz,
+      sourceAttemptId,requestId:key});
     if(plan?.verified!==true||plan.studentUid!==uid ||
+        plan.quizId!==requestedQuiz ||
         plan.firebaseProjectId!=="sat-quiz-fd317" ||
         !HASH.test(plan?.bundleSha256??"") ||
         !/^[1-9][0-9]{0,22}$/.test(plan?.bundleGeneration??""))
