@@ -13,7 +13,13 @@ export function mountMathAnswerEditor(input, { attemptId, itemId, onChange } = {
   if (!input || input.closest(".math-answer-editor")) return () => {};
   const wrapper = document.createElement("div");
   wrapper.className = "math-answer-editor";
-  input.parentNode.insertBefore(wrapper, input);
+  const label = input.closest("label");
+  if (label && input.id) {
+    label.htmlFor = input.id;
+    label.after(wrapper);
+  } else {
+    input.parentNode.insertBefore(wrapper, input);
+  }
   wrapper.append(input);
 
   const description = document.createElement("p");
