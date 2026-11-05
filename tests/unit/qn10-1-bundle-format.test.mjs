@@ -154,6 +154,56 @@ test("trusted backend read matches pinned IDs, generation, hash and byte size",a
       generation:"987654321"}),
   }),/unavailable/);
 });
+test("old canonical v1 quiz bundles remain readable after pass/fail setting additions",async()=>{
+  const {createHash}=await import("node:crypto");
+  const fresh=prepared();
+  // Model the bytes published by the earlier v1 writer. The two new settings
+  // did not exist, so adding them when validating must not invalidate the hash.
+  const historic=structuredClone(fresh.bundle);
+  delete historic.settings.passFailEnabled;
+  delete historic.settings.passPercentage;
+  const bytes=canonicalBundleBytes(historic);
+  const hash=createHash("sha256").update(bytes).digest("hex");
+  const generation="987654321";
+  const manifest={...makePublishedBundleManifest(fresh,generation),
+    byteLength:bytes.length,sha256:hash,
+    storagePath:bundleStoragePath(historic.quizId,historic.revisionId,hash)};
+  const p={storagePath:manifest.storagePath,bytes};
+  const b=await reader(manifest,p);
+  assert.equal(b.quizId,historic.quizId);
+  assert.equal(b.items[0].grading.acceptedAnswers[0],"1");
+  assert.equal(b.settings.passFailEnabled,false);
+  assert.equal(b.settings.passPercentage,50);
+  assert.equal(b.settings.scoreRelease,historic.settings.scoreRelease);
+  assert.equal(bytes.toString(),canonicalBundleBytes(historic).toString(),
+    "Protected historic bytes must remain unchanged");
+
+  // Only the exact historic pair of absent fields may be recognized.
+  const partial=structuredClone(fresh.bundle);
+  delete partial.settings.passPercentage;
+  const partialBytes=canonicalBundleBytes(partial);
+  const partialHash=createHash("sha256").update(partialBytes).digest("hex");
+  const partialManifest={...manifest,byteLength:partialBytes.length,
+    sha256:partialHash,
+    storagePath:bundleStoragePath(partial.quizId,partial.revisionId,partialHash)};
+  await assert.rejects(reader(partialManifest,{
+    storagePath:partialManifest.storagePath,bytes:partialBytes,
+  }),/Noncanonical or mismatched/);
+
+  // A malformed old object cannot use this compatibility path to omit other
+  // settings or to bypass its unchanged hash/generation/authorization checks.
+  const malformed=structuredClone(historic);
+  delete malformed.settings.allowBack;
+  const malformedBytes=canonicalBundleBytes(malformed);
+  const malformedHash=createHash("sha256").update(malformedBytes).digest("hex");
+  const malformedManifest={...manifest,byteLength:malformedBytes.length,
+    sha256:malformedHash,
+    storagePath:bundleStoragePath(malformed.quizId,malformed.revisionId,malformedHash)};
+  await assert.rejects(reader(malformedManifest,{
+    storagePath:malformedManifest.storagePath,bytes:malformedBytes,
+  }),/Noncanonical or mismatched/);
+});
+
 test("corrupted bytes, wrong content type and path tampering are rejected",async()=>{
   const p=prepared(),m=makePublishedBundleManifest(p,"987654321");
   const bad=Buffer.from(p.bytes);bad[12]^=1;

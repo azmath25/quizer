@@ -1,0 +1,38 @@
+name: Hotfix verification - historical private bundles
+on:
+  push:
+    branches:
+      - fix/quizer-historical-private-bundle-2026-11-05
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quizer-historic-bundles-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install root and function dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - name: Test historical bundles, corruption and protected authorization
+        run: node --test tests/unit/qn10-1-bundle-format.test.mjs
+      - name: Full unit suite
+        run: npm test
+      - name: Backend unit suite
+        run: npm run test:backend
+      - name: Static compatibility and frontend build
+        run: |
+          npm run verify:static
+          npm run build

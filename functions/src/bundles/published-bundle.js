@@ -200,9 +200,25 @@ export async function readPrivatePublishedBundle({
   try{parsed=JSON.parse(object.bytes.toString("utf8"));}
   catch{assert(false,"RESOURCE_UNAVAILABLE","Invalid bundle encoding.");}
   const bundle=normalizePublishedBundle(parsed);
+  // Historical v1 objects were published before pass/fail controls existed.
+  // Their original canonical bytes legitimately omit BOTH new default fields.
+  // Preserve the immutable object/hash: compare against that *exact* former
+  // representation rather than reserializing or rewriting Storage objects.
+  // No other omitted, changed, or noncanonical fields are grandfathered in.
+  let matchesCanonical=canonicalBundleBytes(bundle).equals(object.bytes);
+  if (!matchesCanonical && parsed.settings &&
+      !Object.hasOwn(parsed.settings,"passFailEnabled") &&
+      !Object.hasOwn(parsed.settings,"passPercentage") &&
+      bundle.settings.passFailEnabled===false &&
+      bundle.settings.passPercentage===50) {
+    const historic={...bundle,settings:{...bundle.settings}};
+    delete historic.settings.passFailEnabled;
+    delete historic.settings.passPercentage;
+    matchesCanonical=canonicalBundleBytes(historic).equals(object.bytes);
+  }
   assert(bundle.quizId===m.quizId && bundle.revisionId===m.revisionId &&
     bundle.itemCount===m.itemCount && bundle.totalPoints===m.totalPoints &&
-    canonicalBundleBytes(bundle).equals(object.bytes),
+    matchesCanonical,
     "RESOURCE_UNAVAILABLE","Noncanonical or mismatched private bundle.");
   // Includes protected grading. QN10.3 must implement authorized slices;
   // never return this object from a client-accessible Firebase function.
