@@ -46,17 +46,17 @@ test("start rejects fake Firebase actors and unverified bundles before opening a
   const db=fakeSql(),engine=createNeonAttemptV2Engine({
     enabled:true,pool:db.pool,verifyStart:async()=>authorizedPlan});
   await assert.rejects(engine.start({actor:{uid:"student_1"},
-    requestId,authorizedPlan}),e=>e.reason==="AUTH_REQUIRED");
+    requestId,quizId:"quiz_1"}),e=>e.reason==="AUTH_REQUIRED");
   const invalid=createNeonAttemptV2Engine({enabled:true,pool:db.pool,
     verifyStart:async()=>({...authorizedPlan,verified:false})});
-  await assert.rejects(invalid.start({actor,requestId,authorizedPlan}),
+  await assert.rejects(invalid.start({actor,requestId,quizId:"quiz_1"}),
     e=>e.reason==="RESOURCE_UNAVAILABLE");
   assert.equal(db.queries.length,0);
 });
 test("verified start pins exact bundle and creates attempt, item pins, receipt, outbox atomically",async()=>{
   const db=fakeSql(),engine=createNeonAttemptV2Engine({
     enabled:true,pool:db.pool,verifyStart:async()=>authorizedPlan});
-  const result=await engine.start({actor,requestId,authorizedPlan});
+  const result=await engine.start({actor,requestId,quizId:"quiz_1"});
   assert.deepEqual(result,{attemptId:"att_abc",quizId:"quiz_1",
     quizRevisionId:"qrv_1",status:"active",answerVersion:0});
   assert.equal(db.queries[0].sql,"BEGIN");
