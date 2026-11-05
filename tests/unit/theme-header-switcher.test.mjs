@@ -33,10 +33,12 @@ test("profile retains text size but no longer duplicates theme chooser",()=>{
   assert.doesNotMatch(template,/\["light", "Light"\]/);
   assert.match(profile,/theme: getPreferredTheme\(profile\.preferences\)/);
 });
-test("standalone AI Studio appearance icon shares the global three-state choice",()=>{
-  assert.match(ai,/GLOBAL_THEME="mathquiz\.theme\.choice"/);
-  assert.match(ai,/THEME_MODES=\["light","dark","system"\]/);
-  assert.match(ai,/const resolved=mode==="system"\?/);
-  assert.match(ai,/localStorage\.setItem\(GLOBAL_THEME,mode\)/);
-  assert.match(ai,/id="ic-monitor"/);
+test("AI Studio uses the real shared appearance menu and does not duplicate it",()=>{
+  assert.match(ai, /<header id="site-header"/);
+  assert.match(ai, /<nav id="mobile-nav"/);
+  assert.match(ai, /siteShell\.mountShell\(\{ showAssistant: false, showBackdrop: false \}\)/);
+  assert.doesNotMatch(ai, /data-act="theme"/);
+  assert.match(shell, /data-theme-choice="system"/);
+  assert.match(shell, /localStorage\.setItem\(THEME_KEY, theme\)/);
+  assert.match(ai, /js\/appearance-init\.js/);
 });
