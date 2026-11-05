@@ -1,0 +1,72 @@
+name: Quizer full modernization verification (no deployment)
+on:
+  push:
+    branches: [feature/quizer-full-modernization-2026-11-05]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quizer-modernization-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit-build:
+    name: Private publication, units, backend, static and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm}
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - name: Targeted publication verification
+        run: node --test tests/unit/qn10-2-publish-writer.test.mjs
+      - name: Root unit suite
+        run: npm test
+      - name: Backend unit suite
+        run: npm run test:backend
+      - name: Static and production build
+        run: |
+          npm run verify:static
+          npm run build
+  emulator:
+    name: Firebase emulator and callable transport
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - run: |
+          npm run test:integration
+          npm run test:transport
+  browser:
+    name: Real responsive author and runner Chromium QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+          python -m pip install --disable-pip-version-check playwright==1.58.0
+      - run: python tests/qa/mobile-author-browser.py
