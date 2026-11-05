@@ -67,22 +67,32 @@ function draw(root, session, data) {
            </div>`).join("")}</div>
          </section>` : ""}
       </div>
-      <aside class="stack">
-        ${session.user ? `<section class="panel"><div class="section-head">
-          <h2>Recent results</h2><a href="activity.html">View all</a></div>
-          ${recent.length ? recent.slice(0, 2).map(a => `<a class="list-row"
-            href="results.html?id=${e(a.id)}"><div class="row-main">
-              <h3>${e(a.quizTitle)}</h3><p>${date(a.startedAt)}</p></div>
-            ${badge(a.gradeState === "pending_manual" ? "Marking" : a.status)}
-          </a>`).join("") : '<p class="muted small">No results yet.</p>'}
-          <div class="home-resource-links">
-            <a href="profile.html#starred">Starred problems</a>
-            <a href="activity.html#updates">Notifications</a>
-            ${session.capabilities.admin ? '<a href="admin.html">Administration</a>' : ""}
-          </div></section>`
-          : `<section class="panel"><h2>Get started</h2>
-              <p class="muted small">Browse quizzes, request access and solve problems.</p>
-              ${linkButton("Browse quizzes", "quizzes.html", "secondary")}
+      <aside class="stack home-results-column">
+        ${session.user ? `<section class="home-section home-results">
+          <div class="section-head">
+            <h2>Recent results</h2><a href="activity.html">View all ${icon("arrow")}</a>
+          </div>
+          <div class="panel home-results-panel">
+            <div class="home-result-list">
+              ${recent.length ? recent.slice(0, 2).map(a => `<a class="list-row"
+                href="results.html?id=${e(a.id)}"><div class="row-main">
+                  <h3>${e(a.quizTitle)}</h3><p>${date(a.startedAt)}</p></div>
+                ${badge(a.gradeState === "pending_manual" ? "Marking" : a.status)}
+              </a>`).join("") : '<p class="muted small">No results yet.</p>'}
+            </div>
+            <div class="home-resource-links">
+              <a href="profile.html#starred">Starred problems</a>
+              <a href="activity.html#updates">Notifications</a>
+              ${session.capabilities.admin ? '<a href="admin.html">Administration</a>' : ""}
+            </div>
+          </div>
+        </section>`
+          : `<section class="home-section home-results">
+              <div class="section-head"><h2>Get started</h2></div>
+              <div class="panel home-results-panel">
+                <p class="muted small">Browse quizzes, request access and solve problems.</p>
+                ${linkButton("Browse quizzes", "quizzes.html", "secondary")}
+              </div>
             </section>`}
       </aside>
     </div>`;
