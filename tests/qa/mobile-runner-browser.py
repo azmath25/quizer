@@ -136,12 +136,11 @@ def viewport_check(browser, width, height, touch, attempt_id, scale=False):
         if width <= 900:
             page.evaluate("window.scrollTo(0, Math.min(document.documentElement.scrollHeight / 3, 320))")
             page.wait_for_timeout(120)
-            head = rect(page.locator("#site-header"))
             clock_rect = rect(page.locator(".runner-mobile-bar"))
-            require(clock_rect["top"] >= head["bottom"] - 2,
-                    f"Clock covers website header at {width}px: {clock_rect}")
-            require(clock_rect["top"] <= head["bottom"] + 6,
-                    f"Clock is not pinned below header at {width}px: {clock_rect}")
+            require(clock_rect["top"] >= -2 and clock_rect["top"] <= 6,
+                    f"Clock is not pinned to viewport top at {width}px: {clock_rect}")
+            require(clock_rect["bottom"] > clock_rect["top"] + 43,
+                    f"Sticky clock is not visible at {width}px: {clock_rect}")
             page.evaluate("window.scrollTo(0, 0)")
         old = rect(timer)
         page.wait_for_timeout(1200)
