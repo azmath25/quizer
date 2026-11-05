@@ -874,3 +874,6 @@ fieldset.choices {
 .result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass){border-color:#208a5d}
 .result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass)::before{background:rgba(40,155,96,.17);border-top-color:#208a5d}
 .result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass) .score-number{color:#16734c}
+
+.score-ring--failed{animation:none;background:#f4f6f5;border-color:#b3bdb8}
+.score-ring--failed .score-number{color:#53635a}
