@@ -316,6 +316,23 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
         require(toggle.get_attribute("aria-expanded")=="true",
                 "Selection cannot be reopened")
         no_horizontal_overflow(page,"reopened selected dock",width)
+        # Quiz management section tabs should be normal page navigation, not
+        # an obstructive floating overlay above access or result controls.
+        open_page(page,"quiz-manage.html?id="+quiz_id,
+                  '.tabs[aria-label="Quiz management"]')
+        tabs=page.locator('.tabs[aria-label="Quiz management"]')
+        require(tabs.locator("button").count()==4,
+                "Content / Access / Results / History navigation missing")
+        position=tabs.evaluate("(el) => getComputedStyle(el).position")
+        require(position=="static",
+                f"Management tabs float over content at {width}px: {position}")
+        no_horizontal_overflow(page,"Manage Quiz navigation",width)
+        if width<=600:
+            layout=tabs.evaluate("(el) => getComputedStyle(el).gridTemplateColumns")
+            require(len(layout.split())==2,
+                    "Small screens need compact two-column management tabs")
+        page.screenshot(path=str(OUTPUT/f"{width}px-{tag}-manage.png"),
+                        full_page=False)
         require(not errors,
                 f"Unhandled author browser errors at {width}/{tag}: {errors[:3]}")
         print(f"PASS QN12.2 author viewport={width} touch={touch} scale={tag}"
