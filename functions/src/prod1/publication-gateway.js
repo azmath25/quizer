@@ -130,10 +130,18 @@ export function createProd1PublicationGateway({
         slots.push(slot);
       });
     }
-    const origins=[];
-    for(const slot of slots){
-      origins.push(await resolveOrigin({actor,problemId:slot.problemId}));
+    // Origin is a property of the problem, not the item slot. Sharing a
+    // problem across many quiz positions must not cause repeated lookups;
+    // cap concurrent metadata calls rather than serializing 500 requests.
+    const originById=new Map();
+    const uniqueProblems=[...new Set(slots.map(slot=>slot.problemId))];
+    for(let start=0;start<uniqueProblems.length;start+=8){
+      const group=uniqueProblems.slice(start,start+8);
+      const resolved=await Promise.all(group.map(problemId=>
+        resolveOrigin({actor,problemId})));
+      group.forEach((problemId,index)=>originById.set(problemId,resolved[index]));
     }
+    const origins=slots.map(slot=>originById.get(slot.problemId));
     if(origins.every(x=>x==="firestore_legacy"))
       return (await legacyDispatch(db,auth,request)).data;
     assert(origins.every(x=>["neon_revision","firestore_legacy"].includes(x)),
@@ -142,6 +150,36 @@ export function createProd1PublicationGateway({
     assert(!needsLegacy||typeof legacySource?.preflight==="function",
       "FAILED_PRECONDITION",
       "Mixed Firestore/Neon publication needs a trusted legacy source reader.");
+    // The owner-only Neon repository supports 50 exact pinned revisions in
+    // one SQL statement. Load unique pins in bounded batches, then reuse the
+    // result when a problem appears more than once in the same quiz.
+    // Revocation/ownership and protected grading are checked together in SQL.
+    const cachedNeon=new Map(),neonKey=slot=>
+      JSON.stringify([slot.problemId,slot.problemRevisionId]);
+    if(typeof neonReader.getProblemBatchForTeacher==="function"){
+      const unique=new Map();
+      slots.forEach((slot,index)=>{
+        if(origins[index]==="neon_revision")
+          unique.set(neonKey(slot),{
+            problemId:slot.problemId,revisionId:slot.problemRevisionId,
+          });
+      });
+      const all=[...unique.values()];
+      for(let start=0;start<all.length;start+=50){
+        const group=all.slice(start,start+50);
+        const loaded=await neonReader.getProblemBatchForTeacher({actor,pins:group});
+        assert(Array.isArray(loaded)&&loaded.length===group.length,
+          "RESOURCE_UNAVAILABLE","Bounded Neon source preflight failed.");
+        loaded.forEach((entry,index)=>{
+          const pin=group[index];
+          assert(entry?.problemId===pin.problemId&&
+            entry?.revisionId===pin.revisionId,
+            "VERSION_CONFLICT","Neon batch returned a different revision.");
+          cachedNeon.set(JSON.stringify([pin.problemId,pin.revisionId]),entry);
+        });
+      }
+    }
+    const assetProof=new Map();
     const sources=[];
     // A 500-question exam must not incur 500 serial round trips or fan
     // out all queries at once. Keep at most eight preflights in flight.
@@ -161,9 +199,11 @@ export function createProd1PublicationGateway({
             return {...slot,contentHash:loaded.contentHash,
               source:loaded.source};
           }
-          const loaded=await neonReader.getProblemForTeacher({
-            actor,problemId:slot.problemId,
-            revisionId:slot.problemRevisionId});
+          const pinKey=neonKey(slot);
+          const loaded=cachedNeon.get(pinKey) ??
+            await neonReader.getProblemForTeacher({
+              actor,problemId:slot.problemId,
+              revisionId:slot.problemRevisionId});
           assert(loaded?.problemId===slot.problemId&&
             loaded.revisionId===slot.problemRevisionId&&
             loaded.problem?.ownerId===actor.uid&&
@@ -171,8 +211,13 @@ export function createProd1PublicationGateway({
             "RESOURCE_UNAVAILABLE",
             "Only verified owner-owned Neon revisions may be privately published.");
           const normalized=normalizedSource(loaded);
-          assert(await verifyAssets({actor,assetIds:assetIds(
-            normalized.content,normalized.grading)})===true,
+          // Repeated use of one immutable revision shares a single asset
+          // permission check inside this one trusted publication request.
+          if(!assetProof.has(pinKey))
+            assetProof.set(pinKey,Promise.resolve().then(()=>
+              verifyAssets({actor,assetIds:assetIds(
+                normalized.content,normalized.grading)})));
+          assert(await assetProof.get(pinKey)===true,
             "RESOURCE_UNAVAILABLE","Pinned publication assets unavailable.");
           return {...slot,contentHash:fingerprint(normalized),
             source:{kind:"neon_revision",problemId:slot.problemId,
