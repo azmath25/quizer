@@ -869,3 +869,8 @@ fieldset.choices {
 .result-verdict--fail{color:var(--muted)}
 @keyframes score-green-flow{0%{background-position:0% 30%}50%{background-position:100% 70%}100%{background-position:0% 30%}}
 @media(prefers-reduced-motion:reduce){.score-ring--pending{animation:none;background:#d8f2e4}}
+
+/* Default published score uses the familiar green accent. */
+.result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass){border-color:#208a5d}
+.result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass)::before{background:rgba(40,155,96,.17);border-top-color:#208a5d}
+.result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass) .score-number{color:#16734c}
