@@ -69,6 +69,21 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 @media(max-width:1060px){.shell{grid-template-columns:232px minmax(0,1fr)}}
 @media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.topbar{padding:0 12px}.studio-name{font-size:11px}.conversation-head{height:59px;padding:0 13px}.welcome{padding:24px 0}.conversation{padding:16px}.composer-area{padding:0 12px max(10px,env(safe-area-inset-bottom))}}
 @media(max-width:430px){.prompt-grid{grid-template-columns:1fr}.toplink,.studio-name{display:none}.chat-options summary{min-height:34px}}
+
+/* Keep AI Studio's site navigation aligned with Quizer's shell navigation. */
+.quizer-site-nav{display:flex;align-items:center;gap:2px;min-width:0}
+.quizer-site-nav a{padding:9px 10px;border-radius:9px;white-space:nowrap;font-size:11px;font-weight:750;color:var(--muted)}
+.quizer-site-nav a:hover,.quizer-site-nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
+.quizer-site-menu{position:relative;display:none;flex:none}
+.quizer-site-menu summary{list-style:none;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:750;cursor:pointer}
+.quizer-site-menu summary::-webkit-details-marker{display:none}
+.quizer-site-menu nav{position:absolute;top:calc(100% + 10px);right:0;width:210px;max-width:calc(100vw - 24px);padding:6px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:35}
+.quizer-site-menu nav a{padding:11px 12px;border-radius:8px;font-size:12px;font-weight:700}
+.quizer-site-menu nav a:hover,.quizer-site-menu nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
+.quizer-profile{white-space:nowrap}
+@media(max-width:1450px){.quizer-site-nav{display:none}.quizer-site-menu{display:block}}
+@media(max-width:760px){.quizer-site-menu summary{padding:8px}.quizer-site-menu summary span{display:none}.quizer-profile{display:none}}
+@media(max-width:430px){.quizer-site-menu nav{right:-42px}}
 </style>
 </head>
 <body data-page="ai">
@@ -112,7 +127,11 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <button class="icon-btn mobile-only" aria-label="Open chat history" data-act="sidebar"><svg class="ico"><use href="#ic-bars"/></svg></button>
 <a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span>math quiz<span style="color:var(--cyan)">.</span></span></a>
 <span class="studio-name">AI Studio</span><span class="grow"></span>
-<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink" href="problems.html">Problem bank</a>
+<nav class="quizer-site-nav" aria-label="Main navigation">
+<a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a>
+</nav>
+<details class="quizer-site-menu"><summary aria-label="Open website navigation"><svg class="ico sm"><use href="#ic-bars"/></svg><span>Menu</span></summary><nav aria-label="Website navigation"><a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a><a href="profile.html">Profile</a></nav></details>
+<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink quizer-profile" href="profile.html">Profile</a>
 <div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
 </header>
 <div class="shell" id="shell">
