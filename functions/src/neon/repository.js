@@ -35,6 +35,66 @@ export function createQuizerNeonReadRepository(port) {
     throw new NeonContractError("INVALID_FIELDS", "Trusted database query port required.");
   const query = (statement, values) => port.query(statement, values);
   return Object.freeze({
+    // Published quiz preflight: one SQL round-trip for up to 50 exact
+    // immutable owner-owned problem revisions. The SQL joins authorized
+    // problem ownership and protected grading in the SAME statement.
+    // Never accept caller-supplied Firebase claims from request JSON.
+    async getProblemBatchForTeacher({actor,pins}={}) {
+      requireTeacher(actor);
+      if(!Array.isArray(pins)||pins.length<1||pins.length>50)
+        throw new NeonContractError("INVALID_FIELDS",
+          "Read 1–50 pinned revisions.");
+      const pairs=pins.map(pin=>({
+        problemId:requireId(pin.problemId,"problem ID"),
+        revisionId:requireId(pin.revisionId,"revision ID"),
+      }));
+      const sql=[
+        "SELECT p.problem_id,p.owner_uid,p.owner_display_name,p.title,",
+        "p.search_title,p.subject,p.difficulty,p.bank_visibility,p.lifecycle,",
+        "p.latest_revision_id,p.revision_number AS problem_revision_number,",
+        "p.version,p.updated_at,",
+        "COALESCE((SELECT array_agg(t.tag::text ORDER BY t.tag)",
+        "FROM quizer.problem_tags t WHERE t.problem_id=p.problem_id),",
+        "ARRAY[]::text[]) AS tags,",
+        "r.revision_id,r.revision_number,r.content_json,r.grading_json,",
+        "r.source_json,r.content_hash,r.created_by_uid,r.created_at,",
+        "pins.ordinal",
+        "FROM unnest($2::varchar[],$3::varchar[])",
+        "WITH ORDINALITY AS pins(problem_id,revision_id,ordinal)",
+        "JOIN quizer.problems p ON p.problem_id=pins.problem_id",
+        "AND p.owner_uid=$1 AND p.lifecycle='active'",
+        "JOIN quizer.problem_revisions r ON r.problem_id=p.problem_id",
+        "AND r.revision_id=pins.revision_id",
+        "ORDER BY pins.ordinal",
+      ].join(" ");
+      const found=rows(await query(sql,[actor.uid,
+        pairs.map(p=>p.problemId),pairs.map(p=>p.revisionId)]));
+      if(found.length!==pairs.length)
+        throw new NeonContractError("RESOURCE_UNAVAILABLE",
+          "Some exact pinned revisions are no longer owned or active.");
+      return found.map((revision,index)=>{
+        if(revision.problem_id!==pairs[index].problemId||
+            revision.revision_id!==pairs[index].revisionId)
+          throw new NeonContractError("VERSION_CONFLICT",
+            "Batch source identity changed.");
+        return {
+          problemId:revision.problem_id,
+          revisionId:revision.revision_id,
+          problem:toProblemHeader({
+            ...revision,revision_number:revision.problem_revision_number,
+          }),
+          content:{
+            ...revision.content_json,
+            revisionNumber:Number(revision.revision_number),
+            createdBy:revision.created_by_uid,
+            createdAt:asIso(revision.created_at),
+            contentHash:revision.content_hash,
+            source:safeSource(revision.source_json,true),
+          },
+          grading:{...revision.grading_json},
+        };
+      });
+    },
     async getProblemForTeacher({ actor, problemId, revisionId = null }) {
       requireTeacher(actor);
       requireId(problemId, "problem ID");
