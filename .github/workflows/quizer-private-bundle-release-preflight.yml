@@ -1,0 +1,46 @@
+name: Historical private-bundle hotfix production preflight (no deployment)
+on:
+  push:
+    branches:
+      - release/quizer-private-bundle-hotfix-2026-11-05
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Shell syntax and scope
+        run: |
+          bash -n scripts/release/quizer-private-bundle-hotfix-2026-11-05.sh
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const s=readFileSync('scripts/release/quizer-private-bundle-hotfix-2026-11-05.sh','utf8');
+          for(const part of [
+            'EXPECTED_SOURCE_HEAD="9cdd590b34f5492130ecd86c56ae90d846417214"',
+            'VERIFIED_HOTFIX_HEAD="4621db4d3200e6a277f7982a51c66daf4c796849"',
+            'PROJECT="sat-quiz-fd317"',
+            'REGION="europe-west1"',
+            'functions:mathquiz:api,functions:mathquiz:processJob,functions:mathquiz:scheduledMaintenance',
+            'rollback(){',
+            'node --test tests/unit/qn10-1-bundle-format.test.mjs',
+          ])assert.ok(s.includes(part),'missing hotfix guard: '+part);
+          assert.ok(!s.includes('git push '),'Must not publish frontend');
+          assert.ok(!s.includes('firebase deploy --only firestore') &&
+                    !s.includes('--only hosting'),'Must not touch database/hosting');
+          JS
+      - name: Verify pinned app and full source bundle
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+          node --test tests/unit/qn10-1-bundle-format.test.mjs
