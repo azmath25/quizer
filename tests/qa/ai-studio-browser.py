@@ -9,6 +9,26 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 
+def mock_session(page, role):
+    """Mock only the Firebase session module in this isolated browser test."""
+    allowed = role in ("teacher", "admin")
+    teacher = "true" if allowed else "false"
+    admin = "true" if role == "admin" else "false"
+    source = f"""
+      export async function initFirebase() {{}}
+      export function watchSession(callback) {{
+        queueMicrotask(() => callback({{
+          status: 'ready', authResolved: true, roleResolved: true,
+          accountStatus: 'active', user: {{ uid: 'synthetic-qa-user' }},
+          capabilities: {{ teach: {teacher}, admin: {admin} }}
+        }}));
+        return () => {{}};
+      }}
+    """
+    page.route("**/js/firebase-client.js", lambda route: route.fulfill(
+        status=200, content_type="application/javascript", body=source
+    ))
+
 class QuietServer(SimpleHTTPRequestHandler):
     def log_message(self, *args): pass
 
@@ -33,6 +53,7 @@ try:
                 page = context.new_page()
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
+                mock_session(page, "teacher")
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 page.locator("#conversation-head .chat-options").wait_for()
                 theme = page.locator('.tools [data-act="theme"]')
@@ -77,6 +98,19 @@ try:
                 check(not errors, f"Page errors at {width}px: {errors[:3]}")
                 context.close()
                 print(f"PASS AI Studio focus viewport={width}px")
+            # Student accounts must never initialize the full AI Studio.
+            student_context = browser.new_context(viewport={"width": 390, "height": 844})
+            student = student_context.new_page()
+            mock_session(student, "student")
+            student.goto(url, wait_until="domcontentloaded", timeout=30000)
+            student.locator("#ai-access-gate").wait_for(state="visible")
+            check(student.locator("#app").is_hidden(), "Student gained AI Studio access")
+            check("teachers and administrators" in student.locator(
+                  "#ai-access-gate").inner_text().lower(),
+                  "Students should see a clear access-denied explanation")
+            student_context.close()
+            print("PASS AI Studio student denial gate")
+
         finally:
             browser.close()
 finally:
