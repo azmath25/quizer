@@ -101,3 +101,5 @@ jobs:
         run: python tests/qa/quiz-rules-browser.py
       - name: AI Studio mobile layout
         run: python tests/qa/ai-studio-browser.py
+      - name: New math keyboard and handwriting browser smoke
+        run: python tests/qa/math-answer-browser.py
