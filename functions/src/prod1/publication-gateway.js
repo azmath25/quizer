@@ -6,6 +6,7 @@ import {assert,id,fields,number,assetIds,validateProblem} from "../../shared/sch
 import {hash} from "../domain/runtime.js";
 import {fingerprint} from "../neon/write-repository.js";
 import {requireTeacher} from "../neon/contracts.js";
+import {isCurrentPublishedDraft} from "../bundles/publication-noop.js";
 
 const ALLOWED=["apiVersion","action","requestId","quizId",
   "expectedDraftVersion","expectedVersion"];
@@ -84,6 +85,37 @@ export function createProd1PublicationGateway({
     assert(quiz.closesAt||![draft.settings?.scoreRelease,
       draft.settings?.solutionRelease].includes("afterClose"),
       "INVALID_FIELDS","Closing date required for after-close release.");
+    // If the already-serving revision pins the same saved draft, a repeated
+    // Publish must be a read-only no-op, before any Neon/source/storage work.
+    // Recheck permissions and versions in a read-only Firestore transaction
+    // so an in-flight draft edit never masquerades as an unchanged publish.
+    if(quiz.publishedRevisionId){
+      const oldId=id(quiz.publishedRevisionId);
+      const published=await get(db,"quizzes/"+quizId+"/revisions/"+oldId);
+      if(isCurrentPublishedDraft(quiz,draft,published)){
+        const identical=await db.runTransaction(async tx=>{
+          const read=async path=>{
+            const snapshot=await tx.get(db.doc(path));
+            return snapshot.exists?snapshot.data():null;
+          };
+          const [role,current,currentDraft,currentPublished]=await Promise.all([
+            read("roles/"+actor.uid),read("quizzes/"+quizId),
+            read("quizzes/"+quizId+"/drafts/current"),
+            read("quizzes/"+quizId+"/revisions/"+oldId),
+          ]);
+          assert(role&&role.accountStatus!=="disabled"&&
+            ["teacher","admin"].includes(role.role)&&
+            current?.ownerId===actor.uid&&current?.lifecycle==="active"&&
+            !current.publishingJobId&&
+            current.version===request.expectedVersion&&
+            currentDraft?.version===request.expectedDraftVersion,
+            "VERSION_CONFLICT","Publication state changed.");
+          return current.publishedRevisionId===oldId&&
+            isCurrentPublishedDraft(current,currentDraft,currentPublished);
+        });
+        if(identical)return {unchanged:true,revisionId:oldId,jobId:null};
+      }
+    }
     const slots=[];
     // Bounded concurrency keeps initial 500-question publication from
     // opening hundreds of Firestore reads at once.
