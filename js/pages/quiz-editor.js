@@ -682,7 +682,13 @@ async function edit(root, quizId) {
         });
         version = r.draftVersion;
         draft.version = version;
-        draft.itemOrder = [...currentOrder];
+        draft.itemOrder = [...r.itemOrder];
+        quiz.version = r.version;
+        quiz.draftVersion = version;
+        currentOrder = [...r.itemOrder];
+        const removedNow = new Set(batch);
+        data.items = data.items.filter((item) => !removedNow.has(item.itemId));
+        slots = slots.filter((item) => !removedNow.has(item.itemId));
         batch.forEach((id) => removed.delete(id));
         touched = true;
       }
@@ -703,12 +709,14 @@ async function edit(root, quizId) {
         });
         version = r.draftVersion;
         draft.version = version;
-        draft.itemOrder = r.itemOrder;
+        draft.itemOrder = [...r.itemOrder];
+        quiz.version = r.version;
+        quiz.draftVersion = version;
         for (const [client, itemId] of Object.entries(r.itemIdMap)) {
           slots.find((s) => s.itemId === client).itemId = itemId;
           order = order.map((id) => (id === client ? itemId : id));
         }
-        currentOrder = r.itemOrder;
+        currentOrder = [...r.itemOrder];
         // The batch is committed; advance our comparison baseline even if a
         // later batch or the final draft refresh fails.
         rememberSavedQuizSlots(data.items, changed.slice(i, i + 20));
@@ -723,9 +731,14 @@ async function edit(root, quizId) {
         version = r.draftVersion;
         draft.version = version;
         draft.itemOrder = [...r.itemOrder];
+        quiz.version = r.version;
+        quiz.draftVersion = version;
         for (const [key, value] of Object.entries(finalRequest.patch ?? {})) {
           if (key === "settings") draft.settings = { ...draft.settings, ...value };
-          else draft[key] = value;
+          else {
+            draft[key] = value;
+            quiz[key] = value;
+          }
         }
         touched = true;
       }
@@ -735,10 +748,15 @@ async function edit(root, quizId) {
         saveState.textContent = "Already saved · no changes";
         return true;
       }
-      data = await api("getQuizDraft", { quizId });
-      draft = data.draft;
-      quiz = data.quiz;
-      slots = data.items.map((i) => ({ ...i }));
+      // Every save batch returned the authoritative version, order and ID map.
+      // Re-reading all draftItems here costs up to 500 document reads per save.
+      // Retain the acknowledged local baseline; any concurrent editor remains
+      // protected by the expectedDraftVersion / expectedVersion server fences.
+      const retainedIds = new Set(draft.itemOrder);
+      data.items = data.items.filter((item) => retainedIds.has(item.itemId));
+      data.draft = draft;
+      data.quiz = quiz;
+      slots = data.items.map((item) => ({ ...item }));
       order = [...draft.itemOrder];
       dirty = false;
       store.clear();
