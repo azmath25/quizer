@@ -115,7 +115,10 @@ export function createPrivateBundlePublisher({
         // The immutable content hash is recomputed from protected bytes, not
         // copied from untrusted metadata. Changed grading, images or text can
         // never silently reuse the previous contents.
-        const normalized=validateProblem(old.content,old.grading);
+        const {gradingVersion,...grading}=old.grading;
+        assert(gradingVersion===undefined||gradingVersion===1,
+          "VERSION_CONFLICT","Unsupported historical grading version.");
+        const normalized=validateProblem(old.content,grading);
         if(fingerprint(normalized)===slot.contentHash){
           items.push({itemId:slot.itemId,problemId:slot.problemId,
             problemRevisionId:slot.problemRevisionId,points:slot.points,
