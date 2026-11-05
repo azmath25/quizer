@@ -34,6 +34,7 @@ import {
 } from "../services/stars.js";
 import { toLatex } from "../services/ai.js";
 import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
+import { openAskAIPopup } from "../components/ask-ai-popup.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -317,6 +318,7 @@ export async function mount(root, session) {
           "data-star",
         ) +
         `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
+        btn("ai", "bulb", "Ask AI about this problem", "data-ask-ai") +
         btn("download", "download", "Download .tex", "data-download") +
         btn("solve", "bulb", "Answer and solution", "data-solve") +
         `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>`;
@@ -477,6 +479,21 @@ export async function mount(root, session) {
         },
         root,
       );
+    else if (t.hasAttribute("data-ask-ai"))
+      busy(t, async () => {
+        // Bank access is already teacher/admin-only. Do not send grading keys
+        // or solutions automatically; context is the problem statement/choices.
+        const detail = await fetchDetail(row);
+        const content = detail.content || {};
+        const context = [
+          "Problem: " + row.title,
+          "Statement: " + (content.statementLatex || ""),
+          content.type === "choice" ?
+            "Choices:\\n" + (content.options || []).map((o, i) =>
+              String.fromCharCode(65 + i) + ": " + o.textLatex).join("\\n") : "",
+        ].filter(Boolean).join("\\n");
+        openAskAIPopup({ title: "Ask AI · " + row.title, context });
+      }, root);
     else if (t.hasAttribute("data-solve")) {
       const open = card.classList.toggle("is-expanded");
       t.classList.toggle("is-active", open);
