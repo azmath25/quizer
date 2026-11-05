@@ -416,6 +416,7 @@ main {
 @media (min-width: 1101px) {
   body:is(
     [data-page="teaching"],
+    [data-page="activity"],
     [data-page="quiz-manage"],
     [data-page="quiz-editor"],
     [data-page="problem-edit"],
