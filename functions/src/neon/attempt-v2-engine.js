@@ -132,17 +132,18 @@ export function createNeonAttemptV2Engine({enabled=false,pool=null,
       fail("RESOURCE_UNAVAILABLE","Unverified published quiz snapshot.");
     const attemptId=assertNewNeonId(plan.attemptId);
     const items=itemList(plan.items);
-    const quizId=requireId(plan.quizId,"quiz");
+    const frozenQuizId=requireId(plan.quizId,"quiz");
     const revisionId=requireId(plan.quizRevisionId,"revision");
     const teacherUid=requireId(plan.teacherUid,"teacher");
-    const payload={uid,attemptId,quizId,revisionId,
+    const quizIdForReceipt=frozenQuizId;
+    const payload={uid,attemptId,quizId:quizIdForReceipt,revisionId,
       sha256:plan.bundleSha256,generation:plan.bundleGeneration,
       deadlineAt:plan.deadlineAt??null,items};
     const hash=digest(payload);
     return transaction(pool,async client=>{
       const old=await receipt(client,uid,key,attemptId,"startAttempt",hash);
       if(old)return old;
-      const result={attemptId,quizId,quizRevisionId:revisionId,
+      const result={attemptId,quizId:frozenQuizId,quizRevisionId:revisionId,
         status:"active",answerVersion:0};
       await client.query(
         "INSERT INTO quizer.attempts_v2 "+
@@ -150,7 +151,7 @@ export function createNeonAttemptV2Engine({enabled=false,pool=null,
         "bundle_generation,student_uid,teacher_uid,item_count,"+
         "settings_json,deadline_at) "+
         "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::timestamptz)",
-        [attemptId,quizId,revisionId,plan.bundleSha256,
+        [attemptId,frozenQuizId,revisionId,plan.bundleSha256,
           plan.bundleGeneration,uid,teacherUid,items.length,
           JSON.stringify(plan.settings),plan.deadlineAt??null]);
       await client.query(
