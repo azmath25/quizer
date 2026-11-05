@@ -20,7 +20,7 @@ export async function mount(root) {
         : "attempts";
   root.innerHTML =
     pageHead("My activity", "Your attempts, access requests and updates.") +
-    `<div class="tabs" role="tablist" aria-label="Activity"><button role="tab" data-tab="attempts">Attempts</button><button role="tab" data-tab="requests">Access requests</button><button role="tab" data-tab="updates">Updates</button></div><div data-message></div><div class="panel" id="activity-list"></div>`;
+    `<div class="tabs workspace-subnav" role="tablist" aria-label="Activity"><button role="tab" data-tab="attempts">Attempts</button><button role="tab" data-tab="requests">Access requests</button><button role="tab" data-tab="updates">Updates</button></div><div data-message></div><div class="panel" id="activity-list"></div>`;
   const list = root.querySelector("#activity-list");
   const page = pagination(list, load);
   let loadId = 0;

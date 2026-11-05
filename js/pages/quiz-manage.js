@@ -50,7 +50,7 @@ export async function mount(root) {
       linkButton("View quiz", `quiz.html?id=${quizId}`, "secondary") +
         linkButton("Edit draft", `upload.html?id=${quizId}`, "primary"),
     ) +
-    `<div class="tabs" role="tablist" aria-label="Quiz management">${["content", "access", "results", "history"].map((t) => `<button role="tab" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div><div data-message></div><div id="manage-panel"></div>`;
+    `<div class="tabs workspace-subnav" role="tablist" aria-label="Quiz management">${["content", "access", "results", "history"].map((t) => `<button role="tab" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div><div data-message></div><div id="manage-panel"></div>`;
   const panel = root.querySelector("#manage-panel");
   async function refresh() {
     data = await api("getQuizDraft", { quizId });

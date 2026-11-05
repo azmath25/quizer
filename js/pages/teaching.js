@@ -29,7 +29,7 @@ export async function mount(root) {
       linkButton("Problem bank", "problems.html", "secondary", "book") +
         linkButton("Create quiz", "upload.html", "primary", "plus"),
     ) +
-    `<div class="tabs" role="tablist" aria-label="Teaching workspace"><button data-tab="quizzes" role="tab">My quizzes</button><button data-tab="requests" role="tab">Access requests</button><button data-tab="results" role="tab">Results</button></div><div class="toolbar" id="filters"></div><div data-message></div><div id="teaching-list"></div>`;
+    `<div class="tabs workspace-subnav" role="tablist" aria-label="Teaching workspace"><button data-tab="quizzes" role="tab">My quizzes</button><button data-tab="requests" role="tab">Access requests</button><button data-tab="results" role="tab">Results</button></div><div class="toolbar" id="filters"></div><div data-message></div><div id="teaching-list"></div>`;
   const list = root.querySelector("#teaching-list"),
     filters = root.querySelector("#filters"),
     setPage = pagination(list, load);

@@ -22,7 +22,7 @@ export async function mount(root) {
   let tab = "users";
   root.innerHTML =
     pageHead("Administration", "Manage access and inspect recorded activity.") +
-    `<div class="admin-intro">${icon("admin")}Activity records show saved actions and server timestamps. Response details remain on each attempt.</div><div class="tabs" role="tablist" aria-label="Administration"><button data-tab="users" aria-selected="true" role="tab">Users</button><button data-tab="activity" aria-selected="false" role="tab">Activity</button><button data-tab="content" aria-selected="false" role="tab">Content</button><button data-tab="jobs" aria-selected="false" role="tab">Processing jobs</button></div><div data-message></div><section class="panel" id="admin-panel"></section>`;
+    `<div class="tabs workspace-subnav" role="tablist" aria-label="Administration"><button data-tab="users" aria-selected="true" role="tab">Users</button><button data-tab="activity" aria-selected="false" role="tab">Activity</button><button data-tab="content" aria-selected="false" role="tab">Content</button><button data-tab="jobs" aria-selected="false" role="tab">Processing jobs</button></div><div class="admin-intro">${icon("admin")}Activity records show saved actions and server timestamps. Response details remain on each attempt.</div><div data-message></div><section class="panel" id="admin-panel"></section>`;
   const panel = root.querySelector("#admin-panel");
   async function users() {
     panel.innerHTML = `<form class="toolbar">${field("Email starts with", "search", "search", "", 'placeholder="Search accounts…" maxlength="200"')}<button class="button primary">Search</button></form><div id="users-list"></div>`;

@@ -333,6 +333,61 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                     "Small screens need compact two-column management tabs")
         page.screenshot(path=str(OUTPUT/f"{width}px-{tag}-manage.png"),
                         full_page=False)
+        # Page-level submenus must have one consistent document position.
+        # This is the teacher's primary workflow, not the nested import
+        # preview tablist. Account for mobile text reflow without clipping.
+        positions={}
+        sections=[
+            ("teaching.html","Teaching"),
+            ("quiz-manage.html?id="+quiz_id,"Quiz management"),
+            ("problems.html","Problem bank"),
+            ("upload.html","Create quiz"),
+            ("upload.html?id="+quiz_id,"Edit quiz"),
+            ("activity.html","Activity"),
+        ]
+        for route,label in sections:
+            open_page(page,route,"main > div > .tabs.workspace-subnav")
+            page.evaluate("window.scrollTo(0,0)")
+            tabs=page.locator("main > div > .tabs.workspace-subnav")
+            require(tabs.count()==1,
+                    label+" should have exactly one primary submenu")
+            position=tabs.evaluate("(el) => getComputedStyle(el).position")
+            require(position=="static",
+                    label+" menu incorrectly floats at "+str(width)+": "+position)
+            positions[label]=rect(tabs)
+            require(positions[label]["x"]>=0 and
+                    positions[label]["right"]<=width+2,
+                    label+" submenu is clipped horizontally: "+
+                    str(positions[label]))
+            require(positions[label]["height"]>=43.5,
+                    label+" submenu has too-small touch/keyboard targets")
+            no_horizontal_overflow(page,label+" subnavigation",width)
+        first=positions["Teaching"]
+        for label,position in positions.items():
+            # At 200% OS text size allow natural heading expansion rather
+            # than clipping it merely to force exact alignment.
+            if not scale:
+                require(abs(position["y"]-first["y"])<=3,
+                        "Submenus must occupy the same vertical anchor at "+
+                        str(width)+": "+str({k:round(v["y"],1)
+                            for k,v in positions.items()}))
+            require(abs(position["x"]-first["x"])<=2,
+                    "Submenus do not share a horizontal anchor: "+label)
+
+        open_page(page,"teaching.html","main > div > .tabs.workspace-subnav")
+        nav=page.locator('main > div > .tabs[aria-label="Teaching workspace"]')
+        original=rect(nav)
+        for target in ("requests","results","quizzes"):
+            tap_or_click(nav.locator('[data-tab="'+target+'"]'),touch)
+            require(nav.locator('[data-tab="'+target+'"]')
+                    .get_attribute("aria-selected")=="true",
+                    "Teaching tab did not activate: "+target)
+            current=rect(nav)
+            require(abs(current["x"]-original["x"])<=1 and
+                    abs(current["y"]-original["y"])<=1 and
+                    abs(current["height"]-original["height"])<=1,
+                    "Teaching submenu moves when selecting "+target+
+                    ": "+str({"before":original,"after":current}))
         require(not errors,
                 f"Unhandled author browser errors at {width}/{tag}: {errors[:3]}")
         print(f"PASS QN12.2 author viewport={width} touch={touch} scale={tag}"
