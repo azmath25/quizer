@@ -305,7 +305,7 @@ export function validateProblem(content, grading) {
 }
 export function validateSettings(input, previous = DEFAULT_SETTINGS) {
   fields(input, Object.keys(DEFAULT_SETTINGS), "settings");
-  const value = { ...previous, ...input };
+  const value = { ...DEFAULT_SETTINGS, ...previous, ...input };
   number(value.durationSeconds, "Time limit", 0, 86400, true);
   number(value.penalty, "Penalty", 0, 1000);
   bool(value.passFailEnabled, "Pass/fail enabled");
