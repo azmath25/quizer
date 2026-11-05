@@ -7,18 +7,23 @@
 <title>AI Studio · Math Quiz</title><link rel="icon" href="assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="js/appearance-init.js"></script>
+<link rel="stylesheet" href="assets/css/tokens.css?v=13">
+<link rel="stylesheet" href="assets/css/base.css?v=13">
+<link rel="stylesheet" href="assets/css/layout.css?v=13">
+<link rel="stylesheet" href="assets/css/components.css?v=13">
+<link rel="stylesheet" href="assets/css/math.css?v=13">
+<link rel="stylesheet" href="assets/css/polish.css?v=13">
 <script src="js/math-config.js" defer></script><script src="assets/mathjax.js" defer></script>
 <!-- SINGLE FILE PROTOTYPE: no js/app.js (the current router does not register ai.html).
   No Firebase, Neon, Mimo, network inference, cloud uploads or credentials.
   For eventual integration, use a separate authenticated backend adapter.
   Teacher/admin access is checked before preview initialization; backend authorization remains essential for future AI APIs. -->
 <style>
-:root{--bg:#f5f9fc;--surface:#fff;--glass:rgba(255,255,255,.85);--ink:#1b3246;--muted:#768a9b;--line:#e3eaf1;--soft:#edf3f7;--cyan:#0281af;--cyan2:#36b9d8;--wash:#e4f5fa;--purple:#8b7fd0;--violet:#eeebff;--success:#177f6a;--success-bg:#e5f8ee;--warn:#ad7a26;--warn-bg:#fff5db;--danger:#c45468;--danger-bg:#fff0f3;--shadow:0 18px 55px rgba(26,81,116,.08);--font:"Plus Jakarta Sans",system-ui,sans-serif;color-scheme:light}
-:root[data-theme="dark"]{--bg:#091a28;--surface:#102838;--glass:rgba(16,40,56,.89);--ink:#ebf6fa;--muted:#a1b8c5;--line:#294352;--soft:#183444;--cyan:#57c8e8;--cyan2:#99e2f3;--wash:#153f51;--purple:#c4b9ff;--violet:#302c52;--success:#5dd9b8;--success-bg:#153f37;--warn:#f8c96f;--warn-bg:#413519;--danger:#ff9dae;--danger-bg:#4b2738;--shadow:0 20px 55px rgba(0,0,0,.22);color-scheme:dark}
-*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:var(--font);font-size:13px}body{background:var(--bg);color:var(--ink);overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}a{color:inherit;text-decoration:none}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--cyan2);outline-offset:3px}
+.app{--ink:var(--text);--line:var(--border);--soft:var(--surface-alt);--cyan:var(--brand);--cyan2:var(--brand-hover);--wash:var(--brand-tint);--purple:var(--tone-1);--violet:var(--surface-alt);--success-bg:color-mix(in srgb,var(--success) 12%,var(--surface));--warn:var(--warning);--warn-bg:color-mix(in srgb,var(--warning) 12%,var(--surface));--danger-bg:color-mix(in srgb,var(--danger) 12%,var(--surface));--glass:var(--surface);--font:var(--font-sans)}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%}body{background:var(--bg);color:var(--text);overflow:hidden}.app{font-family:var(--font);font-size:13px}.app button,.app input,.app textarea{font:inherit}.app button{cursor:pointer}.app button:disabled{opacity:.4;cursor:not-allowed}.app a{color:inherit;text-decoration:none}.app button:focus-visible,.app a:focus-visible,.app input:focus-visible,.app textarea:focus-visible{outline:3px solid var(--cyan2);outline-offset:3px}
 .ico{height:18px;width:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ico.sm{height:15px;width:15px}.ico.lg{height:24px;width:24px}.muted{color:var(--muted)}.eyebrow{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.13em}.skip{position:absolute;top:-80px;left:12px;background:var(--surface);z-index:1000;padding:10px}.skip:focus{top:12px}
-.app{height:100dvh;min-height:480px;display:flex;flex-direction:column;overflow:hidden;isolation:isolate}.topbar{height:66px;flex:none;display:flex;gap:17px;align-items:center;padding:0 25px;background:var(--glass);border-bottom:1px solid var(--line);backdrop-filter:blur(20px);z-index:15}.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;letter-spacing:-.06em;white-space:nowrap}.brand-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:13px;color:white;background:linear-gradient(145deg,#0080ad,#42c0db);box-shadow:0 7px 19px rgba(2,129,175,.25)}.divider{width:1px;height:25px;background:var(--line)}.crumb{display:flex;align-items:center;gap:11px;color:var(--muted);font-size:12px}.crumb strong{color:var(--ink)}.grow{flex:1}.tag{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:800;padding:7px 11px;border-radius:40px;color:var(--cyan);background:var(--wash);white-space:nowrap}.tag.demo{color:var(--warn);background:var(--warn-bg)}.tag.success{color:var(--success);background:var(--success-bg)}.tag.failed{color:var(--danger);background:var(--danger-bg)}.tag.dim{color:var(--muted);background:var(--soft)}.dot{height:6px;width:6px;border-radius:50%;background:currentColor;display:inline-block}.pulse{animation:blink 2s ease-in-out infinite}.toplink{font-size:11px;font-weight:700;color:var(--muted);padding:8px 3px}.toplink:hover{color:var(--cyan)}.tools{display:flex;align-items:center;gap:3px}.icon-btn{width:36px;height:36px;flex:none;display:grid;place-items:center;border:1px solid transparent;border-radius:10px;color:var(--muted);background:transparent;transition:background .18s,color .18s}.icon-btn:hover{color:var(--cyan);background:var(--wash)}.icon-btn.outline{border-color:var(--line);background:var(--surface)}.top-avatar{margin-left:6px;height:34px;width:34px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(145deg,#b4e9f3,#b9b7eb);font-weight:800;color:#286086;font-size:11px}
+.app{height:calc(100dvh - 64px);min-height:0;display:flex;flex-direction:column;overflow:hidden;isolation:isolate}.topbar{height:66px;flex:none;display:flex;gap:17px;align-items:center;padding:0 25px;background:var(--glass);border-bottom:1px solid var(--line);backdrop-filter:blur(20px);z-index:15}.app .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;letter-spacing:-.06em;white-space:nowrap}.app .brand-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:13px;color:white;background:linear-gradient(145deg,#0080ad,#42c0db);box-shadow:0 7px 19px rgba(2,129,175,.25)}.divider{width:1px;height:25px;background:var(--line)}.crumb{display:flex;align-items:center;gap:11px;color:var(--muted);font-size:12px}.crumb strong{color:var(--ink)}.grow{flex:1}.tag{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:800;padding:7px 11px;border-radius:40px;color:var(--cyan);background:var(--wash);white-space:nowrap}.tag.demo{color:var(--warn);background:var(--warn-bg)}.tag.success{color:var(--success);background:var(--success-bg)}.tag.failed{color:var(--danger);background:var(--danger-bg)}.tag.dim{color:var(--muted);background:var(--soft)}.dot{height:6px;width:6px;border-radius:50%;background:currentColor;display:inline-block}.pulse{animation:blink 2s ease-in-out infinite}.toplink{font-size:11px;font-weight:700;color:var(--muted);padding:8px 3px}.toplink:hover{color:var(--cyan)}.tools{display:flex;align-items:center;gap:3px}.icon-btn{width:36px;height:36px;flex:none;display:grid;place-items:center;border:1px solid transparent;border-radius:10px;color:var(--muted);background:transparent;transition:background .18s,color .18s}.icon-btn:hover{color:var(--cyan);background:var(--wash)}.icon-btn.outline{border-color:var(--line);background:var(--surface)}.top-avatar{margin-left:6px;height:34px;width:34px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(145deg,#b4e9f3,#b9b7eb);font-weight:800;color:#286086;font-size:11px}
 .shell{flex:1;min-height:0;display:grid;grid-template-columns:263px minmax(0,1fr) 324px;position:relative}.sidebar{display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--line);z-index:12}.side-top{padding:20px 15px 10px}.new{width:100%;height:42px;border:0;border-radius:12px;background:linear-gradient(110deg,#0281af,#16a8cf);color:white;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 18px rgba(2,129,175,.18);transition:transform .2s,box-shadow .2s}.new:hover{transform:translateY(-2px);box-shadow:0 13px 23px rgba(2,129,175,.23)}.side-search{height:39px;display:flex;align-items:center;gap:9px;padding:0 12px;margin-top:14px;border-radius:11px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}.side-search:focus-within{border-color:var(--cyan)}.side-search input{min-width:0;width:100%;background:none;border:0;outline:0;color:var(--ink);font-size:11px}.kbd{font-size:9px;border:1px solid var(--line);background:var(--surface);padding:3px 5px;border-radius:5px;white-space:nowrap}.sidenav{padding:4px 10px 16px}.nav-row{border:0;background:none;color:var(--muted);border-radius:10px;display:flex;align-items:center;gap:11px;padding:11px;width:100%;font-size:11px;font-weight:800;text-align:left}.nav-row:hover,.nav-row.active{color:var(--cyan);background:var(--wash)}.nav-row small{font-size:10px;background:var(--soft);color:var(--muted);border-radius:6px;padding:2px 6px;margin-left:auto}.side-label{display:flex;align-items:center;justify-content:space-between;color:var(--muted);padding:0 20px 10px}.history{flex:1;overflow:auto;min-height:0;padding:0 8px 12px}.history-row{display:flex;align-items:center;gap:3px;padding:5px;border-radius:12px}.history-row:hover,.history-row.active{background:var(--wash)}.history-open{border:0;background:none;display:flex;align-items:flex-start;gap:9px;flex:1;min-width:0;padding:5px 3px;text-align:left;color:var(--ink)}.history-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;color:var(--cyan);background:var(--soft);flex:none}.history-icon .ico{height:16px;width:16px}.history-text{min-width:0}.history-text strong{display:block;font-size:11px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history-text small{display:block;margin-top:4px;color:var(--muted);font-size:9px}.pin-btn{border:0;background:none;border-radius:7px;width:25px;height:27px;display:grid;place-items:center;color:var(--muted);opacity:0}.history-row:hover .pin-btn,.history-row:focus-within .pin-btn,.history-row.active .pin-btn{opacity:1}.pin-btn.pinned{color:var(--cyan)}.side-foot{border-top:1px solid var(--line);padding:16px}.storage-label{display:flex;align-items:center;justify-content:space-between;font-size:10px;margin-bottom:10px}.meter{height:5px;border-radius:99px;background:var(--soft);overflow:hidden}.meter span{display:block;background:linear-gradient(90deg,#1386b6,#61d4e6);height:100%;transition:width .5s}.storage-note{margin-top:9px;font-size:9px;color:var(--muted);display:flex;align-items:center;justify-content:space-between}
 .stage{display:flex;flex-direction:column;position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--bg)}.stage:before{content:"";position:absolute;inset:0;background:radial-gradient(480px circle at var(--mx,50%) var(--my,30%),rgba(57,188,228,.13),transparent 70%);opacity:var(--spotlight,1);pointer-events:none;z-index:0;transition:opacity .3s}.stage:after{content:"";position:absolute;z-index:0;pointer-events:none;width:550px;height:500px;top:18%;left:calc(50% - 270px);background:conic-gradient(from 80deg,rgba(83,185,226,.10),rgba(179,151,246,.12),rgba(110,224,226,.07),rgba(83,185,226,.10));border-radius:50%;filter:blur(60px);animation:aurora 17s ease-in-out infinite alternate;display:var(--aurora,block)}.stage>*{position:relative;z-index:1}
 .conversation-head{height:73px;flex:none;background:var(--glass);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:0 27px;display:flex;align-items:center;justify-content:space-between;gap:10px}.current-title{display:flex;align-items:center;gap:11px;min-width:0}.title-symbol{width:39px;height:39px;display:grid;place-items:center;border-radius:12px;color:var(--cyan);background:var(--wash);flex:none}.title-copy{min-width:0}.title-copy h1{font-size:13px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 5px}.title-copy p{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}.head-tools{display:flex;align-items:center;gap:2px}
@@ -33,7 +38,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 @media(max-width:1250px){.shell{grid-template-columns:245px minmax(0,1fr) 285px}.topbar{padding:0 17px}.inspector-body{padding:15px}.conversation-head{padding:0 19px}}
 @media(max-width:1060px){.shell{grid-template-columns:245px minmax(0,1fr)}.inspector{position:absolute;right:0;top:0;bottom:0;width:min(355px,90vw);transform:translateX(104%);transition:transform .25s;box-shadow:var(--shadow)}.app.show-inspector .inspector{transform:translateX(0)}.app.show-inspector .backdrop{display:block}.toplink{display:none}}
 @media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.sidebar{position:absolute;left:0;top:0;bottom:0;width:min(310px,88vw);transform:translateX(-104%);transition:transform .25s;box-shadow:var(--shadow)}.app.show-sidebar .sidebar{transform:translateX(0)}.app.show-sidebar .backdrop{display:block}.mobile-only{display:grid}.topbar{gap:10px;padding:0 12px}.crumb,.divider,.tag.demo{display:none}.conversation-head{padding:0 14px;height:68px}.conversation{padding:22px 16px}.composer-area{padding:0 12px max(13px,env(safe-area-inset-bottom))}.welcome{padding-bottom:35px}.composer-note{font-size:8px}.compose-mode{display:none}.app{min-height:400px}}
-@media(max-width:430px){.brand{font-size:14px}.prompt-grid{grid-template-columns:1fr}.prompt-card{padding:12px}.head-tools .tag{display:none}.head-tools .icon-btn[data-act="export"]{display:none}.types{grid-template-columns:1fr}.type-card:first-child{grid-column:auto}.compose-btn span{display:none}.top-avatar{display:none}}
+@media(max-width:430px){.app .brand{font-size:14px}.prompt-grid{grid-template-columns:1fr}.prompt-card{padding:12px}.head-tools .tag{display:none}.head-tools .icon-btn[data-act="export"]{display:none}.types{grid-template-columns:1fr}.type-card:first-child{grid-column:auto}.compose-btn span{display:none}.top-avatar{display:none}}
 @media(hover:none){.pin-btn{opacity:1}.new:hover,.prompt-card:hover,.type-card:hover{transform:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.stage:after{display:none}}
 
@@ -70,24 +75,43 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 @media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.topbar{padding:0 12px}.studio-name{font-size:11px}.conversation-head{height:59px;padding:0 13px}.welcome{padding:24px 0}.conversation{padding:16px}.composer-area{padding:0 12px max(10px,env(safe-area-inset-bottom))}}
 @media(max-width:430px){.prompt-grid{grid-template-columns:1fr}.toplink,.studio-name{display:none}.chat-options summary{min-height:34px}}
 
-/* Keep AI Studio's site navigation aligned with Quizer's shell navigation. */
+/* Shared Quizer shell, theme, navigation and workspace surfaces. */
 #app[hidden],#ai-access-gate[hidden]{display:none!important}
-.quizer-site-nav{display:flex;align-items:center;gap:2px;min-width:0}
-.quizer-site-nav a{padding:9px 10px;border-radius:9px;white-space:nowrap;font-size:11px;font-weight:750;color:var(--muted)}
-.quizer-site-nav a:hover,.quizer-site-nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
-.quizer-site-menu{position:relative;display:none;flex:none}
-.quizer-site-menu summary{list-style:none;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:750;cursor:pointer}
-.quizer-site-menu summary::-webkit-details-marker{display:none}
-.quizer-site-menu nav{position:absolute;top:calc(100% + 10px);right:0;width:210px;max-width:calc(100vw - 24px);padding:6px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:35}
-.quizer-site-menu nav a{padding:11px 12px;border-radius:8px;font-size:12px;font-weight:700}
-.quizer-site-menu nav a:hover,.quizer-site-menu nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
-.quizer-profile{white-space:nowrap}
-@media(max-width:1450px){.quizer-site-nav{display:none}.quizer-site-menu{display:block}}
-@media(max-width:760px){.quizer-site-menu summary{padding:8px}.quizer-site-menu summary span{display:none}.quizer-profile{display:none}}
-@media(max-width:430px){.quizer-site-menu nav{right:-42px}}
+#site-header{position:relative;z-index:60}
+#site-footer{display:none!important}
+#ai-access-gate{padding:24px;color:var(--text);font:600 .95rem var(--font-sans)}
+.app .topbar{height:53px;padding:0 22px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:none;gap:12px}
+.studio-heading{display:flex;align-items:center;gap:10px;min-width:0}
+.studio-heading-mark{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:var(--radius-sm);color:var(--brand);background:var(--brand-tint)}
+.studio-heading strong{display:block;font-size:13px;line-height:1.3;letter-spacing:-.01em;font-weight:750}
+.studio-heading small{display:block;font-size:10px;color:var(--muted);margin-top:1px}
+.app .sidebar{border-right:1px solid var(--border)}
+.app .stage{max-width:none;margin:0;padding:0;min-height:0;background:var(--bg)}
+.app .conversation-head{background:var(--surface);backdrop-filter:none}
+.app .stage::before{opacity:var(--spotlight,0)}
+.app .new{background:var(--brand);border-radius:var(--radius-sm);box-shadow:none}
+.app .new:hover{box-shadow:var(--shadow);transform:none}
+.app .icon-btn,.app .prompt-card,.app .composer,.app .side-search{border-radius:var(--radius-sm)}
+.app .prompt-card:hover{transform:none;border-color:var(--brand)}
+.app .conversation{scrollbar-gutter:stable}
+.app .tag.demo{background:var(--surface-alt);color:var(--muted);border:1px solid var(--border);font-weight:700}
+#mobile-nav{z-index:65}
+@media(max-width:760px){
+ .app{height:calc(100dvh - 64px - 72px - env(safe-area-inset-bottom))}
+ .app .topbar{padding:0 12px}
+ .app .studio-heading small{display:none}
+ .app .composer-area{padding-bottom:8px}
+ .app .conversation{padding:12px 14px}
+}
+@media(max-width:430px){
+ .app .topbar{gap:6px}
+ .app .topbar .tag.demo{font-size:9px;padding:5px 7px}
+ .app .studio-heading-mark{display:none}
+}
 </style>
 </head>
 <body data-page="ai">
+<header id="site-header"></header>
 <div id="ai-access-gate" role="status" style="padding:24px;font:600 15px system-ui;color:var(--ink)">Checking AI Studio access…</div>
 <svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
 <symbol id="ic-spark" viewBox="0 0 24 24"><path d="m12 2 2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7ZM19 18v4m-2-2h4"/></symbol>
@@ -127,14 +151,9 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <div class="app" id="app" hidden>
 <header class="topbar">
 <button class="icon-btn mobile-only" aria-label="Open chat history" data-act="sidebar"><svg class="ico"><use href="#ic-bars"/></svg></button>
-<a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span>math quiz<span style="color:var(--cyan)">.</span></span></a>
-<span class="studio-name">AI Studio</span><span class="grow"></span>
-<nav class="quizer-site-nav" aria-label="Main navigation">
-<a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a>
-</nav>
-<details class="quizer-site-menu"><summary aria-label="Open website navigation"><svg class="ico sm"><use href="#ic-bars"/></svg><span>Menu</span></summary><nav aria-label="Website navigation"><a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a><a href="profile.html">Profile</a></nav></details>
-<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink quizer-profile" href="profile.html">Profile</a>
-<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
+<div class="studio-heading"><span class="studio-heading-mark"><svg class="ico"><use href="#ic-spark"/></svg></span><span><strong>AI Studio</strong><small>Workspace · design preview</small></span></div><span class="grow"></span>
+<span class="tag demo"><span class="dot"></span>Preview · no live AI</span>
+<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Workspace settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
 </header>
 <div class="shell" id="shell">
 <aside class="sidebar" aria-label="Conversation history">
@@ -148,6 +167,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <aside class="inspector" aria-label="Job inspector"><div class="inspector-head"><span><strong>Job inspector</strong><small>Every step, from input to review</small></span><button class="icon-btn" data-act="inspector" aria-label="Close inspector"><svg class="ico"><use href="#ic-x"/></svg></button></div><div class="inspector-body" id="inspector-body"></div><div class="inspector-foot"><svg class="ico sm"><use href="#ic-shield"/></svg> Simulated jobs · No server requests</div></aside>
 <div class="backdrop" data-act="close-drawers"></div>
 </div></div>
+<nav id="mobile-nav" aria-label="Mobile navigation"></nav><footer id="site-footer" hidden></footer>
 <div class="toast-area" id="toast" role="status" aria-live="polite"></div>
 <dialog id="type-dialog" aria-labelledby="type-title"><div class="modal"><div class="modal-head"><div><h2 id="type-title">What shall we work on?</h2><p>Purpose-built spaces for conversation, mathematics, documents and review.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><div class="types" id="types"></div></div></dialog>
 <dialog id="rename-dialog" aria-labelledby="rename-title"><div class="modal"><div class="modal-head"><div><h2 id="rename-title">Rename conversation</h2><p>Keep your history organized with a meaningful title.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><form id="rename-form"><input id="rename-input" class="modal-input" maxlength="100" required aria-label="New conversation title"><div class="modal-actions"><button class="secondary" type="button" data-act="close-dialog">Cancel</button><button class="primary" type="submit">Save title</button></div></form></div></dialog>
@@ -215,19 +235,8 @@ function themeMode(){
  }catch{}
  return "light";
 }
-function theme(){
- const mode=themeMode();
- const resolved=mode==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):mode;
- document.documentElement.dataset.theme=resolved;
- const icons={light:"sun",dark:"moon",system:"monitor"};
- $("#theme-icon").innerHTML='<use href="#ic-'+icons[mode]+'"/>';
- const button=document.querySelector('[data-act="theme"]');
- if(button){
-   const label=mode.charAt(0).toUpperCase()+mode.slice(1);
-   button.title="Appearance: "+label+" · change mode";
-   button.setAttribute("aria-label","Appearance: "+label+"; change mode");
- }
-}
+// Shared site shell owns the Light, Dark and System preference.
+function theme(){}
 function layout(){
  theme();$("#workspace").style.setProperty("--spotlight",state.spot?"1":"0");$("#workspace").style.setProperty("--aurora",state.motion?"block":"none");
  $("#app").classList.toggle("show-sidebar",innerWidth<=760&&state.side);
@@ -434,6 +443,8 @@ async function authorizeAndStart(){
    deny("AI Studio is available to teachers and administrators. Return to Home or contact the site administrator.");
    return;
   }
+  const siteShell=await import("./js/components/shell.js");
+  siteShell.mountShell({ showAssistant: false, showBackdrop: false });
   gate.hidden=true;app.hidden=false;init();
   // Revocations and account switches take effect in this tab, too.
   auth.watchSession(s=>{

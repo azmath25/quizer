@@ -15,13 +15,18 @@ def mock_session(page, role):
     teacher = "true" if allowed else "false"
     admin = "true" if role == "admin" else "false"
     source = f"""
-      export async function initFirebase() {{}}
-      export function watchSession(callback) {{
-        queueMicrotask(() => callback({{
+      const session = {{
           status: 'ready', authResolved: true, roleResolved: true,
-          accountStatus: 'active', user: {{ uid: 'synthetic-qa-user' }},
+          accountStatus: 'active',
+          user: {{ uid: 'synthetic-qa-user', email: 'teacher@example.test' }},
+          profile: {{ displayName: 'Teacher QA', preferences: {{ theme: 'light' }} }},
           capabilities: {{ teach: {teacher}, admin: {admin} }}
-        }}));
+      }};
+      export async function initFirebase() {{}}
+      export function getSession() {{ return session; }}
+      export function errorMessage(error) {{ return String(error); }}
+      export function watchSession(callback) {{
+        queueMicrotask(() => callback(session));
         return () => {{}};
       }}
     """
@@ -55,18 +60,34 @@ try:
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 mock_session(page, "teacher")
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                page.locator("#conversation-head .chat-options").wait_for()
-                theme = page.locator('.tools [data-act="theme"]')
+                try:
+                    page.locator("#conversation-head .chat-options").wait_for(timeout=10000)
+                except Exception as exc:
+                    gate = page.locator("#ai-access-gate").inner_text()
+                    raise AssertionError(f"Studio did not start: gate={gate}, errors={errors[:4]}") from exc
+                theme = page.locator("#theme-trigger")
                 check("Light" in theme.get_attribute("aria-label"),
-                      "AI Studio must default to light for a new local user")
+                      "Shared Quizer appearance must start on Light")
                 theme.click()
+                page.locator('[data-theme-choice="dark"]').click()
                 check(page.evaluate("document.documentElement.dataset.theme") == "dark",
-                      "AI Studio did not switch to dark")
+                      "Shared Quizer appearance did not switch to dark")
                 theme.click()
+                page.locator('[data-theme-choice="system"]').click()
                 check(page.evaluate("localStorage.getItem('mathquiz.theme.choice')") == "system",
-                      "AI Studio did not synchronize System preference")
+                      "AI Studio did not persist Quizer's System preference")
                 check("System" in theme.get_attribute("aria-label"),
-                      "AI Studio theme icon did not announce System")
+                      "Shared Quizer appearance did not announce System")
+                check(page.locator("#desktop-nav a[href='ai.html'][aria-current='page']").count() == 1,
+                      "Shared header must identify AI Studio as current")
+                check(page.locator("#desktop-nav a[href='teaching.html']").count() == 1,
+                      "Teacher navigation must match the rest of Quizer")
+                check(page.locator("#desktop-nav a[href='admin.html']").count() == 0,
+                      "Teacher must not be shown admin-only navigation")
+                check(page.locator("#site-header .theme-menu").count() == 1,
+                      "Shared appearance switcher should be present only once")
+                check(page.locator('.tools [data-act="theme"]').count() == 0,
+                      "Duplicate AI Studio appearance control was not removed")
                 check(page.locator(".welcome .prompt-card:visible").count() == 2,
                       f"Starter content overcrowded at {width}px")
                 check(page.locator("#app").get_attribute("class") == "app",

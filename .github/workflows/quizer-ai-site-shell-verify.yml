@@ -1,0 +1,43 @@
+name: AI Studio shared-shell parity verification
+on:
+  push:
+    branches:
+      - feature/ai-site-shell-parity-2026-11-05
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ai-shell-parity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install project and backend dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - name: Unit tests
+        run: npm test
+      - name: Static links and assets
+        run: npm run verify:static
+      - name: Build production frontend
+        run: npm run build
+      - name: Install Chromium QA dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.58.0
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: Check teacher AI Studio at mobile, tablet, desktop and student denial
+        run: python tests/qa/ai-studio-browser.py

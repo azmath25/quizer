@@ -57,8 +57,8 @@ function mountBackdrop() {
   bg.innerHTML = EQUATIONS.map((t, i) => `<span style="--x:${(i * 37 + 7) % 94}%;--d:${22 + ((i * 7) % 18)}s;--delay:${-i * 3.1}s;--s:${0.9 + ((i * 13) % 10) / 10}rem">${t}</span>`).join("");
   document.body.prepend(bg);
 }
-export function mountShell() {
-  mountBackdrop();
+export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
+  if (showBackdrop) mountBackdrop();
   const header = document.querySelector("#site-header");
   header.innerHTML = `<div class="header-inner"><a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M43 17H21l11 15-11 15h22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle class="brand-orbit" cx="46" cy="46" r="5" fill="var(--accent)"/></svg></span><span class="logo-flip-container" role="img" aria-label="Math Quiz"><span class="flip-card logo-flip-card"><span class="flip-face flip-face--front logo-face--small logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span><span class="flip-face flip-face--back logo-face--big logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span></span></span></a><nav aria-label="Main navigation" id="desktop-nav"></nav><div class="header-controls"><details class="theme-menu" id="theme-menu"><summary id="theme-trigger" class="theme-trigger" aria-label="Appearance: Light" title="Choose appearance">${icon("sun")}</summary><div class="theme-options" role="group" aria-label="Appearance"><button type="button" data-theme-choice="light" aria-pressed="false">${icon("sun")}<span>Light</span></button><button type="button" data-theme-choice="dark" aria-pressed="false">${icon("moon")}<span>Dark</span></button><button type="button" data-theme-choice="system" aria-pressed="false">${icon("monitor")}<span>System</span></button></div></details><a class="profile-link" href="profile.html" id="account-link">${icon("profile")}<span>Profile</span></a></div></div>`;
   const draw = (s) => {
@@ -96,7 +96,7 @@ export function mountShell() {
     const footer = document.querySelector("#site-footer");
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Text size</a></span>`;
     applyAppearance(s.profile?.preferences || localAppearance());
-    if (s.authResolved)
+    if (showAssistant && s.authResolved)
       import("./assistant.js?v=13").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   document.querySelector("#site-header").addEventListener("click", (event) => {
