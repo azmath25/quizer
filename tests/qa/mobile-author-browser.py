@@ -375,7 +375,7 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
                     "Submenus do not share a horizontal anchor: "+label)
 
         open_page(page,"teaching.html","main > div > .tabs.workspace-subnav")
-        nav=page.locator('main > .tabs[aria-label="Teaching workspace"]')
+        nav=page.locator('main > div > .tabs[aria-label="Teaching workspace"]')
         original=rect(nav)
         for target in ("requests","results","quizzes"):
             tap_or_click(nav.locator('[data-tab="'+target+'"]'),touch)
