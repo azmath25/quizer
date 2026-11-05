@@ -381,7 +381,9 @@ test("order-only republish reuses 100 immutable pins without resolving sources",
 
 test("wrong prior generation and tampered canonical bytes fail closed before new bundle upload",async()=>{
   for(const tamper of [
-    h=>{h.state.plan.previousPublishedBundle.manifest.generation="12345";},
+    h=>{h.state.plan.previousPublishedBundle.manifest={
+      ...h.state.plan.previousPublishedBundle.manifest,generation:"12345",
+    };},
     h=>{
       const path=h.state.plan.previousPublishedBundle.manifest.storagePath;
       const prior=h.rawStorage.objects.get(path);
