@@ -1,3 +1,4 @@
+import { installBankSearchShortcut } from "../components/workspace-controls.js";
 import { go, onLeave } from "../core/router.js";
 import { api, apiSWR } from "../services/api.js";
 import {
@@ -33,6 +34,7 @@ import {
 } from "../services/stars.js";
 import { toLatex } from "../services/ai.js";
 import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
+import { openAskAIPopup } from "../components/ask-ai-popup.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -51,7 +53,8 @@ export async function mount(root, session) {
       "Build quizzes from saved problems. Each selection keeps its chosen revision.",
       `<div class="actions">${linkButton("Import problems", "upload.html?bank=1", "secondary", "upload")}${linkButton("New problem", "problem-edit.html", "primary", "plus")}</div>`,
     ) +
-    `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="grid" id="bank-list"></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
+    `<div class="tabs" role="tablist" aria-label="Problem bank"><button role="tab" data-view="mine" aria-selected="true">My problems</button><button role="tab" data-view="shared" aria-selected="false">Shared with teachers</button><button role="tab" data-view="trash" aria-selected="false">Trash</button></div><form class="toolbar">${field("Search", "q", "search", "", 'placeholder="Title, tag, subject or text…" maxlength="200"')}${field("Subject", "subject", "text", "", 'placeholder="Any subject" maxlength="80"')}<label class="field"><span>Sort</span><select name="sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="title">Title A–Z</option><option value="difficulty">Difficulty</option></select></label><label class="check"><input type="checkbox" name="starred"> Starred only</label><button class="button primary">Apply</button></form><div class="filter-bar" id="filter-bar" hidden></div><div data-message></div><div class="bank-layout"><div class="bank-main"><div class="grid" id="bank-list"></div></div><aside class="selection-panel" id="selection-panel" aria-label="Selected problems" hidden></aside></div>`;
+  installBankSearchShortcut(root);
   const list = root.querySelector("#bank-list"),
     PAGE = 12,
     pager = document.createElement("nav");
@@ -62,6 +65,8 @@ export async function mount(root, session) {
   pager.hidden = true;
   pager.innerHTML =
     '<button class="button secondary" type="button" data-prev>Previous</button><span class="muted small" data-label></span><button class="button secondary" type="button" data-next>Next</button>';
+  // Keep pagination inside the bank column. A third grid child would
+  // occupy the selection column and push the inspector beneath the cards.
   list.after(pager);
   const setPage = (cursor) => {
     nextCursor = cursor;
@@ -88,6 +93,40 @@ export async function mount(root, session) {
   };
   const panel = root.querySelector("#selection-panel"),
     mine = (p) => p.row.ownerId === session.user.uid;
+  // Selection lives beside the bank on wide screens and directly ABOVE it
+  // on narrower screens. Do not portal it to the body or cover content
+  // with a bottom dock: authors must always see the selected controls.
+  const panelHome = panel.parentElement;
+  const compactLayout = matchMedia("(max-width: 899px)");
+  const placePanel = () => {
+    if (compactLayout.matches) {
+      if (panelHome.firstElementChild !== panel) panelHome.prepend(panel);
+    } else if (panelHome.lastElementChild !== panel) {
+      panelHome.append(panel);
+    }
+  };
+  compactLayout.addEventListener?.("change", placePanel);
+  placePanel();
+  onLeave(() => compactLayout.removeEventListener?.("change", placePanel));
+  // Preserve the selection state when its contents are collapsed/reordered.
+  let collapsed = compactLayout.matches;
+  // A resized desktop window or rotated tablet must not strand the inspector
+  // in its previous position or leave the phone dock expanded by accident.
+  const compactSelection = compactLayout;
+  const syncSelectionViewport = () => {
+    collapsed = compactSelection.matches;
+    const details = panel.querySelector("#selection-details");
+    const toggle = panel.querySelector("#toggle-selection");
+    if (!details || !toggle) return;
+    panel.dataset.collapsed = String(collapsed);
+    details.hidden = collapsed;
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label",
+      collapsed ? "Expand selected problems" : "Collapse selected problems");
+    toggle.textContent = collapsed ? "▴" : "▾";
+  };
+  compactSelection.addEventListener?.("change", syncSelectionViewport);
+  onLeave(() => compactSelection.removeEventListener?.("change", syncSelectionViewport));
   const total = () =>
     [...selected.values()].reduce((sum, p) => sum + (Number(p.points) || 0), 0);
   function updateTotal() {
@@ -176,15 +215,26 @@ export async function mount(root, session) {
     const values = [...selected.values()];
     panel.hidden = values.length === 0;
     if (!values.length) return (panel.innerHTML = "");
-    panel.innerHTML = `<div class="sel-head"><h2>${values.length} selected</h2><strong id="sel-total"></strong></div><ol class="sel-list">${values
+    panel.dataset.collapsed = String(collapsed);
+    panel.innerHTML = `<div class="sel-head"><h2>${values.length} selected</h2><strong id="sel-total"></strong><button type="button" class="icon-button" id="toggle-selection" aria-controls="selection-details" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Expand selected problems" : "Collapse selected problems"}">${collapsed ? "▴" : "▾"}</button></div><div id="selection-details" ${collapsed ? "hidden" : ""}><ol class="sel-list">${values
       .map(
         (p, i) =>
           `<li class="sel-row" data-row="${e(p.id)}"><span class="sel-num">${i + 1}</span><span class="sel-title" title="${e(p.title)}">${e(p.title)}</span><label class="sel-points"><span class="sr-only">Points for ${e(p.title)}</span><input type="number" min="0.00000001" max="1000" step="any" value="${e(p.points)}" data-points="${e(p.id)}"></label><span class="sel-ctl"><button type="button" class="icon-button" data-move="up" data-id="${e(p.id)}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-move="down" data-id="${e(p.id)}" aria-label="Move down" ${i === values.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-button" data-remove="${e(p.id)}" aria-label="Remove ${e(p.title)}">${icon("close")}</button></span></li>`,
       )
       .join(
         "",
-      )}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button>`;
+      )}</ol><div class="dock-split"><section class="dock-card" aria-label="Build a quiz"><h3>Build a quiz</h3><p class="muted small">${values.length} problem${values.length === 1 ? "" : "s"} in this order</p><button class="button primary" id="build-quiz">${addTo ? "Add to quiz" : "Create quiz"}</button></section><section class="dock-card" aria-label="Visibility"><h3>Visibility</h3><p class="muted small">${values.filter(mine).length} of your selected</p><div class="dock-row"><select id="bulk-vis" aria-label="Visible to"><option value="private">Only me</option><option value="teachers">All teachers</option></select><button class="button primary" id="bulk-visibility">Apply</button></div></section><section class="dock-card" aria-label="Edit details"><h3>Edit details</h3><p class="muted small">Subject, difficulty, tags</p><button class="button secondary" id="bulk-edit-open">Edit ${values.filter(mine).length} of yours</button></section></div><button class="button ghost small" id="clear-selection">Clear selection</button></div>`;
     updateTotal();
+    panel.querySelector("#toggle-selection").onclick = () => {
+      collapsed = !collapsed;
+      panel.dataset.collapsed = String(collapsed);
+      panel.querySelector("#selection-details").hidden = collapsed;
+      const toggle = panel.querySelector("#toggle-selection");
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      toggle.setAttribute("aria-label",
+        collapsed ? "Expand selected problems" : "Collapse selected problems");
+      toggle.textContent = collapsed ? "▴" : "▾";
+    };
     panel.querySelectorAll("[data-points]").forEach((n) =>
       n.addEventListener("input", () => {
         const p = selected.get(n.dataset.points);
@@ -268,6 +318,7 @@ export async function mount(root, session) {
           "data-star",
         ) +
         `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
+        btn("ai", "bulb", "Ask AI about this problem", "data-ask-ai") +
         btn("download", "download", "Download .tex", "data-download") +
         btn("solve", "bulb", "Answer and solution", "data-solve") +
         `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>`;
@@ -428,6 +479,21 @@ export async function mount(root, session) {
         },
         root,
       );
+    else if (t.hasAttribute("data-ask-ai"))
+      busy(t, async () => {
+        // Bank access is already teacher/admin-only. Do not send grading keys
+        // or solutions automatically; context is the problem statement/choices.
+        const detail = await fetchDetail(row);
+        const content = detail.content || {};
+        const context = [
+          "Problem: " + row.title,
+          "Statement: " + (content.statementLatex || ""),
+          content.type === "choice" ?
+            "Choices:\\n" + (content.options || []).map((o, i) =>
+              String.fromCharCode(65 + i) + ": " + o.textLatex).join("\\n") : "",
+        ].filter(Boolean).join("\\n");
+        openAskAIPopup({ title: "Ask AI · " + row.title, context });
+      }, root);
     else if (t.hasAttribute("data-solve")) {
       const open = card.classList.toggle("is-expanded");
       t.classList.toggle("is-active", open);

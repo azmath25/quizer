@@ -1,8 +1,16 @@
+import { installEditorWorkspace } from "../components/workspace-controls.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
+import { bindAccessibleTabs } from "../components/accessibility-tabs.js";
 import { readBackup, backupQuiz, backupRecord } from "../services/backup.js";
 import { readLegacyDeviceQuizzes } from "../migration/legacy-device.js";
 import { drafts, draftBanner } from "../services/drafts.js";
 import { api, waitForJob } from "../services/api.js";
+import { getSession } from "../firebase-client.js";
+import {
+  planImportBatches, missingImportRecords, sourceDigest, fileDigests,
+  readImportRecovery, saveImportRecovery, clearImportRecovery, recoveryMatches,
+} from "../services/import-resume.js";
+import { buildFinalQuizSaveRequest, changedQuizSlots, rememberSavedQuizSlots } from "./quiz-save-diff.js";
 import { uploadAsset
 } from "../services/assets.js";
 import { parseLatex } from "../../shared/latex-parser.js";
@@ -59,7 +67,7 @@ async function importPage(root) {
         : "Import your problems, start with an empty draft, or choose from the bank.",
       linkButton("Problem bank", "problems.html", "secondary", "book"),
     ) +
-    `<div class="tabs" role="tablist" aria-label="Creation method"><button aria-selected="true" role="tab" data-create="import">Import LaTeX / JSON</button><button aria-selected="false" role="tab" data-create="blank">Empty quiz</button></div><div data-message></div><div id="blank-panel" class="panel narrow" hidden><h2>Start a new quiz</h2><form id="blank-form" class="stack">${field("Quiz title", "title", "text", "", 'required maxlength="200"')}<p class="muted small">The quiz starts as a private draft. Add problems, set the time limit and publish when ready.</p><button class="button primary">Create private draft</button></form></div><div id="import-panel"><div class="tabs mobile-editor-tabs" role="tablist" aria-label="Import preview"><button aria-selected="true" data-import-tab="edit" role="tab">Import</button><button aria-selected="false" data-import-tab="preview" role="tab">Preview</button></div><div class="editor-grid" data-tab="edit"><div class="editor-panel"><section class="panel stack"><div class="drop-area">${icon("upload")}<h2>Upload your problem file</h2><p>Select a .tex, .quiz.json or backup .zip file and its images.</p><label class="field"><span class="sr-only">LaTeX, JSON and image files</span><input id="import-files" type="file" multiple accept=".tex,.json,.zip,image/png,image/jpeg,image/webp,image/gif"></label></div><div class="section-head"><h2>Or paste LaTeX</h2><a href="guide.html">Syntax guide ${icon("arrow")}</a></div><label class="field"><span>Source</span><textarea id="latex-source" class="source-input" spellcheck="false" placeholder="\\begin{problem}[points=2]&#10;What is $2+2$?&#10;\\answer{4}&#10;\\end{problem}"></textarea></label><div class="actions"><button class="button secondary" id="preview-source">Preview problems</button><button class="button ghost" id="load-example">Load example</button></div><div class="image-list" id="import-images"></div></section><section class="panel"><h2>Import details</h2>${bankOnly ? `<label class="field"><span>Bank visibility</span><select id="bank-visibility"><option value="private">Private (only me)</option><option value="teachers">Shared with teachers</option></select></label>` : ""}<p class="muted small">Preview first. Importing creates separate problems and image files in your Firebase workspace, plus a private quiz draft.</p><p class="muted small">Written answers without a key are marked by the teacher. LaTeX is parsed as text; external files and TeX commands are never executed.</p></section></div><aside class="panel editor-preview"><div class="section-head"><h2>Problem preview</h2><span class="muted small" id="preview-count"></span></div><div id="import-warnings"></div><div id="import-preview">${empty("Preview your problems", "Choose a file or paste LaTeX, then select Preview problems.")}</div></aside></div><div class="editor-actions"><span class="save-state" id="import-status">Nothing imported yet</span><button class="button primary" id="import-save" disabled>${bankOnly ? "Import to bank" : "Import to Firebase"}</button></div></div>`;
+    `<div class="tabs" role="tablist" aria-label="Creation method"><button id="create-import-tab" type="button" role="tab" aria-controls="import-panel" aria-selected="true" data-create="import">Import LaTeX / JSON</button><button id="create-blank-tab" type="button" role="tab" aria-controls="blank-panel" aria-selected="false" tabindex="-1" data-create="blank">Empty quiz</button></div><div data-message></div><div id="blank-panel" class="panel narrow" role="tabpanel" aria-labelledby="create-blank-tab" hidden><h2>Start a new quiz</h2><form id="blank-form" class="stack">${field("Quiz title", "title", "text", "", 'required maxlength="200"')}<p class="muted small">The quiz starts as a private draft. Add problems, set the time limit and publish when ready.</p><button class="button primary">Create private draft</button></form></div><div id="import-panel" role="tabpanel" aria-labelledby="create-import-tab"><div class="tabs mobile-editor-tabs" role="tablist" aria-label="Import preview"><button type="button" role="tab" id="import-edit-tab" aria-controls="import-edit-panel" aria-selected="true" data-import-tab="edit">Import</button><button type="button" role="tab" id="import-preview-tab" aria-controls="import-preview-panel" aria-selected="false" tabindex="-1" data-import-tab="preview">Preview</button></div><div class="editor-grid" data-tab="edit"><div class="editor-panel" id="import-edit-panel" role="tabpanel" aria-labelledby="import-edit-tab"><section class="panel stack"><div class="drop-area">${icon("upload")}<h2>Upload your problem file</h2><p>Select a .tex, .quiz.json or backup .zip file and its images.</p><label class="field"><span class="sr-only">LaTeX, JSON and image files</span><input id="import-files" type="file" multiple accept=".tex,.json,.zip,image/png,image/jpeg,image/webp,image/gif"></label></div><div class="section-head"><h2>Or paste LaTeX</h2><a href="guide.html">Syntax guide ${icon("arrow")}</a></div><label class="field"><span>Source</span><textarea id="latex-source" class="source-input" spellcheck="false" placeholder="\\begin{problem}[points=2]&#10;What is $2+2$?&#10;\\answer{4}&#10;\\end{problem}"></textarea></label><div class="actions"><button class="button secondary" id="preview-source">Preview problems</button><button class="button ghost" id="load-example">Load example</button></div><div class="image-list" id="import-images"></div></section><section class="panel"><h2>Import details</h2>${bankOnly ? `<label class="field"><span>Bank visibility</span><select id="bank-visibility"><option value="private">Private (only me)</option><option value="teachers">Shared with teachers</option></select></label>` : ""}<p class="muted small">Preview first. Importing creates separate problems and image files in your Firebase workspace, plus a private quiz draft.</p><p class="muted small">Written answers without a key are marked by the teacher. LaTeX is parsed as text; external files and TeX commands are never executed.</p></section></div><aside class="panel editor-preview" id="import-preview-panel" role="tabpanel" aria-labelledby="import-preview-tab"><div class="section-head"><h2>Problem preview</h2><span class="muted small" id="preview-count"></span></div><div id="import-warnings"></div><div id="import-preview">${empty("Preview your problems", "Choose a file or paste LaTeX, then select Preview problems.")}</div></aside></div><div class="editor-actions"><span class="save-state" id="import-status" role="status" aria-live="polite" aria-atomic="true">Nothing imported yet</span><button class="button primary" id="import-save" disabled>${bankOnly ? "Import to bank" : "Import to Firebase"}</button></div></div>`;
   const input = root.querySelector("#latex-source"),
     preview = root.querySelector("#import-preview"),
     status = root.querySelector("#import-status");
@@ -71,26 +79,14 @@ async function importPage(root) {
     const q = await api("createQuiz", { title: values.get("title") });
     go(`upload.html?id=${q.quizId}`);
   });
-  root.querySelectorAll("[data-create]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const blank = b.dataset.create === "blank";
-        root.querySelector("#blank-panel").hidden = !blank;
-        root.querySelector("#import-panel").hidden = blank;
-        root
-          .querySelectorAll("[data-create]")
-          .forEach((n) => n.setAttribute("aria-selected", String(n === b)));
-      }),
-  );
-  root.querySelectorAll("[data-import-tab]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        root.querySelector(".editor-grid").dataset.tab = b.dataset.importTab;
-        root
-          .querySelectorAll("[data-import-tab]")
-          .forEach((n) => n.setAttribute("aria-selected", String(n === b)));
-      }),
-  );
+  bindAccessibleTabs(root,"[data-create]",b=>{
+    const blank=b.dataset.create==="blank";
+    root.querySelector("#blank-panel").hidden=!blank;
+    root.querySelector("#import-panel").hidden=blank;
+  });
+  bindAccessibleTabs(root,"[data-import-tab]",b=>{
+    root.querySelector("#import-panel .editor-grid").dataset.tab=b.dataset.importTab;
+  });
   function clearParsed() {
     parsed = null;
     importState = null;
@@ -285,93 +281,135 @@ async function importPage(root) {
   }
   action(root, "#import-save", async () => {
     if (!parsed) throw new Error("Preview the problems before importing.");
+    const uid = getSession().user?.uid;
+    if (!uid) throw new Error("Sign in again to import problems.");
     const progress = (text) => {
       status.textContent = text;
     };
-    importState ??= { assets: {}, sourceAssetId: null, jobId: null, done: 0 };
+    const fingerprint = await sourceDigest(input.value);
+    const imageDigests = await fileDigests(files);
+    if (!importState) {
+      const recovery = readImportRecovery(sessionStorage, uid, bankOnly);
+      importState = recoveryMatches(recovery,{
+        sourceFingerprint:fingerprint,itemCount:parsed.questions.length,
+        imageDigests,
+      }) ? {
+        assets:{...recovery.assets},sourceAssetId:recovery.sourceAssetId,
+        jobId:recovery.jobId,importNonce:recovery.importNonce,
+        sourceFingerprint:fingerprint,imageDigests,
+        itemCount:parsed.questions.length,
+      } : {
+        assets:{},sourceAssetId:null,jobId:null,
+        importNonce:crypto.randomUUID(),sourceFingerprint:fingerprint,
+        imageDigests,itemCount:parsed.questions.length,
+      };
+    }
+    const persist = () => saveImportRecovery(sessionStorage,uid,bankOnly,importState);
+    if (!persist())
+      progress("Browser recovery storage is blocked — keep this tab open.");
     try {
-      for (const [alias, file] of files) {
+      let importedKeys=[];
+      if (importState.jobId) {
+        // The private server job is the authority, never the locally cached
+        // progress counter. Re-select the exact source/images after reload.
+        const existing = await api("getImportCheckpoint",{jobId:importState.jobId});
+        if (existing.sourceFingerprint!==fingerprint ||
+            existing.itemCount!==parsed.questions.length ||
+            existing.bankOnly!==bankOnly ||
+            (importState.sourceAssetId &&
+              existing.sourceAssetId!==importState.sourceAssetId))
+          throw new Error("Saved import belongs to another source. Start a new import.");
+        if (existing.status==="succeeded") {
+          clearImportRecovery(sessionStorage,uid,bankOnly);
+          progress("Import already completed");
+          go(bankOnly?"problems.html":`upload.html?id=${existing.result.quizId}`);
+          return;
+        }
+        if (existing.status!=="running")
+          throw new Error("This import can no longer be resumed.");
+        importState.sourceAssetId=existing.sourceAssetId;
+        importedKeys=existing.processedKeys;
+        progress(`Resuming import: ${importedKeys.length} of ${parsed.questions.length} saved`);
+      }
+      for (const [alias,file] of files) {
         if (importState.assets[alias]) continue;
-        importState.assets[alias] = await uploadAsset(file, (p) =>
-          progress(`${alias}: ${p.stage} ${p.percent}%`),
-        );
+        importState.assets[alias] = await uploadAsset(file,(p)=>
+          progress(`${alias}: ${p.stage} ${p.percent}%`));
+        persist();
       }
       if (!importState.sourceAssetId) {
-        const source = new File(
-          [input.value],
-          sourceFile?.name ||
-            (input.value.trimStart().startsWith("{")
-              ? "quiz.json"
-              : "quiz.tex"),
-          {
-            type: input.value.trimStart().startsWith("{")
-              ? "application/json"
-              : "text/plain",
-          },
-        );
-        importState.sourceAssetId = await uploadAsset(
-          source,
-          (p) => progress(`Source: ${p.stage}`),
-          "source",
-        );
+        // Preserve the real uploaded .tex bytes if the editor has not changed
+        // them. Edited/JSON source is explicitly uploaded as generated text,
+        // never misrepresented as unchanged original input.
+        const original = sourceFile && /\.tex$/i.test(sourceFile.name) &&
+          (await sourceFile.text())===input.value;
+        const json=input.value.trimStart().startsWith("{");
+        const source=original ? sourceFile : new File(
+          [input.value],json?"quiz.json":"quiz.tex",
+          {type:json?"application/json":"text/plain"});
+        importState.sourceAssetId=await uploadAsset(source,
+          (p)=>progress(`Source: ${p.stage}`),"source");
+        persist();
       }
-      if (!importState.jobId)
-        importState.jobId = (
-          await api("createImportJob", {
-            name: parsed.title,
-            sourceAssetId: importState.sourceAssetId,
-            itemCount: parsed.questions.length,
-            bankOnly,
-          })
-        ).jobId;
-      // One bounded problem at a time makes partial imports recoverable and large math safe.
-      for (let i = importState.done; i < parsed.questions.length; i++) {
-        const q = parsed.questions[i],
-          record = backupManifest
-            ? backupRecord(backupManifest, i, importState.assets)
-            : fromLegacyQuestion(q, importState.assets);
-        record.metadata = {
-          title: `${parsed.title} — ${i + 1}`,
-          subject: parsed.subject,
-          difficulty: parsed.difficulty,
-          tags: [],
-          bankVisibility: bankOnly
-            ? root.querySelector("#bank-visibility").value
-            : "private",
+      if (!importState.jobId) {
+        importState.jobId=(await api("createImportJob",{
+          name:parsed.title,sourceAssetId:importState.sourceAssetId,
+          itemCount:parsed.questions.length,bankOnly,
+          sourceFingerprint:fingerprint,
+        },importState.importNonce)).jobId;
+        persist();
+      }
+      // Construct each normalized record only once. Backend SQL receipts (and
+      // legacy Firestore mappings) are keyed by stable problem_i item keys.
+      const records=parsed.questions.map((q,i)=>{
+        const record=backupManifest
+          ? backupRecord(backupManifest,i,importState.assets)
+          : fromLegacyQuestion(q,importState.assets);
+        record.metadata={
+          title:`${parsed.title} — ${i+1}`,
+          subject:parsed.subject,difficulty:parsed.difficulty,tags:[],
+          bankVisibility:bankOnly
+            ? root.querySelector("#bank-visibility").value : "private",
         };
-        await api("importProblemBatch", {
-          jobId: importState.jobId,
-          records: [
-            {
-              importItemKey: "problem_" + i,
-              originalQuestionId: q.id,
-              ...record,
-              points: q.points,
-            },
-          ],
-        });
-        importState.done = i + 1;
-        progress(`Imported ${i + 1} of ${parsed.questions.length} problems`);
-      }
-      const q = await api("finishImportJob", {
-        jobId: importState.jobId,
-        title: parsed.title,
-        description: parsed.description,
-        settings: {
-          ...DEFAULT_SETTINGS,
-          ...(backupManifest ? backupManifest.revision.settings : {}),
-          durationSeconds: parsed.durationMinutes * 60,
-          shuffleQuestions: parsed.settings.shuffleQuestions,
-          shuffleOptions: parsed.settings.shuffleOptions,
-          allowBack: parsed.settings.allowBack,
-          penalty: parsed.settings.penalty,
-        },
-        order: parsed.questions.map((_, i) => "problem_" + i),
+        return {importItemKey:"problem_"+i,originalQuestionId:q.id,
+          ...record,points:q.points};
       });
+      const remaining=missingImportRecords(records,importedKeys);
+      const batches=remaining.length ? planImportBatches(remaining):[];
+      let done=importedKeys.length;
+      for(const chunk of batches){
+        // Deterministic across lost acknowledgements and page reloads.
+        const requestId="imp_"+(await sourceDigest(JSON.stringify({
+          jobId:importState.jobId,records:chunk,
+        }))).slice(0,32);
+        const result=await api("importProblemBatch",{
+          jobId:importState.jobId,records:chunk,
+        },requestId);
+        done=result.processed;
+        progress(`Imported ${done} of ${parsed.questions.length} problems`);
+      }
+      // Recheck the durable server ledger before publishing a complete draft.
+      const checkpoint=await api("getImportCheckpoint",{jobId:importState.jobId});
+      if(checkpoint.processed!==parsed.questions.length ||
+         missingImportRecords(records,checkpoint.processedKeys).length)
+        throw new Error("Some items were not confirmed by the server. Retry import.");
+      const q=await api("finishImportJob",{
+        jobId:importState.jobId,title:parsed.title,description:parsed.description,
+        settings:{
+          ...DEFAULT_SETTINGS,
+          ...(backupManifest?backupManifest.revision.settings:{}),
+          durationSeconds:parsed.durationMinutes*60,
+          shuffleQuestions:parsed.settings.shuffleQuestions,
+          shuffleOptions:parsed.settings.shuffleOptions,
+          allowBack:parsed.settings.allowBack,penalty:parsed.settings.penalty,
+        },
+        order:parsed.questions.map((_,i)=>"problem_"+i),
+      });
+      clearImportRecovery(sessionStorage,uid,bankOnly);
       progress("Saved to Firebase");
-      go(bankOnly ? "problems.html" : `upload.html?id=${q.quizId}`);
-    } catch (error) {
-      progress("Import paused — retry to continue from the last saved problem");
+      go(bankOnly?"problems.html":`upload.html?id=${q.quizId}`);
+    } catch(error) {
+      progress("Import paused — retry to continue from the last saved problem. Re-select the same files after reloading.");
       throw error;
     }
   });
@@ -394,7 +432,7 @@ async function edit(root, quizId) {
         "secondary",
       ),
     ) +
-    `<div data-message></div><div class="tabs mobile-editor-tabs" role="tablist"><button data-editor-tab="edit" aria-selected="true">Edit</button><button data-editor-tab="preview" aria-selected="false">Preview</button></div><form id="quiz-form"><div class="editor-grid" data-tab="edit"><div class="editor-panel"><section class="panel stack"><h2>Quiz details</h2>${field("Title", "title", "text", draft.title, 'required maxlength="200"')}${textarea("Description", "description", draft.description, 'maxlength="2000" rows="3"')}<div class="form-grid">${field("Subject", "subject", "text", draft.subject, 'maxlength="80"')}${field("Difficulty", "difficulty", "text", draft.difficulty, 'maxlength="40"')}</div></section><section class="panel"><div class="section-head"><h2>Problems</h2><a href="problems.html?quiz=${e(quizId)}">Add from bank ${icon("plus")}</a></div><div id="slots"></div><div class="actions">${linkButton("Create a problem", `problem-edit.html?returnTo=${encodeURIComponent("upload.html?id=" + quizId)}`, "secondary", "plus")}</div></section><section class="panel stack"><h2>Test settings</h2><div class="form-grid">${field("Time limit · minutes (0 = untimed)", "minutes", "number", draft.settings.durationSeconds / 60, 'min="0" max="1440" step="any" required')}${field("Wrong-answer penalty", "penalty", "number", draft.settings.penalty, 'min="0" max="1000" step="any" required')}</div>${checkbox("Shuffle problems", "shuffleQuestions", draft.settings.shuffleQuestions)}${checkbox("Shuffle answer choices", "shuffleOptions", draft.settings.shuffleOptions)}${checkbox("Allow returning to previous problems", "allowBack", draft.settings.allowBack)}<p class="muted small">Time limits are enforced by the server. Students cannot change them.</p></section><section class="panel stack"><h2>Results release</h2><div class="form-grid">${select(
+    `<div data-message></div><div class="tabs mobile-editor-tabs" role="tablist"><button type="button" role="tab" id="quiz-edit-tab" aria-controls="quiz-edit-panel" data-editor-tab="edit" aria-selected="true">Edit</button><button type="button" role="tab" id="quiz-preview-tab" aria-controls="quiz-preview-panel" data-editor-tab="preview" aria-selected="false" tabindex="-1">Preview</button></div><form id="quiz-form"><div class="editor-grid" data-tab="edit"><div class="editor-panel" id="quiz-edit-panel" role="tabpanel" aria-labelledby="quiz-edit-tab"><section class="panel stack"><h2>Quiz details</h2>${field("Title", "title", "text", draft.title, 'required maxlength="200"')}${textarea("Description", "description", draft.description, 'maxlength="2000" rows="3"')}<div class="form-grid">${field("Subject", "subject", "text", draft.subject, 'maxlength="80"')}${field("Difficulty", "difficulty", "text", draft.difficulty, 'maxlength="40"')}</div></section><section class="panel"><div class="section-head"><h2>Problems</h2><a href="problems.html?quiz=${e(quizId)}">Add from bank ${icon("plus")}</a></div><div id="slots"></div><div class="actions">${linkButton("Create a problem", `problem-edit.html?returnTo=${encodeURIComponent("upload.html?id=" + quizId)}`, "secondary", "plus")}</div></section><section class="panel stack"><h2>Test settings</h2><div class="form-grid">${field("Time limit · minutes (0 = untimed)", "minutes", "number", draft.settings.durationSeconds / 60, 'min="0" max="1440" step="any" required')}${field("Wrong-answer penalty", "penalty", "number", draft.settings.penalty, 'min="0" max="1000" step="any" required')}</div>${checkbox("Shuffle problems", "shuffleQuestions", draft.settings.shuffleQuestions)}${checkbox("Shuffle answer choices", "shuffleOptions", draft.settings.shuffleOptions)}${checkbox("Allow returning to previous problems", "allowBack", draft.settings.allowBack)}<p class="muted small">Time limits are enforced by the server. Students cannot change them.</p></section><section class="panel stack"><h2>Results release</h2>${checkbox("Enable pass / fail", "passFailEnabled", draft.settings.passFailEnabled ?? false)}${field("Passing threshold · percent", "passPercentage", "number", draft.settings.passPercentage ?? 50, 'min="0" max="100" step="0.01" required')}<p class="muted small">Optional: passing scores use a red accent; without pass/fail the score remains green. Awards are unchanged.</p><div class="form-grid">${select(
       "Scores",
       "scoreRelease",
       [
@@ -413,10 +451,11 @@ async function edit(root, quizId) {
         ["never", "Never"],
       ],
       draft.settings.solutionRelease,
-    )}</div><p class="muted small">Written answers remain provisional until marked. Set quiz closing time in Manage → Access when using after-close release.</p></section></div><aside class="panel editor-preview"><div class="section-head"><h2>Preview</h2><button type="button" class="button ghost small" id="refresh-preview">Refresh</button></div><div id="editor-preview"></div><button type="button" class="button secondary load-more" id="more-preview" hidden>More problems</button></aside></div><div class="editor-actions"><span class="save-state" id="save-state">Saved draft · version ${draft.version}</span><div class="actions"><button type="submit" class="button secondary" ${quiz.publishingJobId || quiz.lifecycle === "trashed" ? "disabled" : ""}>Save draft</button><button type="button" class="button primary" id="publish" ${quiz.publishingJobId || quiz.lifecycle === "trashed" ? "disabled" : ""}>Save & publish</button></div></div></form>`;
+    )}</div><p class="muted small">Written answers remain provisional until marked. Set quiz closing time in Manage → Access when using after-close release.</p></section></div><aside class="panel editor-preview" id="quiz-preview-panel" role="tabpanel" aria-labelledby="quiz-preview-tab"><div class="section-head"><h2>Preview</h2><button type="button" class="button ghost small" id="refresh-preview">Refresh</button></div><div id="editor-preview"></div><button type="button" class="button secondary load-more" id="more-preview" hidden>More problems</button></aside></div><div class="editor-actions"><span class="save-state" id="save-state" role="status" aria-live="polite" aria-atomic="true">Saved draft · version ${draft.version}</span><div class="actions"><button type="submit" class="button secondary" ${quiz.publishingJobId || quiz.lifecycle === "trashed" ? "disabled" : ""}>Save draft</button><button type="button" class="button primary" id="publish" ${quiz.publishingJobId || quiz.lifecycle === "trashed" ? "disabled" : ""}>Save & publish</button></div></div></form>`;
   const form = root.querySelector("#quiz-form"),
     saveState = root.querySelector("#save-state"),
     preview = root.querySelector("#editor-preview");
+  installEditorWorkspace({ root, form });
   let previewOffset = 0;
   const store = drafts(`quiz.${quizId}`),
     snapshot = () => ({
@@ -615,6 +654,8 @@ async function edit(root, quizId) {
         shuffleQuestions: f.has("shuffleQuestions"),
         shuffleOptions: f.has("shuffleOptions"),
         allowBack: f.has("allowBack"),
+        passFailEnabled: f.has("passFailEnabled"),
+        passPercentage: Number(f.get("passPercentage")),
         scoreRelease: f.get("scoreRelease"),
         solutionRelease: f.get("solutionRelease"),
       },
@@ -626,7 +667,9 @@ async function edit(root, quizId) {
     saveState.textContent = "Saving…";
     try {
       let version = draft.version,
-        currentOrder = [...draft.itemOrder];
+        currentOrder = [...draft.itemOrder],
+        touched = false;
+      const current = values();
       const gone = [...removed];
       for (let i = 0; i < gone.length; i += 20) {
         const batch = gone.slice(i, i + 20);
@@ -641,18 +684,9 @@ async function edit(root, quizId) {
         draft.version = version;
         draft.itemOrder = [...currentOrder];
         batch.forEach((id) => removed.delete(id));
+        touched = true;
       }
-      const changed = slots.filter(
-        (i) =>
-          order.includes(i.itemId) &&
-          (i.itemId.startsWith("new_") ||
-            !data.items.some(
-              (old) =>
-                old.itemId === i.itemId &&
-                old.points === i.points &&
-                old.problemRevisionId === i.problemRevisionId,
-            )),
-      );
+      const changed = changedQuizSlots(slots, data.items, order);
       for (let i = 0; i < changed.length; i += 20) {
         const batch = changed.slice(i, i + 20).map((slot) => ({
           ...(slot.itemId.startsWith("new_")
@@ -675,13 +709,32 @@ async function edit(root, quizId) {
           order = order.map((id) => (id === client ? itemId : id));
         }
         currentOrder = r.itemOrder;
+        // The batch is committed; advance our comparison baseline even if a
+        // later batch or the final draft refresh fails.
+        rememberSavedQuizSlots(data.items, changed.slice(i, i + 20));
+        touched = true;
       }
-      await api("saveQuizDraft", {
-        quizId,
-        expectedDraftVersion: version,
-        patch: values(),
-        itemOrder: order,
+      const finalRequest = buildFinalQuizSaveRequest({
+        quizId, expectedDraftVersion: version, current, draft,
+        order, currentOrder,
       });
+      if (finalRequest) {
+        const r = await api("saveQuizDraft", finalRequest);
+        version = r.draftVersion;
+        draft.version = version;
+        draft.itemOrder = [...r.itemOrder];
+        for (const [key, value] of Object.entries(finalRequest.patch ?? {})) {
+          if (key === "settings") draft.settings = { ...draft.settings, ...value };
+          else draft[key] = value;
+        }
+        touched = true;
+      }
+      if (!touched) {
+        dirty = false;
+        store.clear();
+        saveState.textContent = "Already saved · no changes";
+        return true;
+      }
       data = await api("getQuizDraft", { quizId });
       draft = data.draft;
       quiz = data.quiz;
@@ -761,15 +814,9 @@ async function edit(root, quizId) {
   });
   action(root, "#refresh-preview", () => previewPage());
   action(root, "#more-preview", () => previewPage(false));
-  root.querySelectorAll("[data-editor-tab]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        root.querySelector(".editor-grid").dataset.tab = b.dataset.editorTab;
-        root
-          .querySelectorAll("[data-editor-tab]")
-          .forEach((n) => n.setAttribute("aria-selected", String(n === b)));
-      }),
-  );
+  bindAccessibleTabs(root,"[data-editor-tab]",b=>{
+    root.querySelector("#quiz-form .editor-grid").dataset.tab=b.dataset.editorTab;
+  });
   rows();
   await previewPage();
 }

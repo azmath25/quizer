@@ -1,0 +1,108 @@
+{
+  "actors": {
+    "owner": {
+      "uid": "teacher_alpha",
+      "role": "teacher",
+      "accountStatus": "active",
+      "emailVerified": true
+    },
+    "collaborator": {
+      "uid": "teacher_beta",
+      "role": "teacher",
+      "accountStatus": "active",
+      "emailVerified": true
+    },
+    "student": {
+      "uid": "student_gamma",
+      "role": "student",
+      "accountStatus": "active",
+      "emailVerified": true
+    },
+    "admin": {
+      "uid": "admin_delta",
+      "role": "admin",
+      "accountStatus": "active",
+      "emailVerified": true
+    }
+  },
+  "header": {
+    "problem_id": "prb_synthetic1",
+    "owner_uid": "teacher_alpha",
+    "owner_display_name": "Demo Teacher",
+    "title": "Parity practice",
+    "search_title": "parity practice",
+    "subject": "Number theory",
+    "difficulty": "Olympiad",
+    "bank_visibility": "teachers",
+    "lifecycle": "active",
+    "latest_revision_id": "prv_synthetic2",
+    "revision_number": 2,
+    "version": 3,
+    "updated_at": "2026-11-03T06:00:00.000Z",
+    "tags": [
+      "parity",
+      "arithmetic"
+    ]
+  },
+  "revision": {
+    "revision_id": "prv_synthetic2",
+    "revision_number": 2,
+    "content_json": {
+      "type": "choice",
+      "answerMode": "auto",
+      "statementLatex": "Which integer is odd?",
+      "options": [
+        {
+          "id": "a",
+          "textLatex": "2"
+        },
+        {
+          "id": "b",
+          "textLatex": "3"
+        }
+      ],
+      "defaultPoints": 1,
+      "questionAssetBindings": {
+        "figure.png": "ast_synthetic1"
+      }
+    },
+    "grading_json": {
+      "correctOptionId": "b",
+      "acceptedAnswers": [],
+      "tolerance": 0,
+      "explanationLatex": "$3$ is odd.",
+      "rubricLatex": "",
+      "solutionAssetBindings": {}
+    },
+    "source_json": {
+      "importJobId": "job_synthetic1",
+      "sourceAssetId": "ast_source_tex",
+      "originalQuestionId": "q1"
+    },
+    "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_by_uid": "teacher_alpha",
+    "created_at": "2026-11-01T10:00:00.000Z"
+  },
+  "importReceipt": {
+    "job_id": "job_synthetic1",
+    "import_item_key": "q1",
+    "payload_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "problem_id": "prb_synthetic1",
+    "revision_id": "prv_synthetic2"
+  },
+  "activityEvent": {
+    "event_id": "evt_synthetic1",
+    "actor_uid": "teacher_alpha",
+    "actor_role": "teacher",
+    "action": "problem.metadata_updated",
+    "target_type": "problem",
+    "target_id": "prb_synthetic1",
+    "quiz_id": null,
+    "quiz_owner_uid": null,
+    "changed_fields": [
+      "title"
+    ],
+    "occurred_at": "2026-11-03T06:00:00.000Z",
+    "payload_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  }
+}

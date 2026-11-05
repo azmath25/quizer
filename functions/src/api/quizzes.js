@@ -370,6 +370,21 @@ define(
       "INVALID_FIELDS",
       "Order must contain every remaining slot exactly once.",
     );
+    // No-op saves preserve versions and avoid all item, parent and audit writes.
+    const sameFields = ["title", "description", "subject", "difficulty"].every(
+      (key) => next[key] === draft[key],
+    ) && JSON.stringify(next.settings) === JSON.stringify(draft.settings);
+    const sameOrder =
+      next.itemOrder.length === draft.itemOrder.length &&
+      next.itemOrder.every((value, index) => value === draft.itemOrder[index]);
+    if (!upserts.length && !removes.length && sameFields && sameOrder)
+      return {
+        draftVersion: draft.version,
+        version: quiz.version,
+        itemOrder: draft.itemOrder,
+        itemIdMap: {},
+        unchanged: true,
+      };
     c.set(`${qp}/drafts/current`, next);
     c.set(qp, {
       ...quiz,
@@ -385,7 +400,11 @@ define(
     c.audit("quiz.draft_saved", "quiz", r.quizId, {
       quizId: r.quizId,
       quizOwnerId: quiz.ownerId,
-      changedFields: [...Object.keys(patch), "items"],
+      changedFields: [
+        ...Object.keys(patch),
+        ...(upserts.length || removes.length ? ["items"] : []),
+        ...(sameOrder ? [] : ["order"]),
+      ],
     });
     return {
       draftVersion: next.version,
@@ -673,6 +692,27 @@ define("getJob", "user", ["jobId"], async (c, r) => {
     updatedAt: job.updatedAt,
   };
 });
+// QN11.3: authenticated resume read on the existing callable API, not a
+// new HTTP endpoint. The browser receives no question text or answer keys.
+define("getImportCheckpoint","teacher",["jobId"],async (c,r)=>{
+  const job=await c.get(path("jobs",r.jobId));
+  assert(job.kind==="import" &&
+    (job.requestedBy===c.actor.uid || c.actor.role==="admin"),
+    "RESOURCE_UNAVAILABLE","Import job unavailable.");
+  const keys=job.importedKeys ?? (await c.all(
+    "jobs/"+r.jobId+"/mappings",[],"__name__","asc",500))
+    .map(v=>v.importItemKey);
+  assert(Array.isArray(keys) && new Set(keys).size===keys.length &&
+    keys.length===(job.progress?.processed??0),
+    "FAILED_PRECONDITION","Import checkpoint requires reconciliation.");
+  return {jobId:r.jobId,status:job.status,
+    sourceFingerprint:job.input.sourceFingerprint??null,
+    sourceAssetId:job.input.sourceAssetId??null,
+    itemCount:job.input.itemCount,
+    name:job.input.name,bankOnly:job.input.bankOnly===true,
+    processedKeys:keys,processed:keys.length,
+    result:job.status==="succeeded"?job.result:null};
+});
 define(
   "retryJob",
   "teacher",
@@ -719,7 +759,7 @@ define(
 define(
   "createImportJob",
   "teacher",
-  ["name", "sourceAssetId", "itemCount", "bankOnly"],
+  ["name", "sourceAssetId", "itemCount", "bankOnly", "sourceFingerprint"],
   async (c, r) => {
     const count = number(r.itemCount, "Problem count", 1, 500, true);
     if (r.sourceAssetId) {
@@ -735,6 +775,12 @@ define(
     const jobId = await c.job("import", c.key("cloud-", "import-target"), {
       name: text(r.name, "Import name", 200, true),
       sourceAssetId: r.sourceAssetId ?? null,
+      sourceFingerprint: r.sourceFingerprint == null ? null : (() => {
+        assert(typeof r.sourceFingerprint==="string" &&
+          /^[0-9a-f]{64}$/.test(r.sourceFingerprint),
+          "INVALID_FIELDS","Invalid source fingerprint.");
+        return r.sourceFingerprint;
+      })(),
       itemCount: count,
       bankOnly: r.bankOnly === true,
     });
@@ -742,6 +788,7 @@ define(
     c.set(`jobs/${jobId}`, {
       ...j,
       status: "running",
+      importedKeys: [],
       progress: { processed: 0, total: count, stage: "Importing" },
     });
     return { jobId };
@@ -768,6 +815,17 @@ define(
       "INVALID_FIELDS",
       "Import 1–20 problems at once.",
     );
+    const importKeys=r.records.map(v=>id(v.importItemKey));
+    assert(new Set(importKeys).size===importKeys.length,
+      "INVALID_FIELDS","Duplicate item keys in an import batch.");
+    const priorKeys=job.importedKeys ?? (await c.all(
+      "jobs/"+r.jobId+"/mappings",[],"__name__","asc",500))
+      .map(v=>v.importItemKey);
+    assert(Array.isArray(priorKeys) &&
+      new Set(priorKeys).size===priorKeys.length &&
+      priorKeys.length===(job.progress?.processed??0),
+      "FAILED_PRECONDITION","Import ledger requires reconciliation.");
+    const accepted=new Set(priorKeys);
     const mappings = [];
     let added = 0;
     for (const record of r.records) {
@@ -789,9 +847,13 @@ define(
           "VERSION_CONFLICT",
           "An imported problem changed. Start a new import.",
         );
+        assert(accepted.has(key),
+          "FAILED_PRECONDITION","Existing mapping missing from job ledger.");
         mappings.push(old);
         continue;
       }
+      assert(!accepted.has(key),"FAILED_PRECONDITION",
+        "Import ledger references a missing mapping.");
       const result = await createProblemRecord(
         c,
         {
@@ -823,19 +885,21 @@ define(
           reuseFromQuizRevisionId: null,
         });
       mappings.push(mapping);
+      accepted.add(key);
       added++;
     }
     assert(
-      job.progress.processed + added <= job.input.itemCount,
+      accepted.size <= job.input.itemCount,
       "INVALID_FIELDS",
       "Too many imported problems.",
     );
     c.set(`jobs/${r.jobId}`, {
       ...job,
-      progress: { ...job.progress, processed: job.progress.processed + added },
+      importedKeys:[...accepted].sort(),
+      progress: { ...job.progress, processed: accepted.size },
       updatedAt: c.now,
     });
-    return { mappings, processed: job.progress.processed + added };
+    return { mappings, processed: accepted.size };
   },
   { mutation: true },
 );

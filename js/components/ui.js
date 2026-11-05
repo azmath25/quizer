@@ -1,4 +1,5 @@
 import { scrollBehavior } from "../core/device.js";
+import {parseDateTime} from "../core/date-time.js";
 import { escapeHTML as e } from "../common.js";
 import { errorMessage } from "../firebase-client.js";
 export { e };
@@ -17,6 +18,8 @@ const paths = {
   check: "m5 12 4 4L19 6",
   search: "M16 16l6 6 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
   sun: "M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2 M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0",
+  moon: "M20 15A8 8 0 0 1 9 4a8 8 0 1 0 11 11Z",
+  monitor: "M4 4h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M8 22h8 M12 19v3",
   flag: "M5 22V3h14l-3 5 3 5H5",
   star: "m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z",
   copy: "M9 9h11v11H9z M5 15V4h11",
@@ -48,13 +51,15 @@ export const loading = (message = "Loading…") =>
   `<div class="loading" role="status" aria-label="${e(message)}"><div class="skeleton"><i></i><i></i><i></i></div></div>`;
 export const notice = (text, tone = "info") =>
   `<div class="notice ${tone}" role="${tone === "error" ? "alert" : "status"}">${e(text)}</div>`;
-export const date = (value) =>
-  value
+export const date = (value) => {
+  const parsed=parseDateTime(value);
+  return parsed
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: "medium",
         timeStyle: "short",
-      }).format(new Date(value))
+      }).format(parsed)
     : "—";
+};
 export const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const duration = (seconds) =>
   !seconds

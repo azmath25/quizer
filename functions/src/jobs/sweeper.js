@@ -1,7 +1,7 @@
 import { transact, Timestamp, millis } from "../domain/runtime.js";
 import { freeze } from "../api/attempts.js";
 import { runJob } from "./worker.js";
-export async function sweep(db) {
+export async function sweep(db, {runJobImpl=runJob}={}) {
   if ((await db.doc("system/maintenance").get()).data()?.enabled) return;
   const now = Timestamp.now();
   const expired = await db
@@ -70,5 +70,5 @@ export async function sweep(db) {
     ),
   ];
   for (let i = 0; i < ids.length; i += 3)
-    await Promise.all(ids.slice(i, i + 3).map((id) => runJob(db, id)));
+    await Promise.all(ids.slice(i, i + 3).map((id) => runJobImpl(db, id)));
 }

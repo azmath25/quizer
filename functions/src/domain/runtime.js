@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { activityOutboxEnabled, makeActivityOutboxDocument } from "../neon/activity-outbox.js";
 import { Timestamp, FieldPath } from "firebase-admin/firestore";
 import {
   assert,
@@ -306,7 +307,7 @@ export class Context {
   audit(action, targetType, targetId, extra = {}) {
     fields(extra, ["quizId", "quizOwnerId", "affectedUserId", "changedFields"]);
     const eventId = this.key("evt_", `${action}:${targetId}`);
-    this.set(`auditEvents/${eventId}`, {
+    const event = {
       actorId: this.actor?.uid ?? "system",
       actorRoleAtTime: this.actor?.role ?? "system",
       action,
@@ -318,7 +319,14 @@ export class Context {
       changedFields: extra.changedFields ?? [],
       requestId: this.requestId,
       occurredAt: this.now,
-    });
+    };
+    this.set(`auditEvents/${eventId}`, event);
+    // Same Firestore transaction as the business mutation and the audit.
+    // No historical scan/backfill. Disabled by default; Neon is never
+    // accessed on an ordinary student or teacher request.
+    if (activityOutboxEnabled())
+      this.set(`activityOutbox/${eventId}`,
+        makeActivityOutboxDocument(eventId, event, this.now));
   }
   notify(uid, type, title, quizId, targetId) {
     const notificationId = this.key("ntf_", `${uid}:${type}:${targetId}`);
@@ -430,7 +438,11 @@ export async function dispatch(
       return prior.result;
     }
     const result = await def.fn(c, request);
-    if (receipt)
+    // Genuine no-op quiz/problem saves have no state change to deduplicate.
+    // Keep idempotency receipts for all other mutations and changed saves.
+    const readonlySave = ["saveQuizDraft", "saveProblemRevision"].includes(request.action)
+      && result?.unchanged === true;
+    if (receipt && !readonlySave)
       c.set(receipt, {
         action: request.action,
         inputHash,

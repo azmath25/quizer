@@ -17,6 +17,11 @@ service firebase.storage {
         && request.resource.contentType in ['image/png','image/jpeg','image/webp','image/gif','text/plain','application/json','application/x-tex'];
     }
     match /staging/{uid}/{assetId}/original { allow create: if request.auth != null && resource == null && permitted(uid, assetId); allow read, update, delete: if false; }
+    // QN10.1: Admin SDK only. Never permit client download URLs, list, upload,
+    // replacement, or deletion of full bundles containing protected keys.
+    match /published-bundles/v1/{quizId}/{revisionId}/{objectName} {
+      allow read, write: if false;
+    }
     match /{allPaths=**} { allow read, write: if false; }
   }
 }

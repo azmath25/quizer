@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quizer rules preflight QA — synthetic, no Firebase</title>
+<link rel="stylesheet" href="../../assets/css/tokens.css">
+<link rel="stylesheet" href="../../assets/css/base.css">
+<link rel="stylesheet" href="../../assets/css/components.css">
+<link rel="stylesheet" href="../../assets/css/pages/quiz.css">
+</head>
+<body>
+<main id="root">
+  <div class="quiz-overview"><section class="panel">
+    <h1>Synthetic quiz overview</h1>
+    <button class="button primary" id="start">Start quiz</button>
+  </section></div>
+</main>
+<script type="module">
+import {showQuizRules} from "../../js/pages/quiz-rules.js";
+const q={
+  quizId:"synthetic_public",title:"Algebra practice",
+  questionCount:1,totalPoints:2,durationSeconds:300,
+  maxAttempts:2,extraAttempts:0,attemptCount:0,
+};
+const state={begins:0,started:0,lastAttempt:null,fail:false};
+window.__rulesQA=state;
+function open(){
+  showQuizRules(document.getElementById("root"),q,{
+    begin:async()=>{
+      state.begins++;
+      if(state.fail)throw new Error("Simulated start refusal");
+      // Allow a second click to be rejected while the first is pending.
+      await new Promise(resolve=>setTimeout(resolve,80));
+      return {attemptId:"att_synthetic",firstQuestion:{
+        itemId:"itm_one",statementLatex:"x+1=2"}};
+    },
+    started:async attempt=>{
+      state.started++;
+      state.lastAttempt=attempt;
+      document.getElementById("root").innerHTML=
+        '<div id="synthetic-runner">First question loaded</div>';
+    },
+  });
+}
+document.getElementById("start").addEventListener("click",open);
+</script>
+</body>
+</html>

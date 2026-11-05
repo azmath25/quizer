@@ -63,6 +63,8 @@ export function attemptDTO(c, a, attemptId) {
       durationSeconds: a.settingsSnapshot.durationSeconds,
       allowBack: a.settingsSnapshot.allowBack,
       penalty: a.settingsSnapshot.penalty,
+      passFailEnabled: a.settingsSnapshot.passFailEnabled === true,
+      passPercentage: a.settingsSnapshot.passPercentage ?? 50,
     },
     answeredCount: a.answeredCount,
     answeredItemIds: a.answeredItemIds ?? [],
@@ -274,7 +276,14 @@ define(
       quizOwnerId: quiz.ownerId,
       affectedUserId: c.actor.uid,
     });
-    return attemptDTO(c, a, attemptId);
+    // The start transaction already has every published item in memory.
+    // Return only the first student-visible row, never grading or solutions.
+    // This removes the second question-fetch round trip for a new attempt.
+    const firstQuestion = {
+      ...studentItem(itemDocs.get(order[0])),
+      answer: { value: "", revision: 0, updatedAt: null },
+    };
+    return { ...attemptDTO(c, a, attemptId), firstQuestion };
   },
   { mutation: true },
 );

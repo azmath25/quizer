@@ -82,3 +82,50 @@
     height: 28px;
   }
 }
+
+/* Dense teacher workspaces use the desktop canvas without scattered
+   edge-aligned controls or an off-screen management side rail. */
+@media (min-width: 1001px) {
+  body[data-page="quiz-manage"] #manage-panel .workspace-grid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(290px, .85fr);
+    align-items: start;
+  }
+  body[data-page="quiz-manage"] #manage-panel .workspace-grid > aside {
+    position: sticky;
+    top: 146px;
+    align-self: start;
+    max-height: calc(100dvh - 160px);
+    overflow: auto;
+  }
+  body[data-page="teaching"] #teaching-list.grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 761px) {
+  body:is([data-page="teaching"],[data-page="quiz-manage"]) .toolbar {
+    align-items: end;
+    gap: 12px;
+  }
+  body:is([data-page="teaching"],[data-page="quiz-manage"]) .toolbar .field {
+    max-width: 340px;
+  }
+}
+@media (max-width: 760px) {
+  body[data-page="quiz-manage"] .management-actions .actions {
+    align-items: stretch;
+  }
+  body[data-page="quiz-manage"] .management-actions .actions .button {
+    min-height: 44px;
+  }
+  body[data-page="teaching"] .page-heading .actions,
+  body[data-page="quiz-manage"] .page-heading .actions {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  body[data-page="quiz-manage"] #manage-panel .section-head {
+    flex-wrap: wrap;
+  }
+  body[data-page="quiz-manage"] #manage-panel .section-head .actions {
+    flex-wrap: wrap;
+  }
+}

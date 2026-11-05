@@ -9,6 +9,44 @@ function sync(force) {
 }
 sync();
 coarse.addEventListener?.("change", () => sync());
-// Hybrid devices: follow whichever input was used last.
-addEventListener("touchstart", () => sync("touch"), { passive: true });
-addEventListener("mousemove", (event) => event.movementX | event.movementY && sync("mouse"), { passive: true });
+// Hybrid devices: follow the last genuine input, not the synthetic mouse
+// events generated after a finger tap (which previously flipped touch to mouse).
+let lastTouchAt = -Infinity;
+function markTouch() {
+  lastTouchAt = performance.now();
+  sync("touch");
+}
+addEventListener("touchstart", markTouch, { passive: true });
+addEventListener("pointerdown", (event) => {
+  if (event.pointerType === "touch") markTouch();
+  else if (event.pointerType === "mouse" &&
+    performance.now() - lastTouchAt > 1200) sync("mouse");
+}, { passive: true });
+addEventListener("mousemove", (event) => {
+  if (event.sourceCapabilities?.firesTouchEvents ||
+    performance.now() - lastTouchAt <= 1200) return;
+  if (event.movementX || event.movementY) sync("mouse");
+}, { passive: true });
+
+// Shared author-page clearance: fixed mobile nav moves with safe areas,
+// viewport resize and larger text. No assumptions about its pixel height.
+const mobileNav = document.querySelector("#mobile-nav");
+function updateMobileClearance() {
+  if (!mobileNav) return;
+  const rect = mobileNav.getBoundingClientRect();
+  if (rect.height < 1) {
+    root.style.removeProperty("--mobile-nav-clearance");
+  } else {
+    root.style.setProperty(
+      "--mobile-nav-clearance",
+      `${Math.ceil(Math.max(0, window.innerHeight - rect.top) + 8)}px`,
+    );
+  }
+}
+if (mobileNav) {
+  if (typeof ResizeObserver === "function")
+    new ResizeObserver(updateMobileClearance).observe(mobileNav);
+  addEventListener("resize", updateMobileClearance, { passive: true });
+  window.visualViewport?.addEventListener("resize", updateMobileClearance, { passive: true });
+  updateMobileClearance();
+}

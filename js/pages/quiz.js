@@ -1,13 +1,17 @@
+import { mountMathAnswerEditor } from "../components/math-answer-editor.js";
 import { scrollBehavior } from "../core/device.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
+import {prefetchQuestionBatches,saveBeforeNavigate}
+  from "../services/runner-scheduling.js";
 import {
   loadStars,
   isStarred,
   toggleStar,
   itemRef,
 } from "../services/stars.js";
-import { loadImages } from "../services/assets.js";
+import { resolveImages } from "../services/assets.js";
+import { resolveAsset } from "../core.js";
 import {
   saveRecovery,
   loadRecovery,
@@ -34,10 +38,12 @@ import {
 } from "../components/ui.js";
 import { latexHTML, typeset, clearMath } from "../components/math-content.js";
 import { loginURL } from "../core/navigation.js";
+import { showQuizRules } from "./quiz-rules.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     attemptId = params.get("attempt"),
-    quizId = params.get("id");
+    quizId = params.get("id"),
+    retrySource = params.get("retry");
   if (attemptId) {
     if (!session.user) {
       go(loginURL(), { replace: true });
@@ -69,17 +75,18 @@ export async function mount(root, session) {
     ROLE_REQUIRED: "Teacher approval required",
     RESOURCE_UNAVAILABLE: "This quiz is not available for new attempts",
   };
-  root.innerHTML = `<div class="quiz-overview"><div class="page-heading">${linkButton("All quizzes", "quizzes.html", "ghost")}</div><section class="panel flush"><div class="overview-header">${badge(q.subject || "Mathematics", "blue")} ${badge(q.accessMode === "approval" ? "Teacher approval" : "Open access")}<h1>${e(q.title)}</h1><p>${e(q.description)}</p><p>By ${e(q.ownerDisplayName || "Teacher")}</p></div><div class="overview-body"><div class="quiz-facts"><div><strong>${q.questionCount ?? "—"}</strong><span>Problems</span></div><div><strong>${q.totalPoints === null ? "—" : points(q.totalPoints)}</strong><span>Points</span></div><div><strong>${duration(q.durationSeconds)}</strong><span>Time limit</span></div></div>${q.opensAt || q.closesAt ? `<p class="muted small">${q.opensAt ? "Opens " + date(q.opensAt) : ""}${q.closesAt ? " · Closes " + date(q.closesAt) : ""}</p>` : ""}<p class="muted small">${q.maxAttempts === null ? "Unlimited attempts" : `${q.maxAttempts + q.extraAttempts} attempts allowed · ${q.attemptCount} used`}</p>${q.reason ? notice(labels[q.reason] || "You cannot start this quiz right now.", q.reason === "ACCESS_PENDING" ? "info" : "warning") : ""}<div data-message></div><div class="actions">${q.activeAttemptId ? linkButton("Resume attempt", `quiz.html?attempt=${q.activeAttemptId}`, "primary", "arrow") : !session.user ? linkButton("Sign in", loginURL(), "primary") : q.canStart ? '<button class="button primary" id="start">Start quiz</button>' : q.canRequest ? '<button class="button primary" id="request-access">Request access</button>' : q.reason === "EMAIL_UNVERIFIED" ? linkButton("Open profile", "profile.html", "primary") : ""}${session.user ? linkButton("My attempts", "activity.html", "secondary") : ""}${q.canManage ? linkButton("Manage quiz", `quiz-manage.html?id=${quizId}`, "secondary") : ""}</div><hr><p class="muted small">Your answers are saved during the quiz. The quiz’s teacher can see saved responses, results and the times responses were changed. Written responses require teacher marking.</p></div></section></div>`;
-  action(root, "#start", async () => {
-    const confirm = await dialog({
-      title: "Start this quiz?",
-      body: `<p>${q.questionCount} problems · ${duration(q.durationSeconds)}. ${q.durationSeconds ? "The timer begins immediately and continues if you leave the page." : ""}</p><p class="muted small">The teacher can see your saved responses and change times.</p>`,
-      confirm: "Start quiz",
+  root.innerHTML = `<div class="quiz-overview"><div class="page-heading">${linkButton("All quizzes", "quizzes.html", "ghost")}</div><section class="panel flush"><div class="overview-header">${badge(q.subject || "Mathematics", "blue")} ${badge(q.accessMode === "approval" ? "Teacher approval" : "Open access")}<h1>${e(q.title)}</h1><p>${e(q.description)}</p><p>By ${e(q.ownerDisplayName || "Teacher")}</p></div><div class="overview-body"><div class="quiz-facts"><div><strong>${q.questionCount ?? "—"}</strong><span>Problems</span></div><div><strong>${q.totalPoints === null ? "—" : points(q.totalPoints)}</strong><span>Points</span></div><div><strong>${duration(q.durationSeconds)}</strong><span>Time limit</span></div></div>${q.opensAt || q.closesAt ? `<p class="muted small">${q.opensAt ? "Opens " + date(q.opensAt) : ""}${q.closesAt ? " · Closes " + date(q.closesAt) : ""}</p>` : ""}<p class="muted small">${q.maxAttempts === null ? "Unlimited attempts" : `${q.maxAttempts + q.extraAttempts} attempts allowed · ${q.attemptCount} used`}</p>${q.reason ? notice(labels[q.reason] || "You cannot start this quiz right now.", q.reason === "ACCESS_PENDING" ? "info" : "warning") : ""}<div data-message></div><div class="actions">${q.activeAttemptId ? linkButton("Resume attempt", `quiz.html?attempt=${q.activeAttemptId}`, "primary", "arrow") : !session.user ? linkButton("Sign in", loginURL(), "primary") : q.canStart || retrySource ? `<button class="button primary" id="start">${retrySource ? "Review retry rules" : "Start quiz"}</button>` : q.canRequest ? '<button class="button primary" id="request-access">Request access</button>' : q.reason === "EMAIL_UNVERIFIED" ? linkButton("Open profile", "profile.html", "primary") : ""}${session.user ? linkButton("My attempts", "activity.html", "secondary") : ""}${q.canManage ? linkButton("Manage quiz", `quiz-manage.html?id=${quizId}`, "secondary") : ""}</div><hr><p class="muted small">Your answers are saved during the quiz. The quiz’s teacher can see saved responses, results and the times responses were changed. Written responses require teacher marking.</p></div></section></div>`;
+  action(root, "#start", () => {
+    showQuizRules(root, retrySource ? {...q, retrySourceAttemptId: retrySource} : q, {
+      begin: () => api("startAttempt", {
+        quizId,
+        ...(retrySource ? { sourceAttemptId: retrySource } : {}),
+      }),
+      started: async (attempt) => {
+        history.replaceState(null, "", `quiz.html?attempt=${encodeURIComponent(attempt.attemptId)}`);
+        await runner(root, attempt, session);
+      },
     });
-    if (!confirm) return;
-    const attempt = await api("startAttempt", { quizId });
-    history.replaceState(null, "", `quiz.html?attempt=${attempt.attemptId}`);
-    await runner(root, attempt, session);
   });
   action(root, "#request-access", async () => {
     const values = await dialog({
@@ -118,13 +125,36 @@ async function runner(root, initial, session) {
   let serverBase = Date.parse(a._serverTime),
     basePerf = performance.now(),
     lastWarning = 0;
-  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><span class="save-indicator" id="save-status" role="status">Restoring answers…</span><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div><div class="actions" id="save-actions" hidden><button class="button secondary" id="retry-save">Retry saving</button><button class="button secondary" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
+  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div></div><div class="runner-mobile-bar" aria-label="Quiz time and position"><span id="mobile-question-position" class="runner-mobile-position">Problem 1 of ${a.order.length}</span><div class="timer" id="timer-mobile" role="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><div class="runner-save-feedback"><span class="save-indicator" id="save-status" role="status" aria-live="polite">Restoring answers…</span><div class="actions" id="save-actions" hidden><button class="button secondary small" id="retry-save">Retry saving</button><button class="button secondary small" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div></div><aside class="panel runner-sidebar"><div class="runner-sidebar-timer"><span class="muted small">Time remaining</span><div class="timer" id="timer" role="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="runner-sidebar-content"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></div></aside></div>`;
   const question = root.querySelector("#question-panel"),
     saveStatus = root.querySelector("#save-status");
+  // The fixed bottom navigation varies in height with safe-area, zoom and
+  // device text size. Measure its actual top edge instead of assuming 72px.
+  const mobileNav = document.querySelector("#mobile-nav");
+  const syncMobileClearance = () => {
+    if (!mobileNav) return;
+    const rect = mobileNav.getBoundingClientRect();
+    if (rect.height < 1) {
+      root.style.removeProperty("--runner-mobile-nav-clearance");
+      return;
+    }
+    root.style.setProperty(
+      "--runner-mobile-nav-clearance",
+      `${Math.ceil(Math.max(0, window.innerHeight - rect.top) + 8)}px`,
+    );
+  };
+  const mobileNavObserver = typeof ResizeObserver === "function" && mobileNav
+    ? new ResizeObserver(syncMobileClearance) : null;
+  mobileNavObserver?.observe(mobileNav);
+  window.addEventListener("resize", syncMobileClearance);
+  window.visualViewport?.addEventListener("resize", syncMobileClearance);
+  syncMobileClearance();
   function saveLabel(text, failed = false) {
-    saveStatus.textContent = text;
+    if (saveStatus.textContent !== text) saveStatus.textContent = text;
     saveStatus.classList.toggle("danger-text", failed);
     root.querySelector("#save-actions").hidden = !failed;
+    root.querySelector("#retry-save").hidden = !failed || conflict;
+    root.querySelector("#resolve-conflict").hidden = !failed || !conflict;
   }
   function clock() {
     serverBase = Date.parse(a._serverTime);
@@ -141,16 +171,24 @@ async function runner(root, initial, session) {
   function grid() {
     root.querySelector("#answered-count").textContent =
       `${a.answeredCount} of ${a.order.length} saved answers`;
-    root.querySelector("#question-grid").innerHTML = a.order
+    const position = root.querySelector("#mobile-question-position");
+    if (position) position.textContent = `Problem ${index + 1} of ${a.order.length}`;
+    const gridNode = root.querySelector("#question-grid");
+    // Rebuilding this grid must not discard keyboard/switch focus.
+    const focused = gridNode.contains(document.activeElement)
+      ? Number(document.activeElement.dataset.index) : null;
+    gridNode.innerHTML = a.order
       .map(
         (itemId, i) =>
-          `<button type="button" data-index="${i}" class="${i === index ? "current " : ""}${answers.get(itemId)?.value?.trim() || a.answeredItemIds?.includes(itemId) ? "answered " : ""}${flagged.has(itemId) ? "flagged" : ""}" aria-label="Problem ${i + 1}${flagged.has(itemId) ? ", flagged" : ""}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${i + 1}</button>`,
+          `<button type="button" data-index="${i}" class="${i === index ? "current " : ""}${answers.get(itemId)?.value?.trim() || a.answeredItemIds?.includes(itemId) ? "answered " : ""}${flagged.has(itemId) ? "flagged" : ""}" ${i === index ? 'aria-current="step"' : ""} aria-label="Problem ${i + 1}${flagged.has(itemId) ? ", flagged" : ""}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${i + 1}</button>`,
       )
       .join("");
+    if(focused !== null && Number.isInteger(focused))
+      gridNode.querySelectorAll("button")[focused]?.focus({preventScroll:true});
     const flagList = root.querySelector("#flag-list");
     flagList.hidden = !flagged.size;
     flagList.innerHTML = flagged.size
-      ? `<strong>Flagged</strong>${a.order.map((id, i) => (flagged.has(id) ? `<button type="button" class="button ghost small" data-index="${i}">${icon("flag")}Problem ${i + 1}</button>` : "")).join("")}`
+      ? `<strong>Flagged</strong>${a.order.map((id, i) => (flagged.has(id) ? `<button type="button" class="button ghost small" data-index="${i}" ${!a.settings.allowBack && i !== a.currentFrontier ? "disabled" : ""}>${icon("flag")}Problem ${i + 1}</button>` : "")).join("")}`
       : "";
     root
       .querySelectorAll("[data-index]")
@@ -176,6 +214,11 @@ async function runner(root, initial, session) {
     itemCache.set(item.itemId, Promise.resolve(item));
     ready.add(item.itemId);
   }
+  // The newly committed start response may include its first student-safe
+  // question. Reuse it instead of making a second authorized Storage read.
+  // Older backend revisions simply fall back to getAttemptQuestions.
+  if (a.firstQuestion?.itemId === a.order[index])
+    seedItem(a.firstQuestion);
   function fetchItem(itemId) {
     if (!itemCache.has(itemId))
       itemCache.set(
@@ -193,8 +236,50 @@ async function runner(root, initial, session) {
       );
     return itemCache.get(itemId);
   }
-  const imagesReady = new Set();
   const ctx = { kind: "attempt", id: attemptId };
+  const pendingImageURL = "data:image/svg+xml," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160"><rect width="600" height="160" rx="12" fill="#e6eff5"/><text x="300" y="85" font-family="sans-serif" text-anchor="middle" font-size="22" fill="#33516a">Loading diagram…</text></svg>'
+  );
+  // Signed links are fetched only as needed. Browser image loading must never
+  // delay the question statement, timer, or ability to save an answer.
+  function fillQuestionImages(bindings, version) {
+    if (!Object.keys(bindings).length) return;
+    const apply = async () => {
+      const urls = await resolveImages(bindings, ctx);
+      if (stopped || version !== viewSequence || getSession().epoch !== epoch)
+        return;
+      const imgs = question.querySelectorAll("img[data-quiz-image-pending]");
+      for (const img of imgs) {
+        const url = resolveAsset(urls, img.alt);
+        if (url) {
+          img.src = url;
+          img.removeAttribute("data-quiz-image-pending");
+        } else {
+          img.alt = "Diagram unavailable.";
+        }
+      }
+    };
+    apply().catch((error) => {
+      if (stopped || version !== viewSequence) return;
+      for (const img of question.querySelectorAll("img[data-quiz-image-pending]"))
+        img.alt = "Diagram could not be loaded.";
+      if (!question.querySelector("#retry-diagrams")) {
+        const button = document.createElement("button");
+        button.id = "retry-diagrams";
+        button.className = "button secondary small";
+        button.type = "button";
+        button.textContent = "Retry diagrams";
+        button.onclick = () => {
+          button.remove();
+          fillQuestionImages(bindings, version);
+        };
+        const feedback = document.createElement("p");
+        feedback.className = "quiz-image-feedback";
+        feedback.textContent = error?.message || "Diagram loading failed.";
+        question.append(feedback, button);
+      }
+    });
+  }
   function fetchBatch(ids) {
     const batch = api("getAttemptQuestions", { attemptId, itemIds: ids });
     batch.catch(() => {});
@@ -209,35 +294,33 @@ async function runner(root, initial, session) {
       itemCache.set(id, p);
     }
   }
-  // Fetch every other problem in a few batched calls, then download their images in the background.
+  // Prefetch only the immediate neighborhood, not an entire 500-item quiz.
+  // This protects the foreground request and avoids repeated storage/bundle
+  // reads for questions the student may never visit. Each request is ≤20 items
+  // (server limit is 20) and only one batch can warm at any given time.
   let warming = false;
-  async function warmAll() {
-    if (warming || !a.settings.allowBack) return;
+  async function warmNearby() {
+    if (warming || !a.settings.allowBack || stopped) return;
+    // Chunk-aligned lookahead: avoid making one new request every time the
+    // student advances by a single problem. Begin the next 20-item batch
+    // four positions before the boundary, so navigation is usually instant.
+    const start = Math.floor((index + 4) / 20) * 20;
+    const missing = a.order.slice(start, start + 20)
+      .filter((id) => !itemCache.has(id));
+    if (!missing.length) return;
     warming = true;
-    const near = a.order
-      .map((id, i) => [id, Math.abs(i - index)])
-      .sort((x, y) => x[1] - y[1])
-      .map(([id]) => id);
-    const missing = near.filter((id) => !itemCache.has(id));
-    for (let i = 0; i < missing.length; i += 20)
-      fetchBatch(missing.slice(i, i + 20));
-    const queue = [...near];
-    const worker = async () => {
-      while (queue.length && !stopped) {
-        const id = queue.shift();
-        try {
-          const item = await fetchItem(id);
-          if (
-            Object.keys(item.questionAssetBindings).length &&
-            !imagesReady.has(id)
-          ) {
-            await loadImages(item.questionAssetBindings, ctx);
-            imagesReady.add(id);
-          }
-        } catch {}
-      }
-    };
-    await Promise.all([worker(), worker()]);
+    try {
+      await prefetchQuestionBatches(missing, async (ids) => {
+        fetchBatch(ids);
+        await Promise.allSettled(ids.map((id) => fetchItem(id)));
+      }, {
+        batchSize: 20,
+        concurrency: 1,
+        shouldStop: () => stopped || getSession().epoch !== epoch,
+      });
+    } finally {
+      warming = false;
+    }
   }
   async function showQuestion() {
     if (stopped) return;
@@ -246,25 +329,28 @@ async function runner(root, initial, session) {
     if (!ready.has(itemId)) question.innerHTML = loading("Loading problem…");
     const item = await fetchItem(itemId);
     if (getSession().epoch !== epoch) return;
-    warmAll();
+    warmNearby().catch(() => {});
     if (!pending.has(itemId) && !answers.has(itemId))
       answers.set(itemId, item.answer);
     const current =
       pending.get(itemId)?.value ?? answers.get(itemId)?.value ?? "";
-    if (
-      view === viewSequence &&
-      Object.keys(item.questionAssetBindings).length &&
-      !imagesReady.has(itemId)
-    )
-      question.innerHTML = loading("Loading images…");
-    const images = await loadImages(item.questionAssetBindings, ctx);
-    imagesReady.add(itemId);
+    // Render text and interactive answers immediately. Placeholder images are
+    // replaced in place once signed URLs arrive, without rebuilding inputs.
+    const bindings = item.questionAssetBindings || {};
+    const images = Object.fromEntries(
+      Object.keys(bindings).map((alias) => [alias, pendingImageURL])
+    );
     const options = (a.optionOrder[itemId] ?? []).map((id) =>
       item.options.find((o) => o.id === id),
     );
     if (view !== viewSequence || stopped) return;
     clearMath(question);
-    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-pressed="${flagged.has(itemId)}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
+    question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}" aria-label="${isStarred(itemRef(a.quizId, itemId)) ? "Remove star from problem" : "Star problem"}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-pressed="${flagged.has(itemId)}" aria-label="${flagged.has(itemId) ? "Remove flag from problem" : "Flag problem"}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
+    for (const img of question.querySelectorAll("img")) {
+      if (img.getAttribute("src") === pendingImageURL)
+        img.dataset.quizImagePending = "true";
+    }
+    fillQuestionImages(bindings, view);
     function change(value) {
       const base = answers.get(itemId) ?? { revision: 0, value: "" };
       if (
@@ -296,7 +382,7 @@ async function runner(root, initial, session) {
       const preview = () => {
         const node = question.querySelector("#answer-preview");
         clearMath(node);
-        node.innerHTML = latexHTML(input.value);
+        node.innerHTML = latexHTML(item.answerMode === "manual" ? input.value : (input.value ? "$" + input.value.replace(/^\$|\$/g, "") + "$" : ""));
         typeset(node);
       };
       input.oninput = () => {
@@ -304,6 +390,7 @@ async function runner(root, initial, session) {
         preview();
       };
       input.onblur = () => flush().catch(() => {});
+      mountMathAnswerEditor(input, { attemptId, itemId });
       preview();
     }
     const flagBtn = question.querySelector("#flag");
@@ -311,6 +398,7 @@ async function runner(root, initial, session) {
       const on = !flagged.has(itemId);
       on ? flagged.add(itemId) : flagged.delete(itemId);
       flagBtn.setAttribute("aria-pressed", String(on));
+      flagBtn.setAttribute("aria-label", on ? "Remove flag from problem" : "Flag problem");
       flagBtn.innerHTML = flagLabel(on);
       grid();
       queueFlags();
@@ -414,8 +502,10 @@ async function runner(root, initial, session) {
     }
     if (pending.size) return flush();
   }
-  const flagLabel = (on) => icon("flag") + (on ? "Flagged" : "Flag");
-  const starLabel = (on) => icon("star") + (on ? "Starred" : "Star");
+  // Keep visible captions constant: active state is conveyed by aria-pressed
+  // and the filled icon, never by changing the button's measured width.
+  const flagLabel = () => icon("flag") + "Flag";
+  const starLabel = () => icon("star") + "Star";
   function queueFlags() {
     flagChain = flagChain
       .catch(() => {})
@@ -433,16 +523,17 @@ async function runner(root, initial, session) {
     if (!b || !a.order[index]) return;
     const on = isStarred(itemRef(a.quizId, a.order[index]));
     b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "Remove star from problem" : "Star problem");
     b.innerHTML = starLabel(on);
   }
   loadStars().catch(() => {});
   let syncChain = Promise.resolve();
   function syncNavigation(target) {
     const run = async () => {
-      const [, state] = await Promise.all([
-        flush(),
-        api("navigateAttempt", { attemptId, targetIndex: target }),
-      ]);
+      // Never permit server navigation to overtake an answer save.
+      const state = await saveBeforeNavigate(
+        flush, () => api("navigateAttempt", { attemptId, targetIndex: target }),
+      );
       a.currentFrontier = state.currentFrontier;
       a.uiState = { ...state.uiState, flaggedItemIds: [...flagged] };
       if (state.item) seedItem(state.item);
@@ -525,19 +616,19 @@ async function runner(root, initial, session) {
           ),
         )
       : null;
-    const timerNode = root.querySelector("#timer");
-    if (!timerNode) return;
-    timerNode.querySelector("span").textContent =
-      seconds === null
-        ? "Untimed"
-        : `${Math.floor(seconds / 60)
-            .toString()
-            .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
-    timerNode.classList.toggle("urgent", seconds !== null && seconds <= 60);
-    timerNode.classList.toggle(
-      "warn",
-      seconds !== null && seconds > 60 && seconds <= 300,
-    );
+    const label = seconds === null
+      ? "Untimed"
+      : `${Math.floor(seconds / 60)
+          .toString().padStart(2, "0")}:${(seconds % 60)
+          .toString().padStart(2, "0")}`;
+    // Both visible placements use the same server-based clock. The mobile
+    // bar stays under the fixed header; the desktop clock stays in the rail.
+    for (const timerNode of root.querySelectorAll("#timer, #timer-mobile")) {
+      timerNode.querySelector("span").textContent = label;
+      timerNode.classList.toggle("urgent", seconds !== null && seconds <= 60);
+      timerNode.classList.toggle("warn",
+        seconds !== null && seconds > 60 && seconds <= 300);
+    }
     if (seconds !== null && seconds <= 60 && lastWarning !== 1) {
       root.querySelector("#timer-announcement").textContent =
         "Less than one minute remains.";
@@ -575,8 +666,12 @@ async function runner(root, initial, session) {
   const keys = (event) => {
     if (stopped || event.metaKey || event.ctrlKey || event.altKey) return;
     if (document.querySelector("dialog[open]")) return;
-    if (event.target.closest?.("input:not([type=radio]), textarea, select"))
-      return;
+    // Let form fields, radio groups, links and buttons keep their native
+    // Arrow/number keys. In particular, ArrowRight on a focused choice
+    // must NOT move to another problem instead of selecting an answer.
+    if (event.target.closest?.(
+      "input, textarea, select, button, a, [contenteditable], [role=button], [role=tab], [role=radio]",
+    )) return;
     const k = event.key.toLowerCase();
     if (k === "arrowright") press("#next");
     else if (k === "arrowleft") press("#previous");
@@ -591,9 +686,11 @@ async function runner(root, initial, session) {
   document.addEventListener("keydown", keys);
   let touch;
   const swipeStart = (event) => {
-    touch = event.target.closest("input, textarea, .math-content img")
-      ? null
-      : event.changedTouches[0];
+    // Never turn a swipe on interactive controls or horizontally scrollable
+    // LaTeX into unintended navigation; only blank question space swipes.
+    touch = event.target.closest(
+      "button, a, input, textarea, select, label, [contenteditable], .math-content, [role=button]",
+    ) ? null : event.changedTouches[0];
   };
   const swipeEnd = (event) => {
     if (!touch || document.documentElement.dataset.input !== "touch") return;
@@ -615,6 +712,10 @@ async function runner(root, initial, session) {
     document.removeEventListener("visibilitychange", visibility);
     document.removeEventListener("session-cleared", sessionCleared);
     document.removeEventListener("stars-changed", syncStar);
+    mobileNavObserver?.disconnect();
+    window.removeEventListener("resize", syncMobileClearance);
+    window.visualViewport?.removeEventListener("resize", syncMobileClearance);
+    root.style.removeProperty("--runner-mobile-nav-clearance");
   });
   action(root, "#previous", () => navigate(index - 1));
   action(root, "#next", () =>
@@ -677,6 +778,9 @@ async function runner(root, initial, session) {
     window.removeEventListener("beforeunload", unload);
     go(`results.html?id=${attemptId}`, { replace: true });
   });
+  // Start the visible countdown before recovery prompts or network work.
+  tick();
+  timer = setInterval(tick, 1000);
   const recovery = loadRecovery(uid, attemptId);
   if (recovery?.changes?.length) {
     const valid =
@@ -698,8 +802,19 @@ async function runner(root, initial, session) {
       );
     } else clearRecovery(uid, attemptId);
   }
-  await showQuestion();
-  timer = setInterval(tick, 1000);
-  tick();
+  try {
+    await showQuestion();
+  } catch (error) {
+    if (!stopped) {
+      question.innerHTML = `<div class="notice warning" role="alert">
+        Could not load the problem. Your attempt is still running.
+        <p>${e(error?.message || "Please check your connection.")}</p>
+        <button type="button" class="button secondary" id="retry-question">Retry loading</button>
+      </div>`;
+      question.querySelector("#retry-question")?.addEventListener("click", () => {
+        showQuestion().catch((err) => saveLabel(err.message || "Could not load problem.", true));
+      });
+    }
+  }
   if (pending.size) await flush().catch(() => {});
 }

@@ -1,0 +1,135 @@
+name: Quizer bank layout and AI Studio verification
+
+on:
+  push:
+    branches:
+      - fix/problem-bank-grid-ai-discoverability-2026-11-05
+    paths:
+      - ".github/workflows/quizer-bank-ai-verify.yml"
+      - "functions/**"
+      - "js/**"
+      - "assets/**"
+      - "quiz.html"
+      - "shared/**"
+      - "db/**"
+      - "scripts/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - "firebase.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-backend-static:
+    name: Unit + backend + static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install browser/CLI test dependencies
+        run: npm ci
+      - name: Install private backend dependencies
+        run: npm ci --prefix functions
+      - name: Synchronize shared modules
+        run: npm run prepare:backend
+      - name: Validate guarded one-command release script
+        run: bash -n scripts/release/quizer-one-shot.sh
+      - name: Unit regressions (including QN1–QN6)
+        run: npm test
+      - name: Backend regressions
+        run: npm run test:backend
+      - name: Static frontend verification
+        run: npm run verify:static
+      - name: Build combined frontend
+        run: npm run build
+
+  firebase-emulators:
+    name: Firebase emulator regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install project and backend dependencies
+        run: |
+          npm ci
+          npm ci --prefix functions
+      - name: Emulator integration suite
+        run: npm run test:integration
+      - name: Emulator transport suite
+        run: npm run test:transport
+
+
+  chromium-mobile-qa:
+    name: Chromium mobile runner + author QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install Firebase emulator dependencies
+        run: |
+          npm ci
+          npm ci --prefix functions
+          npm run prepare:backend
+      - name: Install isolated browser-test bindings (use system Chrome)
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.58.0
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: QN12.1 responsive quiz runner geometry and saving checks
+        run: python tests/qa/mobile-runner-browser.py
+      - name: QN12.2 author editor, import, bank and enlarged-text geometry
+        run: python tests/qa/mobile-author-browser.py
+      - name: AI Studio compact workspace and controls (phone, tablet, desktop)
+        run: python tests/qa/ai-studio-browser.py
+      - name: Keep only synthetic browser QA screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quizer-qn12-1-chromium
+          path: tests/qa/generated-qn12-1/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Keep synthetic QN12.2 author screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quizer-qn12-2-author-chromium
+          path: tests/qa/generated-qn12-2/
+          retention-days: 7
+          if-no-files-found: ignore

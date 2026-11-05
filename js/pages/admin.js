@@ -141,7 +141,7 @@ export async function mount(root) {
       search = values.get("search");
       await load();
     });
-    await load();
+    panel.querySelector("#users-list").innerHTML = empty("No data loaded", "Choose a search or press Search to load accounts.");
   }
   async function activity(initial = {}) {
     panel.innerHTML = `<form class="toolbar">${select(
@@ -176,7 +176,7 @@ export async function mount(root) {
       filter = values.get("value") ? { [key]: values.get("value") } : {};
       await load();
     });
-    await load();
+    panel.querySelector(".history-feed").innerHTML = empty("No data loaded", "Press Apply to load activity records.");
   }
   async function content() {
     panel.innerHTML = `<form class="toolbar">${select(
@@ -223,7 +223,7 @@ export async function mount(root) {
       filter = Object.fromEntries([...values].filter(([, v]) => v));
       await load();
     });
-    await load();
+    panel.querySelector("#content-list").innerHTML = empty("No data loaded", "Press Apply to load content records.");
   }
   async function jobs() {
     panel.innerHTML = `<form class="toolbar">${select(
@@ -277,7 +277,7 @@ export async function mount(root) {
       status = values.get("status");
       await load();
     });
-    await load();
+    panel.querySelector("#jobs-list").innerHTML = empty("No data loaded", "Press Refresh to load processing jobs.");
   }
   async function switchTab(value, initial) {
     tab = value;

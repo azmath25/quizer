@@ -2,15 +2,16 @@ import { e } from "./ui.js";
 
 const STEPS = {
   teacher: [
-    ["teaching.html", "Teaching", "Create quizzes, open the problem bank and see what your students submitted."],
-    ["quizzes.html", "Quizzes", "Browse every published quiz, the way students see it."],
-    ["activity.html", "My activity", "Your own attempts, requests and notifications live here."],
-    ["profile.html", "Profile", "Starred problems, appearance and your account ID. You can replay this tour from here."],
+    ["teaching.html", "Teaching workspace", "Create quizzes, reuse problems from your bank, and review student attempts."],
+    ["quizzes.html", "Quizzes", "Browse published quizzes as your students see them."],
+    ["activity.html", "Attempts and results", "Your activity is here. In results, you can review responses, release marks and see Ask AI."],
+    ["ai.html", "AI Studio", "Open the full AI workspace here. Problem Bank also has a quick Ask AI popup."],
+    ["profile.html", "Profile", "Manage your appearance and starred items, or replay this tour."],
   ],
   student: [
-    ["quizzes.html", "Find a quiz", "Browse published quizzes and start one. Answers save as you go."],
-    ["activity.html", "My activity", "Resume unfinished attempts and open your results."],
-    ["profile.html", "Profile", "Starred problems and appearance. You can replay this tour from here."],
+    ["quizzes.html", "Start a quiz", "Browse quizzes. Open answers support a math keyboard and an optional handwriting scratchpad."],
+    ["activity.html", "Your results", "Resume unfinished quizzes and review submitted answers. Ask AI opens a popup only after submission."],
+    ["profile.html", "Profile", "Your starred items, appearance and tour replay are here."],
   ],
 };
 const key = (uid) => `mathquiz.tour.v1.${uid}`;

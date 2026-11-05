@@ -24,6 +24,14 @@ import { DEMO } from "../config.js";
 export const bucket = () =>
   getStorage().bucket(process.env.STORAGE_BUCKET || undefined);
 export async function signObject(storagePath, generation) {
+  // Published bundles contain grading keys. Storage rules do not constrain
+  // Admin SDK signed URLs; forbid issuing them even through asset/job routes.
+  assert(
+    typeof storagePath === "string" &&
+      !storagePath.startsWith("published-bundles/"),
+    "RESOURCE_UNAVAILABLE",
+    "Private published bundles cannot be signed for download.",
+  );
   if (DEMO) {
     // Emulator-only bearer tokens. Production never installs Firebase download tokens.
     const token = hash(storagePath + ":demo-only");

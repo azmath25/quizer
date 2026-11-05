@@ -42,6 +42,7 @@
   gap: 24px;
   align-items: start;
 }
+.runner-layout > div { min-width: 0; }
 .runner-top {
   display: flex;
   align-items: center;
@@ -49,8 +50,12 @@
   gap: 16px;
   margin-bottom: 18px;
 }
+.runner-title {
+  min-width: 0;
+}
 .runner-title h1 {
   font-size: 1.2rem;
+  overflow-wrap: anywhere;
 }
 .runner-title p {
   font-size: 0.8rem;
@@ -60,6 +65,8 @@
 .timer {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
   gap: 8px;
   padding: 9px 13px;
   background: var(--surface);
@@ -73,9 +80,15 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+.timer > span {
+  display: inline-block;
+  min-width: 7ch; /* Preserve clock geometry across 10:00 → 09:59. */
+  text-align: end;
+}
 .runner-question {
   padding: 26px;
   min-height: 390px;
+  scroll-margin-top: 82px; /* Questions clear the sticky site header. */
 }
 .question-meta {
   display: flex;
@@ -89,6 +102,14 @@
 .question-meta strong {
   color: var(--primary);
   font-size: 0.8rem;
+}
+/* A flag/star toggle must never resize its tap target or shift nearby controls. */
+.question-meta #flag,
+.question-meta #star {
+  min-height: 44px;
+  min-width: 84px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .runner-question > .math-content {
   font-size: 1.08rem;
@@ -149,10 +170,29 @@
   align-items: center;
   gap: 12px;
   margin-top: 22px;
+  min-width: 0;
+}
+.runner-save-feedback {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.runner-save-feedback .actions {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.runner-save-feedback [hidden] {
+  display: none;
 }
 .question-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Never squeeze circular problem targets below 44px in the desktop sidebar. */
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   gap: 8px;
   margin: 18px 0;
 }
@@ -160,7 +200,8 @@
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: var(--radius-sm);
-  min-height: 40px;
+  min-height: 44px;
+  min-width: 0;
   font-size: 0.8rem;
 }
 .question-grid button.answered {
@@ -208,6 +249,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 .save-indicator .icon {
   width: 15px;
@@ -295,9 +339,11 @@
   border-width: 2px;
   transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
-.choice:hover {
-  border-color: var(--accent);
-  transform: translateX(3px);
+@media (hover: hover) and (pointer: fine) {
+  .choice:hover {
+    border-color: var(--accent);
+    transform: translateX(3px);
+  }
 }
 .choice:has(input:checked) {
   background: var(--grad-soft);
@@ -316,11 +362,14 @@
 .question-grid button {
   border-radius: 50%;
   aspect-ratio: 1;
-  min-height: 0;
+  min-height: 44px;
   transition: transform 0.12s;
 }
-.question-grid button:hover:not(:disabled) {
-  transform: scale(1.1);
+/* Touchscreen hover emulation must not leave quiz buttons enlarged. */
+@media (hover: hover) and (pointer: fine) {
+  .question-grid button:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
 }
 .question-grid button.current {
   background: var(--grad);
@@ -454,20 +503,377 @@ fieldset.choices {
 }
 
 @media (max-width: 760px) {
-  html[data-input="touch"] .runner-footer {
+  /* The fixed mobile nav exists on narrow screens regardless of pointer mode.
+     Synthetic mouse events after touch must never disable its clearance. */
+  .runner-footer {
     position: sticky;
-    bottom: 0;
+    /* Actual nav height is measured at runtime for zoom and safe-area changes. */
+    bottom: var(--runner-mobile-nav-clearance, calc(72px + env(safe-area-inset-bottom)));
     z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
     margin: 16px -16px 0;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    padding: 10px 16px;
     background: var(--surface);
     border-top: 1px solid var(--border);
   }
-  html[data-input="touch"] .runner-footer .button {
-    flex: 1;
-    justify-content: center;
+  .runner-save-feedback {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 22px;
+    flex-direction: column;
+    gap: 4px;
   }
-  html[data-input="touch"] .runner-footer .save-indicator {
-    display: none;
+  .runner-footer #previous {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .runner-footer #next {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .runner-footer > .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    overflow-wrap: anywhere;
+  }
+  .runner-save-feedback .save-indicator {
+    display: flex;
+    max-width: 100%;
+  }
+  .runner-save-feedback .actions {
+    width: 100%;
+  }
+  .runner-save-feedback .actions .button {
+    min-height: 44px;
   }
 }
+
+/* Narrow phones and enlarged text: controls stay aligned and are touch-sized. */
+@media (max-width: 520px) {
+  .question-meta {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .question-meta .actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .question-meta .actions > span:first-child {
+    margin-right: auto;
+  }
+}
+@media (max-width: 420px) {
+  .runner-sidebar .question-grid {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  }
+  .runner-sidebar .question-grid button {
+    min-height: 44px;
+  }
+  .runner-top {
+    flex-wrap: wrap;
+  }
+  .timer {
+    margin-left: auto;
+  }
+}
+
+/* Student-centric small-screen hierarchy: result first, actions second.
+   No change to attempt state, timer, save/retry, grading or navigation. */
+@media (max-width: 600px) {
+  .result-summary .score-line {
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    text-align: center;
+  }
+  .result-summary .score-ring { margin-inline: auto; }
+  .result-summary .score-description { max-width: 100%; min-width: 0; }
+  .quiz-overview .overview-body .actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .quiz-overview .overview-body .actions .button {
+    width: 100%;
+    min-height: 44px;
+  }
+  .runner-top { flex-wrap: wrap; }
+  .runner-title { flex: 1 1 160px; }
+}
+@media (max-width: 760px) {
+  /* Fit as many real 44px targets as available, including zoomed viewports. */
+  .runner-sidebar .question-grid {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  }
+}
+@media (max-width: 380px) {
+  .quiz-overview .overview-header,
+  .quiz-overview .overview-body { padding: 16px; }
+  .quiz-overview .quiz-facts { gap: 7px; }
+  .quiz-overview .quiz-facts strong { font-size: 1rem; }
+  .quiz-overview .quiz-facts span { font-size: .7rem; }
+  .runner-question { padding: 18px 14px; }
+}
+
+/* Separate, calm preflight page: never an overlay and never a timed attempt. */
+.quiz-rules {
+  width: min(100%, 900px);
+  margin: 0 auto 32px;
+  padding: clamp(20px, 4vw, 38px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.quiz-overview[hidden] { display: none !important; }
+.rules-topline, .rules-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.rules-eyebrow, .rules-timer-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: .77rem;
+  font-weight: 750;
+  letter-spacing: .035em;
+}
+.rules-eyebrow .icon, .rules-timer-note .icon { width: 17px; height: 17px; }
+.rules-timer-note {
+  padding: 8px 12px;
+  background: var(--surface-blue);
+  color: var(--primary);
+  border-radius: 999px;
+  letter-spacing: 0;
+}
+.rules-header { margin: 32px 0 26px; }
+.rules-header h1 {
+  font-size: clamp(1.65rem, 3.2vw, 2.25rem);
+  line-height: 1.16;
+  letter-spacing: -.045em;
+  overflow-wrap: anywhere;
+}
+.rules-header p { margin-top: 9px; color: var(--muted); }
+.rules-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 30px;
+}
+.rules-facts > div {
+  padding: 18px 15px;
+  background: var(--surface-blue);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+}
+.rules-facts strong {
+  display: block;
+  font-size: 1.3rem;
+  letter-spacing: -.035em;
+  overflow-wrap: anywhere;
+}
+.rules-facts span {
+  display: block;
+  color: var(--muted);
+  font-size: .77rem;
+  margin-top: 6px;
+}
+.rules-content h2 { font-size: 1.05rem; margin: 0 0 15px; }
+.rules-list { list-style: none; padding: 0; margin: 0; }
+.rules-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.55;
+  font-size: .91rem;
+}
+.rules-list li:last-child { border-bottom: 0; }
+.rules-list .icon {
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
+  color: var(--primary);
+  margin-top: 3px;
+}
+.rules-footer {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.rules-prep {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-height: 28px;
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: .83rem;
+}
+.rules-prep .icon { width: 17px; height: 17px; color: var(--primary); }
+.rules-actions > .button {
+  min-height: 44px;
+  flex: 0 1 auto;
+}
+.rules-security { margin: 14px 0 0; font-size: .76rem; color: var(--muted); }
+.rules-error {
+  padding: 11px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--danger);
+  border-radius: 9px;
+  color: var(--danger);
+  font-size: .86rem;
+}
+@media (max-width: 760px) {
+  .quiz-rules {
+    padding: 21px 18px;
+    margin-bottom: calc(88px + env(safe-area-inset-bottom));
+    border-radius: 14px;
+  }
+  .rules-header { margin: 23px 0 19px; }
+  .rules-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rules-facts > div { padding: 14px; }
+  .rules-list li { font-size: .86rem; }
+}
+@media (max-width: 440px) {
+  .rules-topline { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .rules-actions { align-items: stretch; flex-direction: column-reverse; }
+  .rules-actions > .button { width: 100%; justify-content: center; }
+}
+
+/* Examination clock: a fixed visual anchor without obscuring answers.
+   Desktop clock belongs to the right Problems rail, not the title row. */
+.runner-mobile-bar { display: none; }
+@media (min-width: 901px) {
+  .runner-layout > .runner-sidebar {
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 24px);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .runner-sidebar-timer {
+    flex: 0 0 auto;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .runner-sidebar-timer > span {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 700;
+  }
+  .runner-sidebar-timer .timer {
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0;
+    box-shadow: none;
+  }
+  .runner-sidebar-content {
+    overflow-y: auto;
+    min-height: 0;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .runner-sidebar-content > h2 { margin-top: 2px; }
+}
+@media (max-width: 900px) {
+  /* The decorative site header scrolls away on exam pages. Pin only
+     the compact clock to the top to maximize working area on phones. */
+  .runner-sidebar-timer { display: none; }
+  .runner-sidebar-content { overflow: visible; }
+  .runner-mobile-bar {
+    position: sticky;
+    top: 0;
+    z-index: 29;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    margin: 0 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .runner-mobile-position {
+    min-width: 0;
+    font-size: .83rem;
+    font-weight: 700;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .runner-mobile-bar .timer {
+    border: 0;
+    box-shadow: none;
+    padding: 5px 6px;
+    background: transparent;
+    font-size: 1.1rem;
+    min-height: 44px;
+  }
+  .runner-mobile-bar .timer > span { min-width: 5ch; }
+  .runner-mobile-bar:has(.timer.warn) { border-color: var(--warning); }
+  .runner-mobile-bar:has(.timer.urgent) { border-color: var(--danger); }
+  .runner-question { scroll-margin-top: 80px; }
+}
+@media (max-width: 760px) {
+  .runner-mobile-bar {
+    top: 0;
+    margin-inline: -8px;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .runner-question { scroll-margin-top: 76px; }
+}
+@media (max-width: 380px) {
+  .runner-mobile-bar { padding: 6px 9px; gap: 7px; }
+  .runner-mobile-bar .timer { font-size: .98rem; }
+  .runner-mobile-position { font-size: .77rem; }
+}
+
+
+/* Keyboard-first math answers with a lightweight optional drawing pad. */
+.math-answer-editor{min-width:0}
+.math-entry-keyboard{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;margin-top:10px}
+.math-entry-keyboard .math-key{padding:7px 3px;min-width:0;min-height:36px;font-size:.88rem;white-space:nowrap}
+.math-entry-actions{display:flex;justify-content:flex-end;margin-top:9px}
+.math-ink-area{margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.math-ink-area[hidden]{display:none}
+.math-ink-area canvas{display:block;width:100%;height:auto;max-height:250px;border-radius:8px;border:1px solid var(--border);background:#fff;touch-action:none}
+@media(max-width:600px){.math-entry-keyboard{grid-template-columns:repeat(4,minmax(0,1fr))}.math-entry-keyboard .math-key{min-height:42px}}
+/* Keep the score square mounted while grading or waiting for teacher release. */
+.score-ring--pending{border-color:#328e67;background:linear-gradient(115deg,#fff 2%,#c8f0d6 28%,#f8fff9 48%,#8bd8ad 66%,#fff 94%);background-size:300% 300%;animation:score-green-flow 2.8s ease-in-out infinite;box-shadow:0 8px 28px rgba(15,110,65,.12)}
+.score-ring--pending::before{display:none}
+.score-ring--pending .score-number{color:#136746;letter-spacing:.1em}
+.score-ring--pass{border-color:#c53040}
+.score-ring--pass::before{background:rgba(205,48,63,.18);border-top-color:#c53040}
+.score-ring--pass .score-number{color:#bf2a37}
+.result-verdict{margin-top:9px;font-size:.88rem;font-weight:750}
+.result-verdict--pass{color:#bf2a37}
+.result-verdict--fail{color:var(--muted)}
+@keyframes score-green-flow{0%{background-position:0% 30%}50%{background-position:100% 70%}100%{background-position:0% 30%}}
+@media(prefers-reduced-motion:reduce){.score-ring--pending{animation:none;background:#d8f2e4}}
+
+/* Default published score uses the familiar green accent. */
+.result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass){border-color:#208a5d}
+.result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass)::before{background:rgba(40,155,96,.17);border-top-color:#208a5d}
+.result-summary .score-ring:not(.score-ring--pending):not(.score-ring--pass) .score-number{color:#16734c}
+
+.score-ring--failed{animation:none;background:#f4f6f5;border-color:#b3bdb8}
+.score-ring--failed .score-number{color:#53635a}

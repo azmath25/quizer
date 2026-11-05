@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0281af"><meta name="referrer" content="no-referrer">
+<meta name="description" content="Quizer AI Studio — a standalone design preview for chats, mathematical workspaces and processing jobs.">
+<title>AI Studio · Math Quiz</title><link rel="icon" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="js/math-config.js" defer></script><script src="assets/mathjax.js" defer></script>
+<!-- SINGLE FILE PROTOTYPE: no js/app.js (the current router does not register ai.html).
+  No Firebase, Neon, Mimo, network inference, cloud uploads or credentials.
+  For eventual integration, use a separate authenticated backend adapter.
+  Teacher/admin access is checked before preview initialization; backend authorization remains essential for future AI APIs. -->
+<style>
+:root{--bg:#f5f9fc;--surface:#fff;--glass:rgba(255,255,255,.85);--ink:#1b3246;--muted:#768a9b;--line:#e3eaf1;--soft:#edf3f7;--cyan:#0281af;--cyan2:#36b9d8;--wash:#e4f5fa;--purple:#8b7fd0;--violet:#eeebff;--success:#177f6a;--success-bg:#e5f8ee;--warn:#ad7a26;--warn-bg:#fff5db;--danger:#c45468;--danger-bg:#fff0f3;--shadow:0 18px 55px rgba(26,81,116,.08);--font:"Plus Jakarta Sans",system-ui,sans-serif;color-scheme:light}
+:root[data-theme="dark"]{--bg:#091a28;--surface:#102838;--glass:rgba(16,40,56,.89);--ink:#ebf6fa;--muted:#a1b8c5;--line:#294352;--soft:#183444;--cyan:#57c8e8;--cyan2:#99e2f3;--wash:#153f51;--purple:#c4b9ff;--violet:#302c52;--success:#5dd9b8;--success-bg:#153f37;--warn:#f8c96f;--warn-bg:#413519;--danger:#ff9dae;--danger-bg:#4b2738;--shadow:0 20px 55px rgba(0,0,0,.22);color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:var(--font);font-size:13px}body{background:var(--bg);color:var(--ink);overflow:hidden}button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}a{color:inherit;text-decoration:none}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--cyan2);outline-offset:3px}
+.ico{height:18px;width:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ico.sm{height:15px;width:15px}.ico.lg{height:24px;width:24px}.muted{color:var(--muted)}.eyebrow{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.13em}.skip{position:absolute;top:-80px;left:12px;background:var(--surface);z-index:1000;padding:10px}.skip:focus{top:12px}
+.app{height:100dvh;min-height:480px;display:flex;flex-direction:column;overflow:hidden;isolation:isolate}.topbar{height:66px;flex:none;display:flex;gap:17px;align-items:center;padding:0 25px;background:var(--glass);border-bottom:1px solid var(--line);backdrop-filter:blur(20px);z-index:15}.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;letter-spacing:-.06em;white-space:nowrap}.brand-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:13px;color:white;background:linear-gradient(145deg,#0080ad,#42c0db);box-shadow:0 7px 19px rgba(2,129,175,.25)}.divider{width:1px;height:25px;background:var(--line)}.crumb{display:flex;align-items:center;gap:11px;color:var(--muted);font-size:12px}.crumb strong{color:var(--ink)}.grow{flex:1}.tag{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:800;padding:7px 11px;border-radius:40px;color:var(--cyan);background:var(--wash);white-space:nowrap}.tag.demo{color:var(--warn);background:var(--warn-bg)}.tag.success{color:var(--success);background:var(--success-bg)}.tag.failed{color:var(--danger);background:var(--danger-bg)}.tag.dim{color:var(--muted);background:var(--soft)}.dot{height:6px;width:6px;border-radius:50%;background:currentColor;display:inline-block}.pulse{animation:blink 2s ease-in-out infinite}.toplink{font-size:11px;font-weight:700;color:var(--muted);padding:8px 3px}.toplink:hover{color:var(--cyan)}.tools{display:flex;align-items:center;gap:3px}.icon-btn{width:36px;height:36px;flex:none;display:grid;place-items:center;border:1px solid transparent;border-radius:10px;color:var(--muted);background:transparent;transition:background .18s,color .18s}.icon-btn:hover{color:var(--cyan);background:var(--wash)}.icon-btn.outline{border-color:var(--line);background:var(--surface)}.top-avatar{margin-left:6px;height:34px;width:34px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(145deg,#b4e9f3,#b9b7eb);font-weight:800;color:#286086;font-size:11px}
+.shell{flex:1;min-height:0;display:grid;grid-template-columns:263px minmax(0,1fr) 324px;position:relative}.sidebar{display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--line);z-index:12}.side-top{padding:20px 15px 10px}.new{width:100%;height:42px;border:0;border-radius:12px;background:linear-gradient(110deg,#0281af,#16a8cf);color:white;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 18px rgba(2,129,175,.18);transition:transform .2s,box-shadow .2s}.new:hover{transform:translateY(-2px);box-shadow:0 13px 23px rgba(2,129,175,.23)}.side-search{height:39px;display:flex;align-items:center;gap:9px;padding:0 12px;margin-top:14px;border-radius:11px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}.side-search:focus-within{border-color:var(--cyan)}.side-search input{min-width:0;width:100%;background:none;border:0;outline:0;color:var(--ink);font-size:11px}.kbd{font-size:9px;border:1px solid var(--line);background:var(--surface);padding:3px 5px;border-radius:5px;white-space:nowrap}.sidenav{padding:4px 10px 16px}.nav-row{border:0;background:none;color:var(--muted);border-radius:10px;display:flex;align-items:center;gap:11px;padding:11px;width:100%;font-size:11px;font-weight:800;text-align:left}.nav-row:hover,.nav-row.active{color:var(--cyan);background:var(--wash)}.nav-row small{font-size:10px;background:var(--soft);color:var(--muted);border-radius:6px;padding:2px 6px;margin-left:auto}.side-label{display:flex;align-items:center;justify-content:space-between;color:var(--muted);padding:0 20px 10px}.history{flex:1;overflow:auto;min-height:0;padding:0 8px 12px}.history-row{display:flex;align-items:center;gap:3px;padding:5px;border-radius:12px}.history-row:hover,.history-row.active{background:var(--wash)}.history-open{border:0;background:none;display:flex;align-items:flex-start;gap:9px;flex:1;min-width:0;padding:5px 3px;text-align:left;color:var(--ink)}.history-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;color:var(--cyan);background:var(--soft);flex:none}.history-icon .ico{height:16px;width:16px}.history-text{min-width:0}.history-text strong{display:block;font-size:11px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history-text small{display:block;margin-top:4px;color:var(--muted);font-size:9px}.pin-btn{border:0;background:none;border-radius:7px;width:25px;height:27px;display:grid;place-items:center;color:var(--muted);opacity:0}.history-row:hover .pin-btn,.history-row:focus-within .pin-btn,.history-row.active .pin-btn{opacity:1}.pin-btn.pinned{color:var(--cyan)}.side-foot{border-top:1px solid var(--line);padding:16px}.storage-label{display:flex;align-items:center;justify-content:space-between;font-size:10px;margin-bottom:10px}.meter{height:5px;border-radius:99px;background:var(--soft);overflow:hidden}.meter span{display:block;background:linear-gradient(90deg,#1386b6,#61d4e6);height:100%;transition:width .5s}.storage-note{margin-top:9px;font-size:9px;color:var(--muted);display:flex;align-items:center;justify-content:space-between}
+.stage{display:flex;flex-direction:column;position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--bg)}.stage:before{content:"";position:absolute;inset:0;background:radial-gradient(480px circle at var(--mx,50%) var(--my,30%),rgba(57,188,228,.13),transparent 70%);opacity:var(--spotlight,1);pointer-events:none;z-index:0;transition:opacity .3s}.stage:after{content:"";position:absolute;z-index:0;pointer-events:none;width:550px;height:500px;top:18%;left:calc(50% - 270px);background:conic-gradient(from 80deg,rgba(83,185,226,.10),rgba(179,151,246,.12),rgba(110,224,226,.07),rgba(83,185,226,.10));border-radius:50%;filter:blur(60px);animation:aurora 17s ease-in-out infinite alternate;display:var(--aurora,block)}.stage>*{position:relative;z-index:1}
+.conversation-head{height:73px;flex:none;background:var(--glass);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:0 27px;display:flex;align-items:center;justify-content:space-between;gap:10px}.current-title{display:flex;align-items:center;gap:11px;min-width:0}.title-symbol{width:39px;height:39px;display:grid;place-items:center;border-radius:12px;color:var(--cyan);background:var(--wash);flex:none}.title-copy{min-width:0}.title-copy h1{font-size:13px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 5px}.title-copy p{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}.head-tools{display:flex;align-items:center;gap:2px}
+.conversation{flex:1;min-height:0;overflow:auto;padding:24px clamp(20px,5vw,70px);scroll-behavior:smooth}.message-list{max-width:760px;min-height:100%;margin:auto;display:flex;flex-direction:column}.warning{display:flex;align-items:center;gap:10px;background:var(--warn-bg);color:var(--warn);font-size:10px;line-height:1.6;padding:10px 13px;border-radius:11px;margin-bottom:24px}.warning .ico{flex:none}.message{display:flex;gap:13px;align-items:flex-start;margin:0 0 24px;animation:appear .25s both}.msg-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--wash);color:var(--cyan);flex:none}.message.user .msg-icon{background:var(--violet);color:var(--purple)}.msg-content{flex:1;min-width:0}.msg-meta{display:flex;align-items:center;gap:9px;margin:1px 0 9px;font-size:10px}.msg-meta strong{font-weight:800}.msg-meta time{color:var(--muted);font-size:9px}.msg-body{font-size:12px;line-height:1.9;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}.message.user .msg-body{display:inline-block;background:var(--surface);border:1px solid var(--line);border-radius:3px 15px 15px 15px;padding:12px 16px;max-width:100%;box-shadow:0 4px 18px rgba(26,81,116,.025)}.attachments-line{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.file{display:inline-flex;align-items:center;gap:7px;max-width:100%;border:1px solid var(--line);background:var(--surface);padding:8px 10px;border-radius:10px;color:var(--ink);font-size:10px}.file .ico{color:var(--cyan)}.file strong{max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.file small{font-size:9px;color:var(--muted)}.file button{border:0;background:none;padding:0;color:var(--muted);display:grid;place-items:center}.msg-actions{margin-top:8px}.msg-actions button{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;font-size:9px;color:var(--muted);padding:5px 7px;border-radius:6px}.msg-actions button:hover{color:var(--cyan);background:var(--wash)}
+.welcome{margin:auto;text-align:center;width:100%;padding:20px 0 70px}.welcome-symbol{position:relative;margin:0 auto 25px;width:85px;height:85px;display:grid;place-items:center;border-radius:28px;background:linear-gradient(145deg,#d5f7fa,#ebe7ff);color:#268cba;box-shadow:0 17px 45px rgba(42,143,184,.14),inset 0 1px #fff}.welcome-symbol .ico{height:37px;width:37px}.welcome-symbol:after{content:"✦";position:absolute;top:4px;right:-14px;color:#9b8ad5;font-size:25px;animation:twinkle 3s infinite}.welcome h2{font-size:clamp(23px,2.4vw,32px);font-weight:800;letter-spacing:-.065em;margin:0 0 10px}.welcome p{color:var(--muted);max-width:440px;font-size:11px;line-height:1.9;margin:0 auto 22px}.prompt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:550px;margin:0 auto}.prompt-card{display:flex;gap:11px;align-items:flex-start;padding:15px;text-align:left;background:var(--glass);border:1px solid var(--line);border-radius:14px;transition:transform .2s,box-shadow .2s,border-color .2s}.prompt-card:hover{transform:translateY(-3px);border-color:#84cddd;box-shadow:var(--shadow)}.prompt-card>span:first-child{width:30px;height:30px;flex:none;display:grid;place-items:center;color:var(--cyan);background:var(--wash);border-radius:10px}.prompt-card strong{font-size:11px;display:block;margin-bottom:5px}.prompt-card small{font-size:10px;color:var(--muted);line-height:1.5}
+.composer-area{flex:none;padding:0 clamp(15px,5vw,70px) 14px;background:linear-gradient(to bottom,transparent,var(--bg) 27%)}.composer-area>*{max-width:760px;margin-left:auto;margin-right:auto}.attached{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px}.attached:empty{display:none}.composer{border:1px solid var(--line);background:var(--surface);border-radius:18px;box-shadow:var(--shadow);padding:12px 12px 9px;transition:box-shadow .2s,border-color .2s}.composer:focus-within{border-color:#8bc8de;box-shadow:0 16px 50px rgba(42,143,184,.14)}.composer.drag{outline:2px dashed var(--cyan);outline-offset:3px}.composer textarea{display:block;width:100%;min-height:46px;max-height:170px;resize:none;outline:0;background:transparent;border:0;color:var(--ink);font-size:12px;line-height:1.75;padding:4px 6px}.composer textarea::placeholder{color:#95a5b2}.composer-tools{display:flex;align-items:center;gap:5px;padding-top:9px;border-top:1px solid var(--soft)}.compose-btn{border:0;background:none;color:var(--muted);display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;border-radius:9px;padding:8px}.compose-btn:hover{color:var(--cyan);background:var(--wash)}.compose-mode{display:flex;align-items:center;gap:6px;margin-left:8px;font-size:10px;color:var(--muted)}.send{margin-left:auto;display:grid;place-items:center;width:38px;height:36px;border:0;border-radius:11px;color:white;background:linear-gradient(130deg,#0281af,#20b0d3);box-shadow:0 5px 14px rgba(2,129,175,.19)}.send:hover{filter:brightness(1.08)}.composer-note{padding:9px 4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:9px}
+.inspector{min-height:0;background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:13}.inspector-head{height:73px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:0 18px;flex:none}.inspector-head strong{display:block;font-size:12px}.inspector-head small{display:block;font-size:9px;color:var(--muted);margin-top:6px}.inspector-body{flex:1;min-height:0;overflow:auto;padding:18px}.inspector-foot{padding:13px 17px;border-top:1px solid var(--line);color:var(--muted);font-size:9px;display:flex;align-items:center;gap:8px}.inspector-foot .ico{color:var(--success)}.inspector-section{margin-bottom:22px}.section-heading{display:flex;align-items:center;justify-content:space-between;text-transform:uppercase;font-size:9px;font-weight:800;letter-spacing:.13em;color:var(--muted);margin-bottom:12px}.job-select{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:11px;background:var(--bg);border:1px solid var(--line);border-radius:12px;margin-bottom:7px;color:var(--ink)}.job-select:hover,.job-select.active{border-color:var(--cyan)}.job-select>span{min-width:0;flex:1}.job-select strong{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.job-select small{display:block;font-size:9px;color:var(--muted);margin-top:5px}.job-select .ico{color:var(--cyan)}.job-card{padding:16px;border:1px solid var(--line);background:linear-gradient(145deg,var(--wash),var(--surface) 78%);border-radius:15px}.job-title{display:flex;justify-content:space-between;align-items:flex-start;gap:7px}.job-title strong{font-size:11px;line-height:1.5;overflow-wrap:anywhere}.job-title small{display:block;color:var(--muted);font-size:9px;margin-top:5px}.progress-number{display:flex;align-items:baseline;justify-content:space-between;margin:16px 0 9px;font-size:10px;color:var(--muted)}.progress-number strong{color:var(--ink);font-size:19px;letter-spacing:-.04em}.progress{height:7px;background:var(--line);border-radius:20px;overflow:hidden}.progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#0281af,#6ed4e2);transition:width .5s}.stage-name{color:var(--muted);font-size:9px;line-height:1.6;margin-top:10px}.job-controls{display:flex;gap:6px;flex-wrap:wrap;margin-top:15px}.mini-btn{display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:8px;font-weight:700;font-size:9px;padding:8px}.mini-btn:hover{border-color:var(--cyan);color:var(--cyan)}.mini-btn.danger{color:var(--danger)}.mini-btn .ico{height:13px;width:13px}.pipeline{padding-left:3px}.step{display:flex;gap:12px;min-height:63px;position:relative}.step:not(:last-child):before{content:"";position:absolute;left:11px;top:24px;bottom:0;border-left:1px solid var(--line)}.step.done:not(:last-child):before{border-color:var(--cyan2)}.step-mark{height:24px;width:24px;display:grid;place-items:center;border:1px solid var(--line);background:var(--bg);border-radius:50%;color:var(--muted);flex:none;z-index:1}.step.done .step-mark{color:var(--success);border-color:transparent;background:var(--success-bg)}.step.current .step-mark{color:var(--cyan);border-color:var(--cyan);background:var(--wash);box-shadow:0 0 0 4px rgba(54,185,216,.12)}.step strong{display:block;font-size:10px;margin-top:3px}.step small{display:block;font-size:9px;color:var(--muted);line-height:1.6;margin-top:6px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}.metric{padding:11px;background:var(--bg);border:1px solid var(--line);border-radius:11px}.metric span{display:block;color:var(--muted);font-size:9px}.metric strong{display:block;font-size:11px;margin-top:7px}.log-row{display:flex;gap:9px;margin-bottom:13px;font-size:9px;color:var(--muted);line-height:1.6}.log-row .dot{color:var(--cyan);margin-top:5px;flex:none}.log-row time{display:block;font-size:9px;color:var(--muted)}.artifact{border:1px dashed var(--line);background:var(--bg);border-radius:12px;padding:12px;display:flex;align-items:center;gap:9px}.artifact .ico{color:var(--cyan)}.artifact strong{font-size:10px}.artifact small{font-size:9px;color:var(--muted);display:block;margin-top:5px}.empty-box{border:1px dashed var(--line);border-radius:12px;padding:25px;text-align:center;color:var(--muted);line-height:1.8;font-size:10px}
+.backdrop{display:none;position:fixed;inset:66px 0 0;background:rgba(6,25,42,.38);z-index:11}.mobile-only{display:none}.toast-area{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:200;pointer-events:none}.toast{background:#163a52;color:white;padding:12px 17px;border-radius:11px;box-shadow:var(--shadow);font-size:11px;text-align:center;max-width:90vw;animation:appear .2s}
+dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20px;background:var(--surface);color:var(--ink);box-shadow:0 30px 90px rgba(8,31,49,.28)}dialog::backdrop{background:rgba(4,27,47,.55);backdrop-filter:blur(6px)}.modal{padding:25px}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:19px}.modal-head h2{font-size:19px;letter-spacing:-.05em;margin:0 0 7px}.modal-head p{margin:0;color:var(--muted);font-size:10px;line-height:1.6}.types{display:grid;grid-template-columns:1fr 1fr;gap:10px}.type-card{border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:15px;border-radius:13px;display:flex;gap:11px;align-items:flex-start;text-align:left;min-height:97px;transition:border-color .2s,transform .2s}.type-card:first-child{grid-column:1/-1;min-height:78px}.type-card:hover{transform:translateY(-2px);border-color:var(--cyan)}.type-symbol{width:34px;height:34px;flex:none;border-radius:11px;display:grid;place-items:center;background:var(--wash);color:var(--cyan)}.type-card strong{display:block;font-size:11px;margin-bottom:6px}.type-card small{display:block;font-size:9px;line-height:1.65;color:var(--muted)}.modal-input{width:100%;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--ink);padding:13px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}.primary{border:0;color:white;background:var(--cyan);padding:11px 18px;border-radius:10px;font-weight:800;font-size:11px}.secondary{background:var(--surface);border:1px solid var(--line);color:var(--ink);padding:11px 18px;border-radius:10px;font-weight:800;font-size:11px}.setting{display:flex;align-items:center;justify-content:space-between;gap:15px;border-bottom:1px solid var(--line);padding:15px 0}.setting strong{font-size:11px}.setting small{display:block;color:var(--muted);font-size:9px;margin-top:5px;line-height:1.5}.toggle{appearance:none;width:38px;height:22px;border-radius:20px;background:var(--line);position:relative;cursor:pointer;flex:none}.toggle:before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 4px #0002;transition:transform .2s}.toggle:checked{background:var(--cyan)}.toggle:checked:before{transform:translateX(16px)}
+.snip{position:fixed;inset:0;background:rgba(4,62,93,.12);z-index:100;display:none;cursor:crosshair;touch-action:none}.snip.active{display:block}.snip-info{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:12px 18px;background:#123d56;color:#fff;border-radius:11px;font-size:11px;text-align:center;pointer-events:none}.snip-rect{position:fixed;background:rgba(28,169,214,.15);border:2px solid #0281af;border-radius:5px;pointer-events:none}.snip-exit{position:fixed;top:14px;right:14px;background:#fff;color:#173b50;border:0;border-radius:10px;padding:9px}
+@keyframes appear{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes aurora{from{transform:translate(-13%,7%) rotate(-11deg) scale(.92)}to{transform:translate(15%,-14%) rotate(19deg) scale(1.15)}}@keyframes blink{0%,100%{opacity:.35}50%{opacity:1}}@keyframes twinkle{0%,100%{opacity:.4;transform:rotate(-15deg)}50%{opacity:1;transform:rotate(20deg)}}
+@media(max-width:1250px){.shell{grid-template-columns:245px minmax(0,1fr) 285px}.topbar{padding:0 17px}.inspector-body{padding:15px}.conversation-head{padding:0 19px}}
+@media(max-width:1060px){.shell{grid-template-columns:245px minmax(0,1fr)}.inspector{position:absolute;right:0;top:0;bottom:0;width:min(355px,90vw);transform:translateX(104%);transition:transform .25s;box-shadow:var(--shadow)}.app.show-inspector .inspector{transform:translateX(0)}.app.show-inspector .backdrop{display:block}.toplink{display:none}}
+@media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.sidebar{position:absolute;left:0;top:0;bottom:0;width:min(310px,88vw);transform:translateX(-104%);transition:transform .25s;box-shadow:var(--shadow)}.app.show-sidebar .sidebar{transform:translateX(0)}.app.show-sidebar .backdrop{display:block}.mobile-only{display:grid}.topbar{gap:10px;padding:0 12px}.crumb,.divider,.tag.demo{display:none}.conversation-head{padding:0 14px;height:68px}.conversation{padding:22px 16px}.composer-area{padding:0 12px max(13px,env(safe-area-inset-bottom))}.welcome{padding-bottom:35px}.composer-note{font-size:8px}.compose-mode{display:none}.app{min-height:400px}}
+@media(max-width:430px){.brand{font-size:14px}.prompt-grid{grid-template-columns:1fr}.prompt-card{padding:12px}.head-tools .tag{display:none}.head-tools .icon-btn[data-act="export"]{display:none}.types{grid-template-columns:1fr}.type-card:first-child{grid-column:auto}.compose-btn span{display:none}.top-avatar{display:none}}
+@media(hover:none){.pin-btn{opacity:1}.new:hover,.prompt-card:hover,.type-card:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.stage:after{display:none}}
+
+/* Focused mode: narrow history, hidden-by-default inspector and quiet welcome. */
+.studio-name{font-size:12px;font-weight:750;color:var(--muted);white-space:nowrap}
+.shell{grid-template-columns:232px minmax(0,1fr) 304px}
+.side-top{padding:15px 12px 8px}.sidenav{padding:3px 9px 8px}.nav-row{padding:9px 11px}
+.conversation-head{height:62px;padding:0 24px}.title-symbol{width:32px;height:32px}
+.conversation{padding-top:18px}.message{margin-bottom:18px}
+.welcome{padding:28px 0 24px}
+.welcome-symbol{width:54px;height:54px;border-radius:17px;margin-bottom:18px;box-shadow:none}
+.welcome-symbol .ico{width:25px;height:25px}.welcome-symbol:after{display:none}
+.welcome h2{font-size:clamp(21px,2.1vw,27px);letter-spacing:-.045em}
+.welcome p{margin-bottom:20px;font-size:12px;line-height:1.6}
+.prompt-grid{max-width:445px;gap:9px}
+.prompt-card{min-height:50px;padding:11px 13px;align-items:center;gap:9px;background:var(--surface)}
+.prompt-card>span:first-child{width:25px;height:25px;border-radius:7px}
+.prompt-card strong{font-size:11px;margin:0}
+.more-prompts{max-width:445px;margin:11px auto 0;text-align:center}
+.more-prompts summary{display:inline-block;padding:8px 12px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
+.more-prompts summary::-webkit-details-marker{display:none}
+.more-prompts[open] summary{margin-bottom:9px;color:var(--cyan)}
+.chat-options{position:relative;z-index:20}
+.chat-options summary{min-height:36px;display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--muted);border:1px solid var(--line);border-radius:9px;padding:0 12px;font-size:11px;font-weight:700;list-style:none;background:var(--surface)}
+.chat-options summary::-webkit-details-marker{display:none}
+.chat-options[open] summary,.chat-options summary:hover{color:var(--cyan);border-color:var(--cyan)}
+.chat-actions{position:absolute;right:0;top:calc(100% + 6px);z-index:25;min-width:160px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px}
+.chat-actions button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--ink);text-align:left;padding:10px 11px;border-radius:8px;font-size:11px}
+.chat-actions button:hover{background:var(--wash)}
+.warning{font-size:10px;padding:8px 11px;margin-bottom:18px}
+.composer-area{padding-bottom:10px}.composer-note{padding-top:8px}
+@media(min-width:761px){.tools [data-act="search"]{display:none}}
+@media(max-width:1060px){.shell{grid-template-columns:232px minmax(0,1fr)}}
+@media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.topbar{padding:0 12px}.studio-name{font-size:11px}.conversation-head{height:59px;padding:0 13px}.welcome{padding:24px 0}.conversation{padding:16px}.composer-area{padding:0 12px max(10px,env(safe-area-inset-bottom))}}
+@media(max-width:430px){.prompt-grid{grid-template-columns:1fr}.toplink,.studio-name{display:none}.chat-options summary{min-height:34px}}
+
+/* Keep AI Studio's site navigation aligned with Quizer's shell navigation. */
+#app[hidden],#ai-access-gate[hidden]{display:none!important}
+.quizer-site-nav{display:flex;align-items:center;gap:2px;min-width:0}
+.quizer-site-nav a{padding:9px 10px;border-radius:9px;white-space:nowrap;font-size:11px;font-weight:750;color:var(--muted)}
+.quizer-site-nav a:hover,.quizer-site-nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
+.quizer-site-menu{position:relative;display:none;flex:none}
+.quizer-site-menu summary{list-style:none;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:750;cursor:pointer}
+.quizer-site-menu summary::-webkit-details-marker{display:none}
+.quizer-site-menu nav{position:absolute;top:calc(100% + 10px);right:0;width:210px;max-width:calc(100vw - 24px);padding:6px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:35}
+.quizer-site-menu nav a{padding:11px 12px;border-radius:8px;font-size:12px;font-weight:700}
+.quizer-site-menu nav a:hover,.quizer-site-menu nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
+.quizer-profile{white-space:nowrap}
+@media(max-width:1450px){.quizer-site-nav{display:none}.quizer-site-menu{display:block}}
+@media(max-width:760px){.quizer-site-menu summary{padding:8px}.quizer-site-menu summary span{display:none}.quizer-profile{display:none}}
+@media(max-width:430px){.quizer-site-menu nav{right:-42px}}
+</style>
+</head>
+<body data-page="ai">
+<div id="ai-access-gate" role="status" style="padding:24px;font:600 15px system-ui;color:var(--ink)">Checking AI Studio access…</div>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+<symbol id="ic-spark" viewBox="0 0 24 24"><path d="m12 2 2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7ZM19 18v4m-2-2h4"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-3-.4-4-1L3 21l1.4-5A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9ZM13 2v7h7M8 14h8M8 18h6"/></symbol>
+<symbol id="ic-math" viewBox="0 0 24 24"><path d="M19 5H7a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h12M9 8h7M9 12h7M11 16l-4-4 4-4"/></symbol>
+<symbol id="ic-quiz" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h4M8 16l2 2 4-4"/></symbol>
+<symbol id="ic-review" viewBox="0 0 24 24"><path d="M4 5h16M4 10h10M4 15h8M17 16l2 2 4-5"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="m15 3 6 6-3 1-3 5-2 1-5-5 1-2 5-3 1-3ZM8 13l-5 8"/></symbol>
+<symbol id="ic-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 4h4M7 7l1 14h8l1-14M10 11v6m4-6v6"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="ic-bars" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+<symbol id="ic-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M14 3v18"/></symbol>
+<symbol id="ic-moon" viewBox="0 0 24 24"><path d="M20 15a8 8 0 0 1-11-11 8 8 0 1 0 11 11Z"/></symbol>
+<symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+<symbol id="ic-monitor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="15" rx="2"/><path d="M12 18v3M8 21h8"/></symbol>
+<symbol id="ic-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+<symbol id="ic-paperclip" viewBox="0 0 24 24"><path d="m9 13 6-6a4 4 0 0 1 6 6l-8 8a7 7 0 0 1-10-10l8-8"/></symbol>
+<symbol id="ic-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7ZM11 13l11-11"/></symbol>
+<symbol id="ic-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+<symbol id="ic-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v6m0 4h.01"/></symbol>
+<symbol id="ic-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+<symbol id="ic-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+<symbol id="ic-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+<symbol id="ic-retry" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></symbol>
+<symbol id="ic-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+<symbol id="ic-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+<symbol id="ic-edit" viewBox="0 0 24 24"><path d="m16 4 4 4-12 12-5 1 1-5L16 4Zm-2 2 4 4"/></symbol>
+<symbol id="ic-x" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/></symbol>
+<symbol id="ic-snip" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m8 8 12 12M8 16 20 4"/></symbol>
+<symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.5 3 9 8 11 5-2 8-5.5 8-11V5l-8-3Zm-4 10 3 3 5-6"/></symbol>
+</svg>
+<a class="skip" href="#workspace">Skip to workspace</a>
+<div class="app" id="app" hidden>
+<header class="topbar">
+<button class="icon-btn mobile-only" aria-label="Open chat history" data-act="sidebar"><svg class="ico"><use href="#ic-bars"/></svg></button>
+<a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span>math quiz<span style="color:var(--cyan)">.</span></span></a>
+<span class="studio-name">AI Studio</span><span class="grow"></span>
+<nav class="quizer-site-nav" aria-label="Main navigation">
+<a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a>
+</nav>
+<details class="quizer-site-menu"><summary aria-label="Open website navigation"><svg class="ico sm"><use href="#ic-bars"/></svg><span>Menu</span></summary><nav aria-label="Website navigation"><a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a><a href="profile.html">Profile</a></nav></details>
+<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink quizer-profile" href="profile.html">Profile</a>
+<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
+</header>
+<div class="shell" id="shell">
+<aside class="sidebar" aria-label="Conversation history">
+<div class="side-top"><button class="new" data-act="new"><svg class="ico"><use href="#ic-plus"/></svg> New conversation <svg class="ico sm" style="margin-left:auto"><use href="#ic-chevron"/></svg></button><label class="side-search"><svg class="ico sm"><use href="#ic-search"/></svg><input id="history-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search conversations"><span class="kbd">⌘ K</span></label></div>
+<nav class="sidenav" aria-label="History filters"><button class="nav-row active" data-act="filter" data-filter="all"><svg class="ico"><use href="#ic-chat"/></svg> All conversations <small id="chat-count">0</small></button><button class="nav-row" data-act="filter" data-filter="pinned"><svg class="ico"><use href="#ic-pin"/></svg> Pinned</button><button class="nav-row" data-act="filter" data-filter="jobs"><svg class="ico"><use href="#ic-clock"/></svg> Processing jobs <small id="job-count">0</small></button></nav>
+<div class="side-label eyebrow"><span id="history-label">Recent conversations</span><span id="history-count"></span></div><div class="history" id="history-list"></div>
+
+</aside>
+<main class="stage" id="workspace"><div class="conversation-head" id="conversation-head"></div><div class="conversation" id="conversation" aria-label="Conversation messages"><div class="message-list" id="messages"></div></div>
+<div class="composer-area"><div id="pending" class="attached"></div><div class="composer" id="composer"><textarea id="prompt" rows="2" maxlength="12000" aria-label="Your message" placeholder="Ask about mathematics, quizzes, or a document..."></textarea><div class="composer-tools"><button class="compose-btn" data-act="attach" title="Attach a PDF, image, text or TeX"><svg class="ico sm"><use href="#ic-paperclip"/></svg><span>Attach</span></button><button class="compose-btn" data-act="snip" title="Snip visible page text, without screen sharing"><svg class="ico sm"><use href="#ic-snip"/></svg><span>Snip</span></button><span class="compose-mode" id="compose-mode"></span><button class="send" data-act="send" aria-label="Send message" title="Send · Enter"><svg class="ico"><use href="#ic-send"/></svg></button></div></div><div class="composer-note"><span>Design only · No model calls, uploads or cloud writes</span><span>Enter to send · Shift+Enter for newline</span></div><input type="file" id="file-input" multiple accept=".pdf,.tex,.txt,image/*,application/pdf,text/plain" hidden></div></main>
+<aside class="inspector" aria-label="Job inspector"><div class="inspector-head"><span><strong>Job inspector</strong><small>Every step, from input to review</small></span><button class="icon-btn" data-act="inspector" aria-label="Close inspector"><svg class="ico"><use href="#ic-x"/></svg></button></div><div class="inspector-body" id="inspector-body"></div><div class="inspector-foot"><svg class="ico sm"><use href="#ic-shield"/></svg> Simulated jobs · No server requests</div></aside>
+<div class="backdrop" data-act="close-drawers"></div>
+</div></div>
+<div class="toast-area" id="toast" role="status" aria-live="polite"></div>
+<dialog id="type-dialog" aria-labelledby="type-title"><div class="modal"><div class="modal-head"><div><h2 id="type-title">What shall we work on?</h2><p>Purpose-built spaces for conversation, mathematics, documents and review.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><div class="types" id="types"></div></div></dialog>
+<dialog id="rename-dialog" aria-labelledby="rename-title"><div class="modal"><div class="modal-head"><div><h2 id="rename-title">Rename conversation</h2><p>Keep your history organized with a meaningful title.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><form id="rename-form"><input id="rename-input" class="modal-input" maxlength="100" required aria-label="New conversation title"><div class="modal-actions"><button class="secondary" type="button" data-act="close-dialog">Cancel</button><button class="primary" type="submit">Save title</button></div></form></div></dialog>
+<dialog id="settings-dialog" aria-labelledby="settings-title"><div class="modal"><div class="modal-head"><div><h2 id="settings-title">Studio preferences</h2><p>Shape the workspace to match your focus.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><label class="setting"><span><strong>Cursor spotlight</strong><small>A soft blue glow follows the pointer.</small></span><input type="checkbox" id="spot-toggle" class="toggle"></label><label class="setting"><span><strong>Animated atmosphere</strong><small>Slow moving gradient; respects reduced-motion preference.</small></span><input type="checkbox" id="motion-toggle" class="toggle"></label><div class="setting"><span><strong>Reset sample workspace</strong><small>Erase locally stored sample chats, jobs and changes.</small></span><button class="mini-btn danger" type="button" data-act="reset">Reset</button></div><div class="modal-actions"><button class="primary" type="button" data-act="close-dialog">Done</button></div></div></dialog>
+<div class="snip" id="snip"><div class="snip-info">Drag over visible conversation text · Esc to cancel</div><div class="snip-rect" id="snip-rect" hidden></div><button class="snip-exit" data-act="cancel-snip" aria-label="Cancel text snip"><svg class="ico"><use href="#ic-x"/></svg></button></div>
+<script>
+(() => {
+"use strict";
+const STORE="quizer.ai.single-page.v1", THEME="quizer.ai.preview.theme", GLOBAL_THEME="mathquiz.theme.choice";
+const THEME_MODES=["light","dark","system"];
+let chosenThemeMode=null;
+const T={
+ chat:{name:"General chat",icon:"chat",desc:"Think, explain, brainstorm and plan.",placeholder:"Ask a question or brainstorm an idea...",prompts:[["Understand a concept","Explain a difficult mathematical concept with examples"],["Plan a lesson","Outline a lesson on modular arithmetic"],["Explore an idea","Brainstorm an original olympiad problem"],["Compare methods","Compare two different solution methods"]]},
+ solver:{name:"Problem solver",icon:"math",desc:"Reason through mathematics, notation and proofs.",placeholder:"Enter a problem or a LaTeX expression...",prompts:[["Solve step by step","Solve $x^2-5x+6=0$ step by step"],["Audit a proof","Identify gaps in the following mathematical proof"],["Find alternatives","Find two approaches to this problem"],["Get a hint","Give me a hint rather than the full solution"]]},
+ document:{name:"Document lab",icon:"doc",desc:"PDF extraction, figures, OCR review and LaTeX.",placeholder:"Describe what to extract or review in your files...",prompts:[["Extract problems","Extract numbered questions and flag uncertain text"],["Rebuild diagrams","Find diagrams that may require TikZ reconstruction"],["Check answers","Compare an answer key with the source document"],["Convert to TeX","Prepare a draft in the Quizer LaTeX dialect"]]},
+ quiz:{name:"Quiz creator",icon:"quiz",desc:"Prepare, adapt and check quiz content.",placeholder:"Describe a quiz topic, age group or difficulty...",prompts:[["Draft exercises","Draft five algebra problems at varied levels"],["Build a test","Outline a 40-minute mathematics mock test"],["Balance difficulty","Organize these problems from easy to hard"],["Audit distractors","Review multiple-choice options for ambiguity"]]},
+ review:{name:"Review & audit",icon:"review",desc:"Check grammar, logic, precision and ambiguity.",placeholder:"Paste material and describe what to audit...",prompts:[["Find ambiguity","Flag ambiguity and missing assumptions"],["Improve grammar","Polish wording without changing the math"],["Check consistency","Check numbering, formulas and notation"],["Proof referee","Identify unproved steps and possible counterexamples"]]}
+};
+const STAGES=[["Queued","Waiting for the processing worker"],["Read source","Check pages and input structure"],["Extract content","Locate mathematical text and figures"],["Reconstruct mathematics","Organize LaTeX and diagram references"],["Validate","Mark uncertainty for teacher review"],["Review package","Prepare an editable draft"]];
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ico=(s,sm="")=>'<svg class="ico '+sm+'" aria-hidden="true"><use href="#ic-'+s+'"/></svg>';
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+const time=t=>new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+const ago=t=>{const n=Math.max(0,Date.now()-t);return n<60000?"Now":n<3600000?Math.floor(n/60000)+"m ago":n<86400000?Math.floor(n/3600000)+"h ago":new Date(t).toLocaleDateString();};
+const size=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(1)+" MB";
+function seed(){
+ const n=Date.now();
+ return {active:"start",selected:"job-sample",filter:"all",inspector:false,side:false,spot:false,motion:false,
+ chats:[
+ {id:"start",type:"chat",title:"New conversation",pin:false,at:n,updated:n,messages:[]},
+ {id:"sample-doc",type:"document",title:"Functions worksheet · extraction",pin:true,at:n-500000,updated:n-24000,messages:[
+ {id:"a1",role:"user",text:"Extract the numbered math problems, preserve their formulas and mark figures that require human review.",at:n-380000,files:[{name:"Functions general quiz.pdf",size:2400000,type:"application/pdf"}]},
+ {id:"a2",role:"assistant",text:"This is a preview conversation. The inspector shows a simulated document-processing job. No file has been uploaded, read or processed. A real implementation would provide editable extracted content, uncertainty flags and teacher approval before importing.",at:n-360000,files:[]}]},
+ {id:"sample-solver",type:"solver",title:"Olympiad inequality proof",pin:false,at:n-7300000,updated:n-7000000,messages:[
+ {id:"b1",role:"user",text:"For a,b,c>0, prove a/b + b/c + c/a >= 3.",at:n-7100000,files:[]},
+ {id:"b2",role:"assistant",text:"Static sample: by AM–GM, the sum is at least 3 times the cube root of (a/b)(b/c)(c/a) = 1. Equality holds when a=b=c. This is illustrative example text, not a live model response.",at:n-7050000,files:[]}]},
+ {id:"sample-quiz",type:"quiz",title:"Algebra practice ideas",pin:false,at:n-87000000,updated:n-86000000,messages:[]}
+ ],
+ jobs:[{id:"job-sample",chatId:"sample-doc",name:"Functions general quiz.pdf",status:"running",progress:63,at:n-320000,updated:n-30000,started:n-300000,attempt:1,logs:[{at:n-320000,text:"Browser preview created"},{at:n-280000,text:"Sample source registered locally"},{at:n-220000,text:"Sample extraction stage advanced"},{at:n-70000,text:"Simulating mathematical reconstruction"}]}]};
+}
+function clean(o){
+ if(!o||!Array.isArray(o.chats)||!Array.isArray(o.jobs))return seed();
+ o.chats=o.chats.slice(0,60).filter(c=>c&&T[c.type]&&typeof c.id==="string").map(c=>({id:String(c.id).slice(0,100),type:c.type,title:String(c.title||"Conversation").slice(0,100),pin:!!c.pin,at:+c.at||Date.now(),updated:+c.updated||Date.now(),messages:(Array.isArray(c.messages)?c.messages:[]).slice(-150).filter(m=>m&&["user","assistant"].includes(m.role)).map(m=>({id:String(m.id||uid()).slice(0,100),role:m.role,text:String(m.text||"").slice(0,12000),at:+m.at||Date.now(),files:(Array.isArray(m.files)?m.files:[]).slice(0,8).map(f=>({name:String(f.name||"File").slice(0,150),size:+f.size||0,type:String(f.type||"").slice(0,80)}))}))}));
+ o.jobs=o.jobs.slice(0,60).filter(j=>j&&typeof j.id==="string").map(j=>({id:j.id.slice(0,100),chatId:String(j.chatId||"").slice(0,100),name:String(j.name||"Sample").slice(0,150),status:["queued","running","paused","failed","cancelled","succeeded"].includes(j.status)?j.status:"queued",progress:Math.min(100,Math.max(0,+j.progress||0)),at:+j.at||Date.now(),started:+j.started||Date.now(),updated:+j.updated||Date.now(),attempt:+j.attempt||1,logs:(Array.isArray(j.logs)?j.logs:[]).slice(-25).map(l=>({at:+l.at||Date.now(),text:String(l.text||"").slice(0,200)}))}));
+ o.inspector=false;o.side=false;o.spot=o.spot===true;o.motion=o.motion===true;
+ return o;
+}
+let state;try{state=clean(JSON.parse(localStorage.getItem(STORE)));}catch{state=seed();}
+let pending=[],query="",renameId=null,drag=null,tickHandle=null,toastId=0,raf=0;
+function save(){try{localStorage.setItem(STORE,JSON.stringify(state));}catch{notice("Local storage unavailable; changes may not persist.");}}
+function chat(){return state.chats.find(c=>c.id===state.active);}
+function job(){return state.jobs.find(j=>j.id===state.selected);}
+function newestJob(c){return state.jobs.filter(j=>j.chatId===c.id).sort((a,b)=>b.at-a.at)[0];}
+function notice(text){const n=$("#toast");n.replaceChildren();const div=document.createElement("div");div.className="toast";div.textContent=text;n.append(div);const id=++toastId;setTimeout(()=>{if(toastId===id)n.replaceChildren();},3200);}
+function themeMode(){
+ if(chosenThemeMode&&THEME_MODES.includes(chosenThemeMode))return chosenThemeMode;
+ try{
+  const global=localStorage.getItem(GLOBAL_THEME);
+  if(THEME_MODES.includes(global))return global;
+  const shared=JSON.parse(localStorage.getItem("mathquiz.appearance")||"{}");
+  if(THEME_MODES.includes(shared.theme))return shared.theme;
+  const legacy=localStorage.getItem(THEME);
+  if(THEME_MODES.includes(legacy))return legacy;
+ }catch{}
+ return "light";
+}
+function theme(){
+ const mode=themeMode();
+ const resolved=mode==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):mode;
+ document.documentElement.dataset.theme=resolved;
+ const icons={light:"sun",dark:"moon",system:"monitor"};
+ $("#theme-icon").innerHTML='<use href="#ic-'+icons[mode]+'"/>';
+ const button=document.querySelector('[data-act="theme"]');
+ if(button){
+   const label=mode.charAt(0).toUpperCase()+mode.slice(1);
+   button.title="Appearance: "+label+" · change mode";
+   button.setAttribute("aria-label","Appearance: "+label+"; change mode");
+ }
+}
+function layout(){
+ theme();$("#workspace").style.setProperty("--spotlight",state.spot?"1":"0");$("#workspace").style.setProperty("--aurora",state.motion?"block":"none");
+ $("#app").classList.toggle("show-sidebar",innerWidth<=760&&state.side);
+ $("#app").classList.toggle("show-inspector",innerWidth<=1060&&state.inspector);
+ $$("[data-act=inspector]").forEach(b=>b.setAttribute("aria-expanded",String(state.inspector)));
+ const insp=document.querySelector(".inspector");insp.style.display=innerWidth>1060&&!state.inspector?"none":"";
+ $("#shell").style.gridTemplateColumns=innerWidth>1060&&!state.inspector?"232px minmax(0,1fr)":"";
+}
+function history(){
+ $$(".nav-row").forEach(b=>b.classList.toggle("active",b.dataset.filter===state.filter));
+ $("#chat-count").textContent=state.chats.length;
+ $("#job-count").textContent=state.jobs.filter(j=>["running","queued","paused"].includes(j.status)).length;
+ $("#history-label").textContent=state.filter==="jobs"?"Processing jobs":state.filter==="pinned"?"Pinned conversations":"Recent conversations";
+ $("#history-count").textContent=state.filter==="jobs"?state.jobs.length:state.chats.length;
+ let html="";
+ if(state.filter==="jobs")html=state.jobs.slice().sort((a,b)=>b.at-a.at).filter(j=>(j.name+" "+j.status).toLowerCase().includes(query)).map(j=>'<div class="history-row '+(state.selected===j.id?"active":"")+'"><button class="history-open" data-act="select-job" data-id="'+e(j.id)+'"><span class="history-icon">'+ico("clock")+'</span><span class="history-text"><strong>'+e(j.name)+'</strong><small>'+e(j.status)+' · '+j.progress+'%</small></span></button></div>').join("");
+ else html=state.chats.filter(c=>(state.filter!=="pinned"||c.pin)&&(c.title+" "+T[c.type].name).toLowerCase().includes(query)).sort((a,b)=>Number(b.pin)-Number(a.pin)||b.updated-a.updated).map(c=>'<div class="history-row '+(state.active===c.id?"active":"")+'"><button class="history-open" data-act="select-chat" data-id="'+e(c.id)+'"><span class="history-icon">'+ico(T[c.type].icon)+'</span><span class="history-text"><strong>'+e(c.title)+'</strong><small>'+e(T[c.type].name)+' · '+ago(c.updated)+'</small></span></button><button class="pin-btn '+(c.pin?"pinned":"")+'" data-act="pin" data-id="'+e(c.id)+'" aria-label="'+(c.pin?"Unpin ":"Pin ")+e(c.title)+'" title="Pin/unpin">'+ico("pin","sm")+'</button><button class="pin-btn" data-act="delete-chat" data-id="'+e(c.id)+'" aria-label="Delete '+e(c.title)+'" title="Delete conversation">'+ico("trash","sm")+'</button></div>').join("");
+ $("#history-list").innerHTML=html||'<div class="empty-box">Nothing here yet.<br>Try a new conversation.</div>';
+}
+function head(){
+ const c=chat()||state.chats[0],t=T[c.type];
+ $("#conversation-head").innerHTML='<div class="current-title"><span class="title-symbol">'+ico(t.icon)+'</span><span class="title-copy"><h1>'+e(c.title)+'</h1><p>'+e(t.desc)+'</p></span></div><div class="head-tools"><details class="chat-options"><summary aria-label="Conversation actions" title="Conversation actions">More <span aria-hidden="true">⋯</span></summary><div class="chat-actions"><button type="button" data-act="pin" data-id="'+e(c.id)+'">'+ico("pin","sm")+' Pin</button><button type="button" data-act="rename">'+ico("edit","sm")+' Rename</button><button type="button" data-act="export">'+ico("download","sm")+' Export JSON</button></div></details></div>';
+ $("#prompt").placeholder=t.placeholder;$("#compose-mode").innerHTML=ico(t.icon,"sm")+" "+e(t.name);
+}
+function attachHtml(f){return '<span class="file">'+ico("doc","sm")+'<strong>'+e(f.name)+'</strong><small>'+size(f.size)+'</small></span>';}
+function msgHtml(m){
+ return '<article class="message '+e(m.role)+'"><span class="msg-icon">'+ico(m.role==="user"?"chat":"spark")+'</span><div class="msg-content"><div class="msg-meta"><strong>'+(m.role==="user"?"You":"Studio preview")+'</strong><time>'+time(m.at)+'</time></div><div class="msg-body">'+e(m.text)+'</div>'+(m.files?.length?'<div class="attachments-line">'+m.files.map(attachHtml).join("")+'</div>':'')+'<div class="msg-actions"><button data-act="copy-msg" data-id="'+e(m.id)+'">'+ico("copy","sm")+' Copy</button></div></div></article>';
+}
+function emptyHtml(c){
+ const prompts=T[c.type].prompts;
+ const cards=items=>items.map(([title,prompt])=>'<button class="prompt-card" data-act="suggest" data-prompt="'+e(prompt)+'"><span>'+ico("spark","sm")+'</span><strong>'+e(title)+'</strong></button>').join("");
+ return '<div class="welcome"><span class="welcome-symbol">'+ico("spark")+'</span><h2>What would you like to do?</h2><p>'+e(T[c.type].desc)+'</p><div class="prompt-grid">'+cards(prompts.slice(0,2))+'</div><details class="more-prompts"><summary>More ideas</summary><div class="prompt-grid">'+cards(prompts.slice(2))+'</div></details></div>';
+}
+function messages(keep=false){
+ const box=$("#conversation"),bottom=box.scrollHeight-box.scrollTop-box.clientHeight<110,c=chat()||state.chats[0];
+ $("#messages").innerHTML='<div class="warning">'+ico("alert")+' <span><strong>Design prototype.</strong> Jobs are simulations. No AI processing, authentication, uploads or cloud saving occurs.</span></div>'+(c.messages.length?c.messages.map(msgHtml).join(""):emptyHtml(c));
+ if(!keep||bottom)box.scrollTop=box.scrollHeight;
+ if(window.MathJax && typeof window.MathJax.typesetPromise==="function")window.MathJax.typesetPromise([$("#messages")]).catch(()=>{});
+}
+function attachments(){
+ $("#pending").innerHTML=pending.map((f,i)=>'<span class="file">'+ico("paperclip","sm")+'<strong>'+e(f.name)+'</strong><small>'+size(f.size)+'</small><button aria-label="Remove '+e(f.name)+'" data-act="remove-file" data-index="'+i+'">'+ico("x","sm")+'</button></span>').join("");
+}
+function stepIndex(p){return p>=100?5:p<10?0:p<28?1:p<48?2:p<74?3:4;}
+function status(j){const cls=j.status==="succeeded"?"success":j.status==="failed"?"failed":["paused","cancelled"].includes(j.status)?"dim":"";return '<span class="tag '+cls+'">'+(j.status==="running"?'<span class="dot pulse"></span>':"")+e(j.status)+'</span>';}
+function inspector(){
+ const list=state.jobs.slice().sort((a,b)=>b.at-a.at);
+ let html='<section class="inspector-section"><div class="section-heading"><span>Job queue</span><span>'+list.filter(j=>["queued","running","paused"].includes(j.status)).length+' active</span></div>'+(list.length?list.slice(0,7).map(j=>'<button class="job-select '+(j.id===state.selected?"active":"")+'" data-act="select-job" data-id="'+e(j.id)+'">'+ico("doc")+'<span><strong>'+e(j.name)+'</strong><small>'+e(j.status)+' · '+j.progress+'% · '+ago(j.at)+'</small></span>'+ico("chevron","sm")+'</button>').join(""):'<div class="empty-box">No jobs. Attach a file in a chat to explore the workflow.</div>')+'</section>';
+ const j=job();if(!j){$("#inspector-body").innerHTML=html;return;}
+ const si=stepIndex(j.progress);
+ let controls="";
+ if(j.status==="running")controls='<button class="mini-btn" data-act="pause">'+ico("pause")+' Pause</button><button class="mini-btn danger" data-act="fail">Simulate failure</button><button class="mini-btn danger" data-act="cancel">'+ico("stop")+' Cancel</button>';
+ if(j.status==="paused")controls='<button class="mini-btn" data-act="resume">'+ico("play")+' Resume</button><button class="mini-btn danger" data-act="cancel">'+ico("stop")+' Cancel</button>';
+ if(["failed","cancelled"].includes(j.status))controls='<button class="mini-btn" data-act="retry">'+ico("retry")+' Retry demo</button>';
+ if(j.status==="succeeded")controls='<button class="mini-btn" data-act="copy-tex">'+ico("copy")+' Copy sample TeX</button>';
+ html+='<section class="inspector-section"><div class="section-heading"><span>Selected run</span><span>Preview</span></div><div class="job-card"><div class="job-title"><span><strong>'+e(j.name)+'</strong><small>Ref '+e(j.id.slice(0,13))+' · Attempt '+j.attempt+'</small></span>'+status(j)+'</div><div class="progress-number"><span>Simulated progress</span><strong>'+j.progress+'%</strong></div><div class="progress" role="progressbar" aria-label="Simulated progress" aria-valuenow="'+j.progress+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+j.progress+'%"></span></div><div class="stage-name">'+e(STAGES[si][0])+' · This is not worker telemetry</div><div class="job-controls">'+controls+'</div></div></section>';
+ html+='<section class="inspector-section"><div class="section-heading"><span>Processing pipeline</span><span>6 stages</span></div><div class="pipeline">'+STAGES.map((s,i)=>{const done=i<si||j.status==="succeeded",cur=i===si&&!["succeeded","cancelled"].includes(j.status);return '<div class="step '+(done?"done":cur?"current":"")+'"><span class="step-mark">'+ico(done?"check":cur?"clock":"plus","sm")+'</span><span><strong>'+e(s[0])+'</strong><small>'+e(s[1])+'</small></span></div>';}).join("")+'</div></section>';
+ html+='<section class="inspector-section"><div class="section-heading"><span>Run information</span><span>Local</span></div><div class="metrics"><div class="metric"><span>Execution</span><strong>Browser demo</strong></div><div class="metric"><span>Provider</span><strong>Not connected</strong></div><div class="metric"><span>Duration*</span><strong>'+Math.max(0,Math.floor((j.updated-j.started)/1000))+' s</strong></div><div class="metric"><span>Actual cost</span><strong>—</strong></div></div><p class="muted" style="font-size:9px">*Simulated timeline; not a server measurement.</p></section>';
+ html+='<section class="inspector-section"><div class="section-heading"><span>Activity log</span><span>'+j.logs.length+' events</span></div>'+j.logs.slice().reverse().slice(0,7).map(l=>'<div class="log-row"><span class="dot"></span><span><time>'+time(l.at)+'</time>'+e(l.text)+'</span></div>').join("")+'</section>';
+ if(j.status==="succeeded")html+='<section class="inspector-section"><div class="section-heading">Synthetic artifact</div><div class="artifact">'+ico("doc")+'<span><strong>sample_review.tex</strong><small>Illustrative only · never extracted from files</small></span></div><div class="job-controls"><button class="mini-btn" data-act="copy-tex">'+ico("copy")+' Copy TeX</button></div></section>';
+ $("#inspector-body").innerHTML=html;
+}
+function render(keep=false){layout();history();head();messages(keep);attachments();inspector();}
+function newChat(type){
+ if(!T[type])return;const n=Date.now(),id=uid();state.chats.unshift({id,type,title:T[type].name,pin:false,at:n,updated:n,messages:[]});state.chats=state.chats.slice(0,60);state.active=id;state.filter="all";state.side=false;pending=[];$("#prompt").value="";save();render();$("#type-dialog").close();$("#prompt").focus();
+}
+function selectChat(id){const c=state.chats.find(c=>c.id===id);if(!c)return;state.active=id;state.side=false;pending=[];$("#prompt").value="";const j=newestJob(c);if(j)state.selected=j.id;save();render();}
+function append(c,role,text,files=[]){c.messages.push({id:uid(),role,text:String(text).slice(0,12000),at:Date.now(),files});c.messages=c.messages.slice(-150);c.updated=Date.now();}
+function log(j,text){j.logs.push({at:Date.now(),text});j.logs=j.logs.slice(-25);j.updated=Date.now();}
+function startJob(c,name){const n=Date.now(),j={id:uid(),chatId:c.id,name,status:"running",progress:3,at:n,started:n,updated:n,attempt:1,logs:[{at:n,text:"Sample job created; no upload or backend request"}]};state.jobs.unshift(j);state.jobs=state.jobs.slice(0,60);state.selected=j.id;state.inspector=true;return j;}
+function send(){
+ const text=$("#prompt").value.trim();if(!text&&!pending.length)return;let c=chat();if(!c){newChat("chat");c=chat();}
+ const fileNames=pending.map(f=>({name:f.name,size:f.size,type:f.type}));append(c,"user",text||"Attached files for review",fileNames);
+ if(c.messages.length===1)c.title=(text||fileNames[0]?.name||"New conversation").replace(/\s+/g," ").slice(0,55);
+ if(fileNames.length){const j=startJob(c,fileNames.length===1?fileNames[0].name:fileNames.length+" files");append(c,"assistant","A local sample job is now visible in the inspector ("+j.id.slice(0,8)+"). It demonstrates a processing pipeline, but your actual files were not uploaded, opened or analyzed.");}
+ else append(c,"assistant","Your request was saved in this browser as a design preview. No AI provider is connected. When a secure backend is integrated, this space can show model responses, citations, mathematics and checkpoints for human review.");
+ pending=[];$("#file-input").value="";$("#prompt").value="";autosize();save();render();$("#prompt").focus();
+}
+function autosize(){const t=$("#prompt");t.style.height="auto";t.style.height=Math.min(170,t.scrollHeight)+"px";}
+function addFiles(files){const all=Array.from(files);const ok=all.filter(f=>(f.type==="application/pdf"||f.type.startsWith("image/")||f.type==="text/plain"||/\.(pdf|tex|txt)$/i.test(f.name))&&f.size<=25*1048576);if(ok.length<all.length)notice("Some unsupported files or files above 25 MB were skipped.");pending=pending.concat(ok).slice(0,8);attachments();if(pending.length)notice(pending.length+" file(s) staged locally, not uploaded.");}
+function jobControl(action){
+ const j=job();if(!j)return;
+ if(action==="pause"&&j.status==="running"){j.status="paused";log(j,"Paused demo");}
+ if(action==="resume"&&j.status==="paused"){j.status="running";log(j,"Resumed demo");}
+ if(action==="cancel"&&["running","paused"].includes(j.status)){j.status="cancelled";log(j,"Cancelled demo");}
+ if(action==="fail"&&j.status==="running"){j.status="failed";log(j,"Simulated worker failure");}
+ if(action==="retry"&&["failed","cancelled"].includes(j.status)){j.status="running";j.progress=3;j.started=Date.now();j.attempt++;log(j,"Retry started");}
+ save();render(true);
+}
+function advance(){
+ if(document.hidden)return;let complete=false,changed=false;
+ for(const j of state.jobs.filter(j=>j.status==="running")){
+  changed=true;const old=stepIndex(j.progress);j.progress=Math.min(100,j.progress+Math.max(1,Math.round((100-j.progress)*.09)));j.updated=Date.now();
+  if(stepIndex(j.progress)!==old)log(j,STAGES[stepIndex(j.progress)][0]+" (simulated)");
+  if(j.progress===100){j.status="succeeded";log(j,"Synthetic example package ready; no model used");const c=state.chats.find(c=>c.id===j.chatId);if(c){append(c,"assistant","The sample job animation has finished. An illustrative TeX artifact is available in the inspector. It is not based on your attached file; a teacher must review actual AI output before import.");if(c.id===state.active)complete=true;}}
+ }
+ if(changed){save();history();inspector();if(complete)messages(true);}
+}
+function notifyCopy(s){if(navigator.clipboard?.writeText)navigator.clipboard.writeText(s).then(()=>notice("Copied.")).catch(()=>notice("Clipboard permission unavailable."));else notice("Clipboard is unavailable here.");}
+function exampleTex(){return "\\quiztitle{SAMPLE ONLY — NOT EXTRACTED}\n\\begin{problem}[points=2]\nSolve $x^2-5x+6=0$.\n\\answer{$x=2,3$}\n\\end{problem}\n";}
+function exportChat(){const c=chat();if(!c)return;const blob=new Blob([JSON.stringify({format:"quizer-ai-preview-v1",warning:"Prototype — no verified AI outputs",conversation:c},null,2)],{type:"application/json"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="quizer-chat-"+c.id.slice(0,12)+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notice("Chat exported from local storage.");}
+function modal(id){const x=$("#"+id);if(!x.open)x.showModal();}
+function closeModals(){$$("dialog[open]").forEach(d=>d.close());}
+function stopSnip(){drag=null;$("#snip").classList.remove("active");$("#snip-rect").hidden=true;}
+function finishSnip(s,x,y){
+ const left=Math.min(s.x,x),top=Math.min(s.y,y),right=Math.max(s.x,x),bottom=Math.max(s.y,y);
+ if(right-left<12||bottom-top<12){stopSnip();return;}
+ const selected=$$(".msg-body").filter(el=>{const r=el.getBoundingClientRect();return r.left<right&&r.right>left&&r.top<bottom&&r.bottom>top&&r.width&&r.height;}).map(el=>el.textContent.trim()).join("\n\n").slice(0,3500);
+ stopSnip();if(!selected){notice("No conversation text found in that area.");return;}
+ $("#prompt").value+=($("#prompt").value?"\n\n":"")+"[Selected text from this page]\n"+selected;autosize();$("#prompt").focus();notice("Visible text added to the composer; nothing sent.");
+}
+function action(kind,button){
+ const id=button.dataset.id,c=chat();
+ if(kind==="new"){modal("type-dialog");return;}
+ if(kind==="choose-type"){newChat(button.dataset.type);return;}
+ if(kind==="select-chat"){selectChat(id);return;}
+ if(kind==="select-job"){state.selected=id;state.inspector=true;state.side=false;state.filter="jobs";save();render(true);return;}
+ if(kind==="filter"){state.filter=button.dataset.filter;save();history();return;}
+ if(kind==="sidebar"){state.side=!state.side;state.inspector=false;layout();return;}
+ if(kind==="inspector"){state.inspector=!state.inspector;state.side=false;save();layout();return;}
+ if(kind==="close-drawers"){state.side=false;state.inspector=false;layout();return;}
+ if(kind==="theme"){
+  const mode=THEME_MODES[(THEME_MODES.indexOf(themeMode())+1)%THEME_MODES.length];
+  chosenThemeMode=mode;
+  try{
+    localStorage.setItem(GLOBAL_THEME,mode);
+    localStorage.setItem(THEME,mode);
+    const shared=JSON.parse(localStorage.getItem("mathquiz.appearance")||"{}");
+    localStorage.setItem("mathquiz.appearance",JSON.stringify({...shared,theme:mode}));
+  }catch{}
+  theme();
+  return;
+ }
+ if(kind==="settings"){$("#spot-toggle").checked=state.spot;$("#motion-toggle").checked=state.motion;modal("settings-dialog");return;}
+ if(kind==="search"){if(innerWidth<=760){state.side=true;layout();}$("#history-search").focus();return;}
+ if(kind==="pin"){const x=state.chats.find(v=>v.id===id);if(x){x.pin=!x.pin;save();history();}return;}
+ if(kind==="delete-chat"){const x=state.chats.find(v=>v.id===id);if(!x)return;if(!confirm("Delete this local conversation and its sample jobs?"))return;state.chats=state.chats.filter(v=>v.id!==id);state.jobs=state.jobs.filter(j=>j.chatId!==id);if(!state.chats.length){const n=Date.now();state.chats=[{id:uid(),type:"chat",title:"General chat",pin:false,at:n,updated:n,messages:[]}];}if(state.active===id)state.active=state.chats[0].id;if(!state.jobs.some(j=>j.id===state.selected))state.selected=state.jobs[0]?.id||null;pending=[];save();render();notice("Local conversation deleted.");return;}
+ if(kind==="rename"&&c){renameId=c.id;$("#rename-input").value=c.title;modal("rename-dialog");$("#rename-input").focus();$("#rename-input").select();return;}
+ if(kind==="export"){exportChat();return;}
+ if(kind==="attach"){$("#file-input").click();return;}
+ if(kind==="remove-file"){pending.splice(Number(button.dataset.index),1);attachments();return;}
+ if(kind==="suggest"){$("#prompt").value=button.dataset.prompt||"";autosize();$("#prompt").focus();return;}
+ if(kind==="send"){send();return;}
+ if(kind==="copy-msg"){const m=c?.messages.find(v=>v.id===id);if(m)notifyCopy(m.text);return;}
+ if(kind==="copy-tex"){notifyCopy(exampleTex());return;}
+ if(kind==="snip"){state.side=false;state.inspector=false;layout();$("#snip").classList.add("active");notice("Drag to collect visible text, no screen-share prompt.");return;}
+ if(kind==="cancel-snip"){stopSnip();return;}
+ if(kind==="close-dialog"){closeModals();return;}
+ if(["pause","resume","cancel","fail","retry"].includes(kind)){jobControl(kind);return;}
+ if(kind==="reset"&&confirm("Reset locally stored AI preview chats and demo jobs?")){state=seed();pending=[];save();closeModals();render();notice("Preview reset.");}
+}
+function init(){
+ $("#types").innerHTML=Object.entries(T).map(([key,t])=>'<button class="type-card" data-act="choose-type" data-type="'+key+'"><span class="type-symbol">'+ico(t.icon)+'</span><span><strong>'+e(t.name)+'</strong><small>'+e(t.desc)+'</small></span></button>').join("");
+ if(!state.chats.length){const n=Date.now();state.chats=[{id:uid(),type:"chat",title:"General chat",pin:false,at:n,updated:n,messages:[]}];state.active=state.chats[0].id;}
+ if(!state.chats.some(c=>c.id===state.active))state.active=state.chats[0].id;
+ if(!state.jobs.some(j=>j.id===state.selected))state.selected=state.jobs[0]?.id||null;
+ render();save();
+ document.addEventListener("click",ev=>{const b=ev.target.closest("[data-act]");if(b)action(b.dataset.act,b);});
+ document.addEventListener("keydown",ev=>{if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==="k"){ev.preventDefault();action("search",$("#history-search"));}if((ev.ctrlKey||ev.metaKey)&&ev.shiftKey&&ev.key.toLowerCase()==="o"){ev.preventDefault();modal("type-dialog");}if(ev.key==="Escape"){stopSnip();state.side=false;state.inspector=false;layout();}});
+ $("#prompt").addEventListener("input",autosize);
+ $("#prompt").addEventListener("keydown",ev=>{if(ev.key==="Enter"&&!ev.shiftKey&&!ev.isComposing){ev.preventDefault();send();}});
+ $("#file-input").addEventListener("change",ev=>addFiles(ev.target.files||[]));
+ $("#history-search").addEventListener("input",ev=>{query=ev.target.value.toLowerCase().trim();history();});
+ $("#rename-form").addEventListener("submit",ev=>{ev.preventDefault();const c=state.chats.find(x=>x.id===renameId),name=$("#rename-input").value.trim();if(c&&name){c.title=name.slice(0,100);c.updated=Date.now();save();history();head();}$("#rename-dialog").close();});
+ $("#spot-toggle").addEventListener("change",ev=>{state.spot=ev.target.checked;save();layout();});
+ $("#motion-toggle").addEventListener("change",ev=>{state.motion=ev.target.checked;save();layout();});
+ window.addEventListener("resize",layout,{passive:true});
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>{if(themeMode()==="system")theme();});
+ $("#workspace").addEventListener("pointermove",ev=>{if(!state.spot||ev.pointerType==="touch"||matchMedia("(prefers-reduced-motion:reduce)").matches)return;if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{const r=$("#workspace").getBoundingClientRect();$("#workspace").style.setProperty("--mx",ev.clientX-r.left+"px");$("#workspace").style.setProperty("--my",ev.clientY-r.top+"px");raf=0;});},{passive:true});
+ $("#workspace").addEventListener("dragover",ev=>{ev.preventDefault();$("#composer").classList.add("drag");});
+ $("#workspace").addEventListener("dragleave",ev=>{if(!$("#workspace").contains(ev.relatedTarget))$("#composer").classList.remove("drag");});
+ $("#workspace").addEventListener("drop",ev=>{ev.preventDefault();$("#composer").classList.remove("drag");if(ev.dataTransfer?.files?.length)addFiles(ev.dataTransfer.files);});
+ const overlay=$("#snip"),rectangle=$("#snip-rect");
+ overlay.addEventListener("pointerdown",ev=>{if(ev.target.closest("button"))return;drag={x:ev.clientX,y:ev.clientY};rectangle.hidden=false;rectangle.style.left=ev.clientX+"px";rectangle.style.top=ev.clientY+"px";rectangle.style.width="0px";rectangle.style.height="0px";overlay.setPointerCapture(ev.pointerId);});
+ overlay.addEventListener("pointermove",ev=>{if(!drag)return;rectangle.style.left=Math.min(drag.x,ev.clientX)+"px";rectangle.style.top=Math.min(drag.y,ev.clientY)+"px";rectangle.style.width=Math.abs(drag.x-ev.clientX)+"px";rectangle.style.height=Math.abs(drag.y-ev.clientY)+"px";});
+ overlay.addEventListener("pointerup",ev=>{if(drag)finishSnip(drag,ev.clientX,ev.clientY);});
+ overlay.addEventListener("pointercancel",stopSnip);
+ tickHandle=setInterval(advance,1500);
+ // Integration boundary: replace local send/startJob/advance, not UI rendering.
+ // Authenticated server endpoints must enforce teacher/student privileges,
+ // prevent leaking grading keys/active exam content, and cap model budgets.
+ window.QuizerAIStudioPreview={getState:()=>JSON.parse(JSON.stringify(state))};
+}
+// This standalone page checks Quizer session capabilities before starting the preview.
+async function authorizeAndStart(){
+ const gate=document.getElementById("ai-access-gate");
+ const app=document.getElementById("app");
+ const deny=(message)=>{app.hidden=true;gate.hidden=false;gate.textContent=message;};
+ try{
+  const auth=await import("./js/firebase-client.js");
+  await auth.initFirebase();
+  const settled=()=>new Promise(resolve=>{
+   let stop=()=>{};
+   stop=auth.watchSession(s=>{
+    if(s.status==="error"||s.status==="unconfigured"||(s.authResolved&&(!s.user||s.roleResolved))){
+     queueMicrotask(()=>stop());
+     resolve(s);
+    }
+   });
+  });
+  const session=await settled();
+  if(session.status==="error"||session.status==="unconfigured"){deny("Unable to verify AI Studio access. Please reload after the service is available.");return;}
+  if(!session.user){location.replace("login.html?next=ai.html");return;}
+  if(!session.roleResolved||session.accountStatus!=="active"||!(session.capabilities?.admin||session.capabilities?.teach)){
+   deny("AI Studio is available to teachers and administrators. Return to Home or contact the site administrator.");
+   return;
+  }
+  gate.hidden=true;app.hidden=false;init();
+  // Revocations and account switches take effect in this tab, too.
+  auth.watchSession(s=>{
+   if(!s.user||s.status==="error"||s.accountStatus!=="active"||!s.roleResolved||!(s.capabilities?.admin||s.capabilities?.teach)){
+    deny("AI Studio access is no longer available. Reload after your permissions are verified.");
+   }
+  });
+ }catch(error){console.error("AI access check failed",error);deny("Unable to verify AI Studio access. Please try again later.");}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",authorizeAndStart,{once:true});else authorizeAndStart();
+})();
+</script>
+</body></html>

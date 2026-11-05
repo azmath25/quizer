@@ -71,7 +71,7 @@ export async function mount(root) {
     return result;
   }
   async function showContent() {
-    panel.innerHTML = `<div class="workspace-grid"><div class="stack"><section class="panel"><div class="section-head"><h2>Content</h2>${badge(quiz.lifecycle === "trashed" ? "Trash" : quiz.publishedRevisionId ? "Published" : "Draft", quiz.publishedRevisionId ? "green" : "")}</div><p class="muted">${e(draft.description || "No description added.")}</p><div class="stat-grid"><div class="stat"><strong>${draft.itemOrder.length}</strong><span>Problems in draft</span></div><div class="stat"><strong>${points(data.items.reduce((s, i) => s + i.points, 0))}</strong><span>Total points</span></div><div class="stat"><strong>${draft.settings.durationSeconds ? Math.round(draft.settings.durationSeconds / 60) : "∞"}</strong><span>Minutes</span></div><div class="stat"><strong>${draft.version}</strong><span>Draft version</span></div></div><hr><p class="muted small">Students take the published version. Save and publish your draft when it is ready.</p><div class="actions">${linkButton("Edit problems and settings", `upload.html?id=${quizId}`, "secondary")}<button class="button primary" id="publish" ${quiz.lifecycle === "trashed" || quiz.publishingJobId ? "disabled" : ""}>Publish draft</button></div>${quiz.publishingJobId ? `<div class="notice">A publication or copy is processing.<div class="actions"><button class="button secondary" id="check-job">Check progress</button><button class="button secondary" id="retry-job">Retry failed job</button><button class="button ghost" id="cancel-job">Cancel failed job</button></div></div>` : ""}</section><section class="panel"><div class="section-head"><h2>Published revisions</h2></div><div id="revisions">${loading()}</div></section></div><aside class="stack"><section class="panel"><h2>Quiz link</h2><p class="muted small">The link stays the same after you edit or publish a revision.</p><p class="link-output">${e(shareURL)}</p><button class="button secondary" id="copy-link">Copy quiz link</button></section><section class="panel"><h2>Manage content</h2><div class="stack"><button class="button secondary" id="duplicate">Duplicate as a private quiz</button><button class="button secondary" id="backup" ${!quiz.publishedRevisionId ? "disabled" : ""}>Export published backup</button>${quiz.publishedRevisionId ? '<button class="button secondary" id="unpublish">Unpublish</button>' : ""}<button class="button ${quiz.lifecycle === "trashed" ? "primary" : "secondary"}" id="trash">${quiz.lifecycle === "trashed" ? "Restore as private" : "Move to Trash"}</button></div><div id="export-download"></div><p class="muted small">Trash keeps versions and student results. Restored quizzes require approval.</p></section></aside></div>`;
+    panel.innerHTML = `<div class="workspace-grid"><div class="stack"><section class="panel"><div class="section-head"><h2>Content</h2>${badge(quiz.lifecycle === "trashed" ? "Trash" : quiz.publishedRevisionId ? "Published" : "Draft", quiz.publishedRevisionId ? "green" : "")}</div><p class="muted">${e(draft.description || "No description added.")}</p><div class="stat-grid"><div class="stat"><strong>${draft.itemOrder.length}</strong><span>Problems in draft</span></div><div class="stat"><strong>${points(data.items.reduce((s, i) => s + i.points, 0))}</strong><span>Total points</span></div><div class="stat"><strong>${draft.settings.durationSeconds ? Math.round(draft.settings.durationSeconds / 60) : "∞"}</strong><span>Minutes</span></div><div class="stat"><strong>${draft.version}</strong><span>Draft version</span></div></div><hr><p class="muted small">Students take the published version. Save and publish your draft when it is ready.</p><div class="actions">${linkButton("Edit problems and settings", `upload.html?id=${quizId}`, "secondary")}<button class="button primary" id="publish" ${quiz.lifecycle === "trashed" || quiz.publishingJobId ? "disabled" : ""}>Publish draft</button></div>${quiz.publishingJobId ? `<div class="notice">A publication or copy is processing.<div class="actions"><button class="button secondary" id="check-job">Check progress</button><button class="button secondary" id="retry-job">Retry failed job</button><button class="button ghost" id="cancel-job">Cancel failed job</button></div></div>` : ""}</section><section class="panel"><div class="section-head"><h2>Published revisions</h2><button type="button" class="button secondary small" id="revisions-load">Load revisions</button></div><div id="revisions">${empty("Revisions not loaded", "Press Load revisions to view published versions.")}</div></section></div><aside class="stack"><section class="panel"><h2>Quiz link</h2><p class="muted small">The link stays the same after you edit or publish a revision.</p><p class="link-output">${e(shareURL)}</p><button class="button secondary" id="copy-link">Copy quiz link</button></section><section class="panel"><h2>Manage content</h2><div class="stack"><button class="button secondary" id="duplicate">Duplicate as a private quiz</button><button class="button secondary" id="backup" ${!quiz.publishedRevisionId ? "disabled" : ""}>Export published backup</button>${quiz.publishedRevisionId ? '<button class="button secondary" id="unpublish">Unpublish</button>' : ""}<button class="button ${quiz.lifecycle === "trashed" ? "primary" : "secondary"}" id="trash">${quiz.lifecycle === "trashed" ? "Restore as private" : "Move to Trash"}</button></div><div id="export-download"></div><p class="muted small">Trash keeps versions and student results. Restored quizzes require approval.</p></section></aside></div>`;
     action(panel, "#copy-link", async () => {
       await navigator.clipboard.writeText(shareURL);
       message(root, "Quiz link copied.", "success");
@@ -153,6 +153,7 @@ export async function mount(root) {
       panel.querySelector("#export-download").innerHTML =
         `<a class="button primary" href="${e(file.url)}" download="${e(file.filename)}" rel="noreferrer">Download backup ZIP</a>`;
     });
+    action(panel, "#revisions-load", async () => {
     const revisions = await api("listQuizRevisions", { quizId, limit: 25 });
     panel.querySelector("#revisions").innerHTML = revisions.items.length
       ? revisions.items
@@ -162,6 +163,7 @@ export async function mount(root) {
           )
           .join("")
       : empty("No published versions yet");
+    });
   }
   async function showAccess() {
     panel.innerHTML = `<div class="workspace-grid"><div class="stack"><section class="panel"><div class="panel-title"><h2>Visibility and availability</h2></div><form id="policy-form" class="stack"><div class="form-grid">${select(
@@ -191,7 +193,7 @@ export async function mount(root) {
         ["", "All participants"],
       ],
       "pending",
-    )}<button class="button secondary" id="bulk-approve">Approve selected</button><button class="button secondary" id="bulk-decline">Decline selected</button></div><div id="participants"></div></section></div><aside class="stack"><section class="panel"><h2>Request link</h2><p class="muted small">Share a private request link so students can apply. The link does not grant access.</p><button class="button primary" id="join-link">Create request link</button><div id="join-output"></div><div id="join-links"></div></section><section class="panel"><h2>Grant access directly</h2><p class="muted small">The student must already have an account.</p><form id="grant-form" class="stack">${field("Exact email address", "email", "email", "", "required")}<button class="button secondary">Find registered student</button><div data-message></div></form><div id="lookup-result"></div></section></aside></div>`;
+    )}<button class="button secondary" id="bulk-approve">Approve selected</button><button class="button secondary" id="bulk-decline">Decline selected</button><button class="button primary" id="participants-load" type="button">Load participants</button></div><div id="participants"></div></section></div><aside class="stack"><section class="panel"><h2>Request link</h2><p class="muted small">Share a private request link so students can apply. The link does not grant access.</p><button class="button primary" id="join-link">Create request link</button><div id="join-output"></div><button type="button" class="button secondary" id="links-load">Load request links</button><div id="join-links"></div></section><section class="panel"><h2>Grant access directly</h2><p class="muted small">The student must already have an account.</p><form id="grant-form" class="stack">${field("Exact email address", "email", "email", "", "required")}<button class="button secondary">Find registered student</button><div data-message></div></form><div id="lookup-result"></div></section></aside></div>`;
     bindForm(panel.querySelector("#policy-form"), async (form) => {
       await api("setQuizAccessPolicy", {
         quizId,
@@ -389,17 +391,32 @@ export async function mount(root) {
         await loadParticipants();
       });
     });
-    await loadParticipants();
-    await loadLinks();
+    list.innerHTML = empty("Participants not loaded", "Press Load participants to see requests and accounts.");
+    panel.querySelector("#join-links").innerHTML = empty("Request links not loaded", "Press Load request links to view existing links.");
+    action(panel, "#participants-load", () => loadParticipants());
+    action(panel, "#links-load", () => loadLinks());
   }
   async function showResults() {
-    const revisions = await api("listQuizRevisions", { quizId, limit: 100 });
-    const ready = revisions.items.filter((r) => r.state === "ready");
-    panel.innerHTML = `<section class="panel"><div class="section-head"><h2>Results</h2><button class="button secondary" id="export-csv">Export CSV</button></div><form class="toolbar" id="result-filter">${select("Revision", "revisionId", [["", "All revisions"], ...ready.map((v) => [v.id, `Revision ${v.revisionNumber}`])], "")}<button class="button primary">Apply</button></form><div id="statistics" class="report-stats"></div><div class="section-head"><h3>Per-problem results</h3><div class="actions"><button class="button secondary small" id="problem-stats-load">Show breakdown</button><button class="button secondary small" id="problem-stats-csv" hidden>Download CSV</button></div></div><div id="problem-stats"></div><div id="export-download"></div><div id="attempts">${attemptTable()}</div></section>`;
+    // Results are potentially expensive; opening the tab is presentation-only.
+    const ready = [];
+    panel.innerHTML = `<section class="panel"><div class="section-head"><h2>Results</h2><div class="actions"><button type="button" class="button primary" id="results-load">Load results</button><button class="button secondary" id="export-csv">Export CSV</button></div></div><form class="toolbar" id="result-filter">${select("Revision", "revisionId", [["", "All revisions"], ...ready.map((v) => [v.id, `Revision ${v.revisionNumber}`])], "")}<button class="button primary">Apply</button></form><div id="statistics" class="report-stats"></div><div class="section-head"><h3>Per-problem results</h3><div class="actions"><button class="button secondary small" id="problem-stats-load">Show breakdown</button><button class="button secondary small" id="problem-stats-csv" hidden>Download CSV</button></div></div><div id="problem-stats"></div><div id="export-download"></div><div id="attempts">${attemptTable()}</div></section>`;
     let revisionId = "",
       rows = [];
     const list = panel.querySelector("#attempts"),
       setPage = pagination(list, load);
+    let revisionsLoaded = false;
+    async function loadRevisions() {
+      if (revisionsLoaded) return;
+      const data = await api("listQuizRevisions", { quizId, limit: 100 });
+      const input = panel.querySelector('#result-filter select[name="revisionId"]');
+      if (!input) return;
+      input.replaceChildren(
+        new Option("All revisions", ""),
+        ...data.items.filter((r) => r.state === "ready")
+          .map((r) => new Option(`Revision ${r.revisionNumber}`, r.id))
+      );
+      revisionsLoaded = true;
+    }
     async function load(cursor) {
       const result = await api("listQuizAttempts", {
         quizId,
@@ -455,8 +472,8 @@ export async function mount(root) {
       revisionId = values.get("revisionId");
       panel.querySelector("#problem-stats").innerHTML = "";
       panel.querySelector("#problem-stats-csv").hidden = true;
-      await load();
-      await stats();
+      await loadRevisions();
+      await Promise.all([load(), stats()]);
     });
     let breakdown = null;
     const plain = (t) => String(t ?? "").replace(/\s+/g, " ").trim();
@@ -503,14 +520,19 @@ export async function mount(root) {
       panel.querySelector("#export-download").innerHTML =
         `<p><a class="button primary" href="${e(file.url)}" download="${e(file.filename)}" rel="noreferrer">Download CSV</a></p>`;
     });
-    await load();
-    await stats();
+    list.innerHTML = empty("Results not loaded", "Press Load results to see student attempts and statistics.");
+    action(panel, "#results-load", async () => {
+      await loadRevisions();
+      await Promise.all([load(), stats()]);
+    });
   }
   async function showHistory() {
     panel.innerHTML =
-      '<section class="panel"><h2>Quiz activity</h2><div class="history-feed"></div></section>';
+      '<section class="panel"><div class="section-head"><h2>Quiz activity</h2><div class="actions"><button type="button" class="button primary" id="history-load">Load history</button><button type="button" class="button secondary" id="history-download">Download CSV</button></div></div><div class="history-feed"></div></section>';
     const list = panel.querySelector(".history-feed"),
       setPage = pagination(list, load);
+    list.innerHTML = empty("History not loaded",
+      "Load the activity only when you need it, or download a CSV.");
     async function load(cursor) {
       const result = await api("getQuizHistory", {
         quizId,
@@ -523,7 +545,39 @@ export async function mount(root) {
         list.innerHTML = empty("No activity recorded");
       setPage(result.nextCursor);
     }
-    await load();
+    action(panel, "#history-load", async () => {
+      await load();
+      panel.querySelector("#history-load").textContent = "Refresh history";
+    });
+    action(panel, "#history-download", async () => {
+      const records = [];
+      let cursor;
+      const seen = new Set();
+      // Explicit export only. Bound pagination to prevent unlimited calls.
+      for (let page = 0; page < 100; page++) {
+        const result = await api("getQuizHistory", {
+          quizId, limit: 100, ...(cursor ? { cursor } : {}),
+        });
+        records.push(...result.items);
+        if (!result.nextCursor) { cursor = null; break; }
+        if (seen.has(result.nextCursor))
+          throw new Error("History pagination repeated a cursor.");
+        seen.add(result.nextCursor);
+        cursor = result.nextCursor;
+      }
+      if (cursor) throw new Error(
+        "More than 10,000 activity records. Narrow the export before retrying.");
+      const cell = (v) => {
+        let text = String(v ?? "");
+        if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+        return '"' + text.replace(/"/g, '""') + '"';
+      };
+      const rows = [["Time", "Action", "Actor ID", "Role", "Target type", "Target ID"],
+        ...records.map((r) => [r.occurredAt, r.action, r.actorId,
+          r.actorRoleAtTime, r.targetType, r.targetId])];
+      downloadBlob(rows.map((row) => row.map(cell).join(",")).join("\r\n"),
+        "quiz-history.csv", "text/csv");
+    });
   }
   async function show(value) {
     tab = ["content", "access", "results", "history"].includes(value)
