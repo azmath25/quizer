@@ -5,6 +5,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   shuffleOptions: false,
   allowBack: true,
   penalty: 0,
+  passFailEnabled: false,
+  passPercentage: 50,
   scoreRelease: "immediate",
   solutionRelease: "manual",
 });
@@ -306,6 +308,8 @@ export function validateSettings(input, previous = DEFAULT_SETTINGS) {
   const value = { ...previous, ...input };
   number(value.durationSeconds, "Time limit", 0, 86400, true);
   number(value.penalty, "Penalty", 0, 1000);
+  bool(value.passFailEnabled, "Pass/fail enabled");
+  number(value.passPercentage, "Pass percentage", 0, 100);
   for (const name of ["shuffleQuestions", "shuffleOptions", "allowBack"])
     bool(value[name], name);
   enumeration(
