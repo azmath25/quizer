@@ -14,34 +14,42 @@ export function showQuizRules(root, quiz, { begin, started }) {
   const panel = document.createElement("section");
   panel.className = "quiz-rules";
   panel.setAttribute("aria-labelledby", "rules-title");
-  const count = Number.isSafeInteger(quiz.questionCount)
-    ? quiz.questionCount : "—";
-  const time = duration(quiz.durationSeconds);
-  const remaining = quiz.maxAttempts === null
-    ? "Unlimited attempts"
-    : String(Math.max(0,
-      (quiz.maxAttempts ?? 0) + (quiz.extraAttempts ?? 0) -
-        (quiz.attemptCount ?? 0))) + " remaining";
+  const retry = Boolean(quiz.retrySourceAttemptId);
+  const count = retry ? "Selected"
+    : Number.isSafeInteger(quiz.questionCount) ? quiz.questionCount : "—";
+  // A retry inherits the source attempt's settings and includes only
+  // incorrect/skipped items, so current publication counts are not reliable.
+  const time = retry ? "Original limit" : duration(quiz.durationSeconds);
+  const remaining = retry ? "Eligibility checked on Begin" :
+    quiz.maxAttempts === null
+      ? "Unlimited attempts"
+      : String(Math.max(0,
+        (quiz.maxAttempts ?? 0) + (quiz.extraAttempts ?? 0) -
+          (quiz.attemptCount ?? 0))) + " remaining";
   panel.innerHTML =
     '<div class="rules-topline"><span class="rules-eyebrow">' +
       icon("book") + ' BEFORE YOU BEGIN</span>' +
       '<span class="rules-timer-note">' + icon("clock") +
       ' Timer not started</span></div>' +
     '<header class="rules-header"><h1 id="rules-title">' +
-      e(quiz.title) + '</h1>' +
-      '<p>Read the instructions. Begin when you are ready.</p></header>' +
+      e(quiz.title + (retry ? " · Retry" : "")) + '</h1>' +
+      '<p>' + (retry
+        ? "Only incorrect or skipped questions from your original attempt will be included."
+        : "Read the instructions. Begin when you are ready.") + '</p></header>' +
     '<div class="rules-facts" aria-label="Quiz facts">' +
       '<div><strong>' + e(String(count)) + '</strong><span>Questions</span></div>' +
       '<div><strong>' + e(time) + '</strong><span>Time limit</span></div>' +
       '<div><strong>' + e(remaining) + '</strong><span>Attempts</span></div>' +
-      '<div><strong>' + e(points(quiz.totalPoints)) +
+      '<div><strong>' + e(retry ? "Calculated on Begin" : points(quiz.totalPoints)) +
         '</strong><span>Total points</span></div></div>' +
     '<div class="rules-content"><h2>Instructions</h2>' +
       '<ul class="rules-list">' +
       '<li>' + icon("clock") + '<span>' +
-        (quiz.durationSeconds
-          ? "Your timer starts after you press Begin quiz. It continues if you leave the page."
-          : "This quiz has no countdown timer.") + '</span></li>' +
+        (retry
+          ? "A retry uses the original attempt’s time settings. If timed, its countdown starts when Begin confirms the attempt."
+          : quiz.durationSeconds
+            ? "Your timer starts after you press Begin quiz. It continues if you leave the page."
+            : "This quiz has no countdown timer.") + '</span></li>' +
       '<li>' + icon("check") +
         '<span>Your answers are saved as you work. Wait for the saved confirmation before closing the tab.</span></li>' +
       '<li>' + icon("flag") +
