@@ -89,3 +89,22 @@ test("new slots use server IDs in the retry baseline", () => {
   committed.points = 5;
   assert.equal(changedQuizSlots([committed], baseline, ["itm_server"]).length, 1);
 });
+
+test("acknowledged 500-question edits do not refetch the full quiz draft",()=>{
+  const editor=readFileSync(
+    new URL("../../js/pages/quiz-editor.js",import.meta.url),"utf8");
+  const save=editor.split("  async function save() {")[1]
+    ?.split("  async function previewPage(")[0];
+  assert.ok(save,"Editor save method required");
+  assert.doesNotMatch(save,/api\("getQuizDraft"/,
+    "A full draft read after a delta save re-fetches 500 slots");
+  assert.match(save,/quiz\.version = r\.version/,
+    "Keep the authoritative server version for immediate publish");
+  assert.match(save,/data\.items = data\.items\.filter/,
+    "Remove only acknowledged deleted slots");
+  assert.match(save,/rememberSavedQuizSlots\(data\.items/,
+    "Advance changed-slot baseline from acknowledged server receipts");
+  assert.match(save,/const retainedIds = new Set\(draft\.itemOrder\)/);
+  assert.match(save,/slots = data\.items\.map/,
+    "Re-render locally without another getQuizDraft round trip");
+});
