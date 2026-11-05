@@ -587,7 +587,7 @@ main > div > .tabs.workspace-subnav > a {
   body:is([data-page="teaching"],[data-page="activity"],[data-page="problems"],
     [data-page="quiz-manage"],[data-page="quiz-editor"],[data-page="admin"])
     main > div > .page-heading {
-    min-height: 160px;
+    min-height: clamp(170px, calc(316px - 30vw), 220px);
     margin-bottom: 14px;
   }
   body:is([data-page="teaching"],[data-page="activity"],[data-page="problems"],
