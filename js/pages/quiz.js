@@ -382,7 +382,7 @@ async function runner(root, initial, session) {
       const preview = () => {
         const node = question.querySelector("#answer-preview");
         clearMath(node);
-        node.innerHTML = latexHTML(input.value);
+        node.innerHTML = latexHTML(item.answerMode === "manual" ? input.value : (input.value ? "$" + input.value.replace(/^\$|\$/g, "") + "$" : ""));
         typeset(node);
       };
       input.oninput = () => {
