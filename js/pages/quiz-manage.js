@@ -90,6 +90,10 @@ export async function mount(root) {
         expectedVersion: quiz.version,
         expectedDraftVersion: draft.version,
       });
+      if (job.unchanged) {
+        message(root, "Already published · no changes. No job was created.", "info");
+        return;
+      }
       await progress(job.jobId);
       await showContent();
     });
