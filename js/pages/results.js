@@ -61,12 +61,10 @@ export async function mount(root, session) {
       };
       action(root, "#prev-results", () => turn(Math.max(0, offset - 10)));
       action(root, "#next-results", () => turn(nextOffset));
-      action(root, "#retry", async () => {
-        const next = await api("startAttempt", {
-          quizId: a.quizId,
-          sourceAttemptId: attemptId,
-        });
-        go(`quiz.html?attempt=${next.attemptId}`);
+      action(root, "#retry", () => {
+        // Retry gets the same untimed rules screen as a normal start.
+        // Do not consume the attempt directly from the results page.
+        go(`quiz.html?id=${encodeURIComponent(a.quizId)}&retry=${encodeURIComponent(attemptId)}`);
       });
       for (const kind of ["score", "solutions"])
         action(root, "#release-" + kind, async () => {
