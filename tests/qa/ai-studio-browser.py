@@ -24,6 +24,7 @@ def mock_session(page, role):
       }};
       export async function initFirebase() {{}}
       export function getSession() {{ return session; }}
+      export function errorMessage(error) {{ return String(error); }}
       export function watchSession(callback) {{
         queueMicrotask(() => callback(session));
         return () => {{}};
@@ -59,7 +60,11 @@ try:
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 mock_session(page, "teacher")
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                page.locator("#conversation-head .chat-options").wait_for()
+                try:
+                    page.locator("#conversation-head .chat-options").wait_for(timeout=10000)
+                except Exception as exc:
+                    gate = page.locator("#ai-access-gate").inner_text()
+                    raise AssertionError(f"Studio did not start: gate={gate}, errors={errors[:4]}") from exc
                 theme = page.locator("#theme-trigger")
                 check("Light" in theme.get_attribute("aria-label"),
                       "Shared Quizer appearance must start on Light")
