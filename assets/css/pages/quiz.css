@@ -760,11 +760,11 @@ fieldset.choices {
 @media (min-width: 901px) {
   .runner-layout > .runner-sidebar {
     position: sticky;
-    top: 86px;
+    top: 12px;
     align-self: start;
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 99px);
+    max-height: calc(100dvh - 24px);
     min-height: 0;
     overflow: hidden;
   }
@@ -794,13 +794,13 @@ fieldset.choices {
   .runner-sidebar-content > h2 { margin-top: 2px; }
 }
 @media (max-width: 900px) {
-  /* On tablets and phones, the narrow clock is pinned directly beneath
-     the sticky website header and remains visible while scrolling. */
+  /* The decorative site header scrolls away on exam pages. Pin only
+     the compact clock to the top to maximize working area on phones. */
   .runner-sidebar-timer { display: none; }
   .runner-sidebar-content { overflow: visible; }
   .runner-mobile-bar {
     position: sticky;
-    top: 74px;
+    top: 0;
     z-index: 29;
     display: flex;
     align-items: center;
@@ -831,15 +831,15 @@ fieldset.choices {
   .runner-mobile-bar .timer > span { min-width: 5ch; }
   .runner-mobile-bar:has(.timer.warn) { border-color: var(--warning); }
   .runner-mobile-bar:has(.timer.urgent) { border-color: var(--danger); }
-  .runner-question { scroll-margin-top: 151px; }
+  .runner-question { scroll-margin-top: 80px; }
 }
 @media (max-width: 760px) {
   .runner-mobile-bar {
-    top: 62px;
+    top: 0;
     margin-inline: -8px;
     border-radius: 0 0 var(--radius) var(--radius);
   }
-  .runner-question { scroll-margin-top: 145px; }
+  .runner-question { scroll-margin-top: 76px; }
 }
 @media (max-width: 380px) {
   .runner-mobile-bar { padding: 6px 9px; gap: 7px; }
