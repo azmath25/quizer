@@ -48,7 +48,7 @@ test("Only primary menus share normal-flow geometry, nested preview tabs remain 
   assert.match(css,/main > div > \.tabs\.workspace-subnav\s*\{/);
   assert.match(css,/position: static;/);
   assert.match(css,/min-height: 112px/);
-  assert.match(css,/min-height: 160px/);
+  assert.match(css,/min-height: clamp\(170px, calc\(316px - 30vw\), 220px\)/);
   const editor=read("js/pages/quiz-editor.js");
   assert.match(editor,/class="tabs mobile-editor-tabs" role="tablist" aria-label="Import preview"/);
   assert.doesNotMatch(editor,/class="tabs workspace-subnav mobile-editor-tabs" role="tablist" aria-label="Import preview"/);
