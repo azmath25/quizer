@@ -119,7 +119,7 @@ async function runner(root, initial, session) {
   let serverBase = Date.parse(a._serverTime),
     basePerf = performance.now(),
     lastWarning = 0;
-  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div><div class="timer" id="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><div class="runner-save-feedback"><span class="save-indicator" id="save-status" role="status" aria-live="polite">Restoring answers…</span><div class="actions" id="save-actions" hidden><button class="button secondary small" id="retry-save">Retry saving</button><button class="button secondary small" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div></div><aside class="panel runner-sidebar"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></aside></div>`;
+  root.innerHTML = `<div class="runner-top"><div class="runner-title"><h1>${e(a.quizTitle)}</h1><p>Attempt ${a.ordinal}${a.attemptKind === "retry_incorrect" ? " · Retry incorrect problems" : ""}</p></div></div><div class="runner-mobile-bar" aria-label="Quiz time and position"><span id="mobile-question-position" class="runner-mobile-position">Problem 1 of ${a.order.length}</span><div class="timer" id="timer-mobile" role="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="progress-track"><span id="quiz-progress"></span></div><div class="sr-only" aria-live="polite" id="timer-announcement"></div><div data-message></div><div class="runner-layout"><div><section class="panel runner-question" id="question-panel">${loading()}</section><div class="runner-footer"><button class="button secondary" id="previous">Previous</button><div class="runner-save-feedback"><span class="save-indicator" id="save-status" role="status" aria-live="polite">Restoring answers…</span><div class="actions" id="save-actions" hidden><button class="button secondary small" id="retry-save">Retry saving</button><button class="button secondary small" id="resolve-conflict" hidden>Review conflicting answer</button></div></div><button class="button primary" id="next">Next problem ${icon("arrow")}</button></div></div><aside class="panel runner-sidebar"><div class="runner-sidebar-timer"><span class="muted small">Time remaining</span><div class="timer" id="timer" role="timer" aria-label="Time remaining">${icon("clock")}<span>—</span></div></div><div class="runner-sidebar-content"><h2>Problems</h2><p id="answered-count"></p><div class="question-grid" id="question-grid"></div><p>Blue: answered · flag icon: flagged</p><p class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd>–<kbd>4</kbd> choose · <kbd>F</kbd> flag · <kbd>S</kbd> star</p><div class="flag-list" id="flag-list"></div><button class="button primary" id="submit">Submit quiz</button><button class="button ghost" id="abandon">Leave and end attempt</button></div></aside></div>`;
   const question = root.querySelector("#question-panel"),
     saveStatus = root.querySelector("#save-status");
   // The fixed bottom navigation varies in height with safe-area, zoom and
@@ -165,6 +165,8 @@ async function runner(root, initial, session) {
   function grid() {
     root.querySelector("#answered-count").textContent =
       `${a.answeredCount} of ${a.order.length} saved answers`;
+    const position = root.querySelector("#mobile-question-position");
+    if (position) position.textContent = `Problem ${index + 1} of ${a.order.length}`;
     const gridNode = root.querySelector("#question-grid");
     // Rebuilding this grid must not discard keyboard/switch focus.
     const focused = gridNode.contains(document.activeElement)
@@ -562,19 +564,19 @@ async function runner(root, initial, session) {
           ),
         )
       : null;
-    const timerNode = root.querySelector("#timer");
-    if (!timerNode) return;
-    timerNode.querySelector("span").textContent =
-      seconds === null
-        ? "Untimed"
-        : `${Math.floor(seconds / 60)
-            .toString()
-            .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
-    timerNode.classList.toggle("urgent", seconds !== null && seconds <= 60);
-    timerNode.classList.toggle(
-      "warn",
-      seconds !== null && seconds > 60 && seconds <= 300,
-    );
+    const label = seconds === null
+      ? "Untimed"
+      : `${Math.floor(seconds / 60)
+          .toString().padStart(2, "0")}:${(seconds % 60)
+          .toString().padStart(2, "0")}`;
+    // Both visible placements use the same server-based clock. The mobile
+    // bar stays under the fixed header; the desktop clock stays in the rail.
+    for (const timerNode of root.querySelectorAll("#timer, #timer-mobile")) {
+      timerNode.querySelector("span").textContent = label;
+      timerNode.classList.toggle("urgent", seconds !== null && seconds <= 60);
+      timerNode.classList.toggle("warn",
+        seconds !== null && seconds > 60 && seconds <= 300);
+    }
     if (seconds !== null && seconds <= 60 && lastWarning !== 1) {
       root.querySelector("#timer-announcement").textContent =
         "Less than one minute remains.";
@@ -745,8 +747,23 @@ async function runner(root, initial, session) {
       );
     } else clearRecovery(uid, attemptId);
   }
-  await showQuestion();
-  timer = setInterval(tick, 1000);
+  // A timed attempt is already active, so show its actual remaining time
+  // while fetching assets and typesetting the first question.
   tick();
+  timer = setInterval(tick, 1000);
+  try {
+    await showQuestion();
+  } catch (error) {
+    if (!stopped) {
+      question.innerHTML = `<div class="notice warning" role="alert">
+        Could not load the problem. Your attempt is still running.
+        <p>${e(error?.message || "Please check your connection.")}</p>
+        <button type="button" class="button secondary" id="retry-question">Retry loading</button>
+      </div>`;
+      question.querySelector("#retry-question")?.addEventListener("click", () => {
+        showQuestion().catch((err) => saveLabel(err.message || "Could not load problem.", true));
+      });
+    }
+  }
   if (pending.size) await flush().catch(() => {});
 }
