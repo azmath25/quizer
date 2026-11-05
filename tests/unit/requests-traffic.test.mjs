@@ -6,7 +6,8 @@ import {
 } from "../../js/services/request-policy.js";
 
 const script=readFileSync(new URL("../../js/services/api.js",import.meta.url),"utf8")
-  .replace(/^import .*;\n/gm,"");
+  .replace(/^import .*;\n/gm,"")
+  .replace(/^export /gm,"");
 function deferred() {
   let resolve,reject;
   const promise=new Promise((ok,fail)=>{resolve=ok;reject=fail});
