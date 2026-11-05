@@ -66,7 +66,7 @@ export function mountShell() {
     const nav = links
       .filter(([key]) => key !== "teach" || s.capabilities.teach)
       .filter(([key]) => key !== "admin" || s.capabilities.admin)
-      .filter(([key]) => key !== "ai" || s.capabilities.teach || s.capabilities.admin);
+      .filter(([key]) => key !== "ai" || s.capabilities.admin);
     const active = (url) =>
       url.split(".")[0] === page ||
       (page === "home" && url === "index.html") ||
