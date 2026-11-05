@@ -1,5 +1,5 @@
-import {
 import { isCurrentPublishedDraft } from "../bundles/publication-noop.js";
+import {
   define,
   manage,
   canReadProblem,
