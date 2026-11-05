@@ -1,3 +1,4 @@
+import { mountMathAnswerEditor } from "../components/math-answer-editor.js";
 import { scrollBehavior } from "../core/device.js";
 import { go, onLeave, onLeaveGuard } from "../core/router.js";
 import { api } from "../services/api.js";
@@ -389,6 +390,7 @@ async function runner(root, initial, session) {
         preview();
       };
       input.onblur = () => flush().catch(() => {});
+      mountMathAnswerEditor(input, { attemptId, itemId });
       preview();
     }
     const flagBtn = question.querySelector("#flag");
