@@ -93,6 +93,36 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
 
         # Edit an EXISTING synthetic quiz draft; do not save/publish.
         open_page(page,"upload.html?id="+quiz_id,".slot-row")
+        if width in (390, 1024) and not scale:
+            # Teacher-only floating tools remain usable without opening
+            # the AI Studio route or performing an API call.
+            dock=page.locator("#ai-assistant .ai-dock")
+            dock.wait_for(state="visible",timeout=25000)
+            require(page.locator(".ai-snip-fab").is_visible(),
+                    "In-page text/math snipper missing")
+            if width <= 760:
+                require(not page.locator(".ai-pixel-fab").is_visible(),
+                        "Permissioned pixel capture should hide on phones")
+                nav=page.locator("#mobile-nav")
+                require(rect(dock)["bottom"] <= rect(nav)["top"] + 1,
+                        "Floating assistant covers mobile navigation")
+            else:
+                require(page.locator(".ai-pixel-fab").is_visible(),
+                        "Desktop visual snipper missing")
+            handle=dock.locator(".ai-dock-handle")
+            before=rect(dock)
+            handle.focus()
+            handle.press("ArrowLeft")
+            after=rect(dock)
+            require(after["x"] < before["x"] - 5,
+                    "Floating toolbar cannot be repositioned by keyboard")
+            opener=dock.locator("button.ai-fab").first
+            tap_or_click(opener,touch)
+            page.locator("#ai-assistant .ai-panel").wait_for(state="visible")
+            require(page.locator('#ai-assistant [data-ai="snip-page"]').is_visible(),
+                    "Snipping missing from expanded assistant")
+            tap_or_click(page.locator('#ai-assistant [data-ai="close"]'),touch)
+            require(dock.is_visible(),"Floating toolbar did not return on close")
         # Appearance is controlled from the header, never the profile page.
         appearance=page.locator("#theme-trigger")
         if 761 <= width <= 1080:
