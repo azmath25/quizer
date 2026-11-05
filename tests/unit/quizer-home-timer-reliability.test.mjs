@@ -17,8 +17,8 @@ test("desktop timer is in the Problems rail, and mobile clock has its own sticky
   assert.match(runner,/id="mobile-question-position"/);
   assert.match(quizCSS,/@media \(min-width: 901px\)[\s\S]*?\.runner-layout > \.runner-sidebar[\s\S]*?position: sticky;/);
   assert.match(quizCSS,/@media \(max-width: 900px\)[\s\S]*?\.runner-mobile-bar[\s\S]*?position: sticky;/);
-  assert.match(quizCSS,/\.runner-mobile-bar[\s\S]*?top: 74px;/);
-  assert.match(quizCSS,/@media \(max-width: 760px\)[\s\S]*?\.runner-mobile-bar[\s\S]*?top: 62px;/);
+  assert.match(quizCSS,/\.runner-mobile-bar[\s\S]*?top: 0;/);
+  assert.match(quizCSS,/@media \(max-width: 760px\)[\s\S]*?\.runner-mobile-bar[\s\S]*?top: 0;/);
 });
 
 test("timer runs while the first problem loads or a recovery prompt is shown",()=>{
