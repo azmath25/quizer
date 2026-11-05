@@ -9,7 +9,8 @@ import {
   toggleStar,
   itemRef,
 } from "../services/stars.js";
-import { loadImages } from "../services/assets.js";
+import { resolveImages } from "../services/assets.js";
+import { resolveAsset } from "../core.js";
 import {
   saveRecovery,
   loadRecovery,
@@ -230,8 +231,50 @@ async function runner(root, initial, session) {
       );
     return itemCache.get(itemId);
   }
-  const imagesReady = new Set();
   const ctx = { kind: "attempt", id: attemptId };
+  const pendingImageURL = "data:image/svg+xml," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160"><rect width="600" height="160" rx="12" fill="#e6eff5"/><text x="300" y="85" font-family="sans-serif" text-anchor="middle" font-size="22" fill="#33516a">Loading diagram…</text></svg>'
+  );
+  // Signed links are fetched only as needed. Browser image loading must never
+  // delay the question statement, timer, or ability to save an answer.
+  function fillQuestionImages(bindings, version) {
+    if (!Object.keys(bindings).length) return;
+    const apply = async () => {
+      const urls = await resolveImages(bindings, ctx);
+      if (stopped || version !== viewSequence || getSession().epoch !== epoch)
+        return;
+      const imgs = question.querySelectorAll("img[data-quiz-image-pending]");
+      for (const img of imgs) {
+        const url = resolveAsset(urls, img.alt);
+        if (url) {
+          img.src = url;
+          img.removeAttribute("data-quiz-image-pending");
+        } else {
+          img.alt = "Diagram unavailable.";
+        }
+      }
+    };
+    apply().catch((error) => {
+      if (stopped || version !== viewSequence) return;
+      for (const img of question.querySelectorAll("img[data-quiz-image-pending]"))
+        img.alt = "Diagram could not be loaded.";
+      if (!question.querySelector("#retry-diagrams")) {
+        const button = document.createElement("button");
+        button.id = "retry-diagrams";
+        button.className = "button secondary small";
+        button.type = "button";
+        button.textContent = "Retry diagrams";
+        button.onclick = () => {
+          button.remove();
+          fillQuestionImages(bindings, version);
+        };
+        const feedback = document.createElement("p");
+        feedback.className = "quiz-image-feedback";
+        feedback.textContent = error?.message || "Diagram loading failed.";
+        question.append(feedback, button);
+      }
+    });
+  }
   function fetchBatch(ids) {
     const batch = api("getAttemptQuestions", { attemptId, itemIds: ids });
     batch.catch(() => {});
@@ -286,20 +329,23 @@ async function runner(root, initial, session) {
       answers.set(itemId, item.answer);
     const current =
       pending.get(itemId)?.value ?? answers.get(itemId)?.value ?? "";
-    if (
-      view === viewSequence &&
-      Object.keys(item.questionAssetBindings).length &&
-      !imagesReady.has(itemId)
-    )
-      question.innerHTML = loading("Loading images…");
-    const images = await loadImages(item.questionAssetBindings, ctx);
-    imagesReady.add(itemId);
+    // Render text and interactive answers immediately. Placeholder images are
+    // replaced in place once signed URLs arrive, without rebuilding inputs.
+    const bindings = item.questionAssetBindings || {};
+    const images = Object.fromEntries(
+      Object.keys(bindings).map((alias) => [alias, pendingImageURL])
+    );
     const options = (a.optionOrder[itemId] ?? []).map((id) =>
       item.options.find((o) => o.id === id),
     );
     if (view !== viewSequence || stopped) return;
     clearMath(question);
     question.innerHTML = `<div class="question-meta"><strong>PROBLEM ${index + 1} OF ${a.order.length}</strong><div class="actions"><span>${points(item.points)} points</span><button class="button ghost small" id="star" type="button" aria-pressed="${isStarred(itemRef(a.quizId, itemId))}" aria-label="${isStarred(itemRef(a.quizId, itemId)) ? "Remove star from problem" : "Star problem"}">${starLabel(isStarred(itemRef(a.quizId, itemId)))}</button><button class="button ghost small" id="flag" type="button" aria-pressed="${flagged.has(itemId)}" aria-label="${flagged.has(itemId) ? "Remove flag from problem" : "Flag problem"}">${flagLabel(flagged.has(itemId))}</button></div></div><div class="math-content">${latexHTML(item.statementLatex, images)}</div>${item.type === "choice" ? `<fieldset class="choices"><legend class="sr-only">Choose one answer</legend>${options.map((o, i) => `<label class="choice"><input name="answer" type="radio" value="${e(o.id)}" ${current === o.id ? "checked" : ""}><span class="choice-letter">${String.fromCharCode(65 + i)}</span><div class="math-content">${latexHTML(o.textLatex, images)}</div></label>`).join("")}<button class="button ghost small" type="button" id="clear-answer">Clear selection</button></fieldset>` : `<div class="answer-area"><label class="field"><span>${item.answerMode === "manual" ? "Your written response" : "Your answer"}</span>${item.answerMode === "manual" ? `<textarea id="answer-text" maxlength="10000" rows="6" placeholder="Write your reasoning. LaTeX is supported.">${e(current)}</textarea>` : `<input id="answer-text" value="${e(current)}" maxlength="500" autocomplete="off" placeholder="Enter a number, expression or short answer">`}</label><div class="answer-preview math-content" id="answer-preview"></div><p class="muted small">${item.answerMode === "manual" ? "This response is marked by your teacher." : "Fractions and arithmetic expressions are accepted."}</p></div>`}`;
+    for (const img of question.querySelectorAll("img")) {
+      if (img.getAttribute("src") === pendingImageURL)
+        img.dataset.quizImagePending = "true";
+    }
+    fillQuestionImages(bindings, view);
     function change(value) {
       const base = answers.get(itemId) ?? { revision: 0, value: "" };
       if (
@@ -726,6 +772,9 @@ async function runner(root, initial, session) {
     window.removeEventListener("beforeunload", unload);
     go(`results.html?id=${attemptId}`, { replace: true });
   });
+  // Start the visible countdown before recovery prompts or network work.
+  tick();
+  timer = setInterval(tick, 1000);
   const recovery = loadRecovery(uid, attemptId);
   if (recovery?.changes?.length) {
     const valid =
@@ -747,10 +796,6 @@ async function runner(root, initial, session) {
       );
     } else clearRecovery(uid, attemptId);
   }
-  // A timed attempt is already active, so show its actual remaining time
-  // while fetching assets and typesetting the first question.
-  tick();
-  timer = setInterval(tick, 1000);
   try {
     await showQuestion();
   } catch (error) {
