@@ -63,6 +63,8 @@ export function attemptDTO(c, a, attemptId) {
       durationSeconds: a.settingsSnapshot.durationSeconds,
       allowBack: a.settingsSnapshot.allowBack,
       penalty: a.settingsSnapshot.penalty,
+      passFailEnabled: a.settingsSnapshot.passFailEnabled === true,
+      passPercentage: a.settingsSnapshot.passPercentage ?? 50,
     },
     answeredCount: a.answeredCount,
     answeredItemIds: a.answeredItemIds ?? [],
