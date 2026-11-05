@@ -191,7 +191,7 @@ export async function mount(root) {
         ["", "All participants"],
       ],
       "pending",
-    )}<button class="button secondary" id="bulk-approve">Approve selected</button><button class="button secondary" id="bulk-decline">Decline selected</button></div><div id="participants"></div></section></div><aside class="stack"><section class="panel"><h2>Request link</h2><p class="muted small">Share a private request link so students can apply. The link does not grant access.</p><button class="button primary" id="join-link">Create request link</button><div id="join-output"></div><div id="join-links"></div></section><section class="panel"><h2>Grant access directly</h2><p class="muted small">The student must already have an account.</p><form id="grant-form" class="stack">${field("Exact email address", "email", "email", "", "required")}<button class="button secondary">Find registered student</button><div data-message></div></form><div id="lookup-result"></div></section></aside></div>`;
+    )}<button class="button secondary" id="bulk-approve">Approve selected</button><button class="button secondary" id="bulk-decline">Decline selected</button><button class="button primary" id="participants-load" type="button">Load participants</button></div><div id="participants"></div></section></div><aside class="stack"><section class="panel"><h2>Request link</h2><p class="muted small">Share a private request link so students can apply. The link does not grant access.</p><button class="button primary" id="join-link">Create request link</button><div id="join-output"></div><button type="button" class="button secondary" id="links-load">Load request links</button><div id="join-links"></div></section><section class="panel"><h2>Grant access directly</h2><p class="muted small">The student must already have an account.</p><form id="grant-form" class="stack">${field("Exact email address", "email", "email", "", "required")}<button class="button secondary">Find registered student</button><div data-message></div></form><div id="lookup-result"></div></section></aside></div>`;
     bindForm(panel.querySelector("#policy-form"), async (form) => {
       await api("setQuizAccessPolicy", {
         quizId,
@@ -389,8 +389,10 @@ export async function mount(root) {
         await loadParticipants();
       });
     });
-    await loadParticipants();
-    await loadLinks();
+    list.innerHTML = empty("Participants not loaded", "Press Load participants to see requests and accounts.");
+    panel.querySelector("#join-links").innerHTML = empty("Request links not loaded", "Press Load request links to view existing links.");
+    action(panel, "#participants-load", () => loadParticipants());
+    action(panel, "#links-load", () => loadLinks());
   }
   async function showResults() {
     const revisions = await api("listQuizRevisions", { quizId, limit: 100 });
