@@ -4,6 +4,7 @@
 // No SQL runs inside Firestore transactions and no protected grading is
 // returned to clients. Future cutover must be per-attempt, not dual-write.
 import {createHash} from "node:crypto";
+import {assertNewNeonId} from "./attempt-provenance.js";
 
 const ID=/^[A-Za-z0-9_-]{1,128}$/;
 const HASH=/^[0-9a-f]{64}$/;
@@ -129,7 +130,7 @@ export function createNeonAttemptV2Engine({enabled=false,pool=null,
         !HASH.test(plan?.bundleSha256??"") ||
         !/^[1-9][0-9]{0,22}$/.test(plan?.bundleGeneration??""))
       fail("RESOURCE_UNAVAILABLE","Unverified published quiz snapshot.");
-    const attemptId=requireId(plan.attemptId,"attempt");
+    const attemptId=assertNewNeonId(plan.attemptId);
     const items=itemList(plan.items);
     const quizId=requireId(plan.quizId,"quiz");
     const revisionId=requireId(plan.quizRevisionId,"revision");
