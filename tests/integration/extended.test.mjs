@@ -451,7 +451,11 @@ test("Withdrawing bank sharing preserves owned published snapshots and authorize
     expectedVersion: d.quiz.version,
     expectedDraftVersion: d.draft.version,
   });
-  assert(await runJob(db, pub.jobId));
+  // Sharing was revoked, but the previously published immutable snapshot
+  // remains valid. An identical re-publish must not copy the same items again.
+  assert.equal(pub.unchanged, true);
+  assert.equal(pub.jobId, null);
+  assert.equal(pub.revisionId, d.quiz.publishedRevisionId);
   const current = await call("ext_other_teacher", "getQuizDraft", {
     quizId: copy.quizId,
   });
