@@ -45,7 +45,7 @@ test("All page-level submenus directly follow headings; admin instructions come 
 
 test("Only primary menus share normal-flow geometry, nested preview tabs remain independent",()=>{
   const css=read("assets/css/layout.css");
-  assert.match(css,/main > \.tabs\.workspace-subnav\s*\{/);
+  assert.match(css,/main > div > \.tabs\.workspace-subnav\s*\{/);
   assert.match(css,/position: static;/);
   assert.match(css,/min-height: 112px/);
   assert.match(css,/min-height: 160px/);
