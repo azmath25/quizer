@@ -117,3 +117,20 @@ test("expired attempts cannot accept answer changes even when browser clock diff
     attemptId:"att_abc"});
   assert.equal(result.status,"expired");
 });
+
+test("start rejects a mismatched trusted plan even if caller supplies a forged snapshot property",async()=>{
+  const db=fakeSql();
+  let verifiedArgs;
+  const engine=createNeonAttemptV2Engine({enabled:true,pool:db.pool,
+    verifyStart:async args=>{
+      verifiedArgs=args;
+      return {...authorizedPlan,quizId:"quiz_other"};
+    }});
+  await assert.rejects(engine.start({actor,requestId,quizId:"quiz_1",
+    authorizedPlan:{verified:true,bundleSha256:"b".repeat(64)}}),
+    e=>e.reason==="RESOURCE_UNAVAILABLE");
+  assert.equal(verifiedArgs.quizId,"quiz_1");
+  assert.equal(Object.hasOwn(verifiedArgs,"authorizedPlan"),false,
+    "Client payload must never become trusted bundle provenance");
+  assert.equal(db.queries.length,0);
+});
