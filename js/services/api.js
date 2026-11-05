@@ -1,26 +1,56 @@
 import { getFirebaseServices, getSession } from "../firebase-client.js";
-const pendingRequests = new Map();
-document.addEventListener("session-cleared", () => pendingRequests.clear());
-const inflight = new Map();
-document.addEventListener("session-cleared", () => inflight.clear());
+import { isReadAction, mayCacheAction, jobPollDelayMs } from "./request-policy.js";
+
+// Only ambiguous transport failures retain a request ID for deliberate retry.
+// Distinct concurrent mutations must never share an automatically assigned ID.
+const retryableRequests = new Map();
+const inflightReads = new Map();
 const cache = new Map();
 const TTL = 60000;
-document.addEventListener("session-cleared", () => cache.clear());
-const isRead = (action) => /^(get|list|setStar)/.test(action);
+let cacheGeneration = 0;
+function invalidate() {
+  ++cacheGeneration;
+  cache.clear();
+  // Outstanding reads may complete, but new reads cannot join an old flight.
+}
+document.addEventListener("session-cleared", () => {
+  retryableRequests.clear();
+  inflightReads.clear();
+  invalidate();
+});
+const requestKey = (action, data) =>
+  JSON.stringify([getSession().epoch, action, data]);
+
 export function warm(action, data = {}) {
-  const key = JSON.stringify([getSession().epoch, action, data]),
-    hit = cache.get(key);
+  if (!mayCacheAction(action)) return;
+  const key = requestKey(action, data), hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return;
-  api(action, data)
-    .then((value) => cache.set(key, { at: Date.now(), value }))
-    .catch(() => {});
+  const generation = cacheGeneration, epoch = getSession().epoch;
+  api(action, data).then((value) => {
+    if (generation === cacheGeneration && getSession().epoch === epoch)
+      cache.set(key, { at: Date.now(), value });
+  }).catch(() => {});
 }
 export function apiSWR(action, data, onData) {
-  const key = JSON.stringify([getSession().epoch, action, data]),
-    hit = cache.get(key);
+  if (typeof onData !== "function")
+    throw new TypeError("SWR callback required.");
+  // No sensitive/private data or signed link is held in the SWR cache.
+  if (!mayCacheAction(action))
+    return api(action, data).then((value) => {
+      onData(value, false);
+      return value;
+    });
+  const key = requestKey(action, data),
+    hit = cache.get(key),
+    generation = cacheGeneration,
+    epoch = getSession().epoch;
   if (hit) onData(hit.value, true);
   if (hit && Date.now() - hit.at < TTL) return Promise.resolve(hit.value);
   return api(action, data).then((value) => {
+    // A mutation or sign-out can invalidate a pending read. Never restore its
+    // obsolete cache entry, or repaint a newer view using its old response.
+    if (generation !== cacheGeneration || getSession().epoch !== epoch)
+      return value;
     cache.set(key, { at: Date.now(), value });
     if (!hit || JSON.stringify(hit.value) !== JSON.stringify(value))
       onData(value, false);
@@ -28,34 +58,44 @@ export function apiSWR(action, data, onData) {
   });
 }
 export function api(action, data = {}, requestId) {
-  if (!isRead(action)) cache.clear();
-  if (requestId) return call(action, data, requestId);
-  const key = JSON.stringify([getSession().epoch, action, data]);
-  if (inflight.has(key)) return inflight.get(key);
-  const p = call(action, data).finally(() => inflight.delete(key));
-  inflight.set(key, p);
+  const read = isReadAction(action);
+  if (!read) invalidate();
+  // Only verified read-only actions may share an in-flight HTTP request.
+  // Two identical writes are independent intents; server idempotency is keyed
+  // to the explicit request ID, never to action/payload coincidence.
+  if (!read || requestId) return call(action, data, requestId);
+  const key = JSON.stringify([getSession().epoch, cacheGeneration, action, data]);
+  if (inflightReads.has(key)) return inflightReads.get(key);
+  const p = call(action, data).finally(() => {
+    if (inflightReads.get(key) === p) inflightReads.delete(key);
+  });
+  inflightReads.set(key, p);
   return p;
 }
 async function call(action, data = {}, requestId) {
   const c = await getFirebaseServices(),
-    epoch = getSession().epoch;
-  const key = JSON.stringify([epoch, action, data]);
-  requestId ??= pendingRequests.get(key) ?? crypto.randomUUID();
-  pendingRequests.set(key, requestId);
+    epoch = getSession().epoch,
+    key = JSON.stringify([epoch, action, data]),
+    explicitRequestId = Boolean(requestId);
+  // Consume a retry receipt before starting the call: a concurrent identical
+  // mutation obtains a *different* ID instead of reusing this active receipt.
+  if (!explicitRequestId) {
+    requestId = retryableRequests.get(key) ?? crypto.randomUUID();
+    retryableRequests.delete(key);
+  }
   let response;
   try {
     response = await c.functionsSDK.httpsCallable(
       c.functions,
       "api",
     )({ apiVersion: 2, action, requestId, ...data });
-    pendingRequests.delete(key);
   } catch (error) {
-    if (
-      !/(?:unavailable|deadline-exceeded|internal|network)/.test(
-        error.code ?? "",
-      )
-    )
-      pendingRequests.delete(key);
+    if (!explicitRequestId &&
+        /(?:unavailable|deadline-exceeded|internal|network)/.test(
+          error.code ?? "",
+        ) &&
+        getSession().epoch === epoch)
+      retryableRequests.set(key, requestId);
     throw error;
   }
   if (getSession().epoch !== epoch)
@@ -65,8 +105,11 @@ async function call(action, data = {}, requestId) {
     );
   return { ...response.data.data, _serverTime: response.data.serverTime };
 }
+
 export async function waitForJob(jobId, onProgress = () => {}) {
-  for (let i = 0; i < 180; i++) {
+  if (!jobId) throw new TypeError("Job ID required.");
+  const deadline = Date.now() + 270000;
+  for (let i = 0; i < 180 && Date.now() < deadline; i++) {
     const job = await api("getJob", { jobId });
     onProgress(job);
     if (job.status === "succeeded") return job.result;
@@ -75,7 +118,10 @@ export async function waitForJob(jobId, onProgress = () => {}) {
         new Error(job.error?.message || "Processing was cancelled."),
         { jobId, reason: job.error?.reason },
       );
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(jobPollDelayMs(i), remaining)));
   }
   throw Object.assign(
     new Error(
