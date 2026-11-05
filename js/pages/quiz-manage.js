@@ -395,13 +395,26 @@ export async function mount(root) {
     action(panel, "#links-load", () => loadLinks());
   }
   async function showResults() {
-    const revisions = await api("listQuizRevisions", { quizId, limit: 100 });
-    const ready = revisions.items.filter((r) => r.state === "ready");
-    panel.innerHTML = `<section class="panel"><div class="section-head"><h2>Results</h2><button class="button secondary" id="export-csv">Export CSV</button></div><form class="toolbar" id="result-filter">${select("Revision", "revisionId", [["", "All revisions"], ...ready.map((v) => [v.id, `Revision ${v.revisionNumber}`])], "")}<button class="button primary">Apply</button></form><div id="statistics" class="report-stats"></div><div class="section-head"><h3>Per-problem results</h3><div class="actions"><button class="button secondary small" id="problem-stats-load">Show breakdown</button><button class="button secondary small" id="problem-stats-csv" hidden>Download CSV</button></div></div><div id="problem-stats"></div><div id="export-download"></div><div id="attempts">${attemptTable()}</div></section>`;
+    // Results are potentially expensive; opening the tab is presentation-only.
+    const ready = [];
+    panel.innerHTML = `<section class="panel"><div class="section-head"><h2>Results</h2><div class="actions"><button type="button" class="button primary" id="results-load">Load results</button><button class="button secondary" id="export-csv">Export CSV</button></div></div><form class="toolbar" id="result-filter">${select("Revision", "revisionId", [["", "All revisions"], ...ready.map((v) => [v.id, `Revision ${v.revisionNumber}`])], "")}<button class="button primary">Apply</button></form><div id="statistics" class="report-stats"></div><div class="section-head"><h3>Per-problem results</h3><div class="actions"><button class="button secondary small" id="problem-stats-load">Show breakdown</button><button class="button secondary small" id="problem-stats-csv" hidden>Download CSV</button></div></div><div id="problem-stats"></div><div id="export-download"></div><div id="attempts">${attemptTable()}</div></section>`;
     let revisionId = "",
       rows = [];
     const list = panel.querySelector("#attempts"),
       setPage = pagination(list, load);
+    let revisionsLoaded = false;
+    async function loadRevisions() {
+      if (revisionsLoaded) return;
+      const data = await api("listQuizRevisions", { quizId, limit: 100 });
+      const input = panel.querySelector('#result-filter select[name="revisionId"]');
+      if (!input) return;
+      input.replaceChildren(
+        new Option("All revisions", ""),
+        ...data.items.filter((r) => r.state === "ready")
+          .map((r) => new Option(`Revision ${r.revisionNumber}`, r.id))
+      );
+      revisionsLoaded = true;
+    }
     async function load(cursor) {
       const result = await api("listQuizAttempts", {
         quizId,
@@ -457,8 +470,8 @@ export async function mount(root) {
       revisionId = values.get("revisionId");
       panel.querySelector("#problem-stats").innerHTML = "";
       panel.querySelector("#problem-stats-csv").hidden = true;
-      await load();
-      await stats();
+      await loadRevisions();
+      await Promise.all([load(), stats()]);
     });
     let breakdown = null;
     const plain = (t) => String(t ?? "").replace(/\s+/g, " ").trim();
@@ -505,8 +518,11 @@ export async function mount(root) {
       panel.querySelector("#export-download").innerHTML =
         `<p><a class="button primary" href="${e(file.url)}" download="${e(file.filename)}" rel="noreferrer">Download CSV</a></p>`;
     });
-    await load();
-    await stats();
+    list.innerHTML = empty("Results not loaded", "Press Load results to see student attempts and statistics.");
+    action(panel, "#results-load", async () => {
+      await loadRevisions();
+      await Promise.all([load(), stats()]);
+    });
   }
   async function showHistory() {
     panel.innerHTML =
