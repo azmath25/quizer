@@ -12,7 +12,7 @@
 <!-- SINGLE FILE PROTOTYPE: no js/app.js (the current router does not register ai.html).
   No Firebase, Neon, Mimo, network inference, cloud uploads or credentials.
   For eventual integration, use a separate authenticated backend adapter.
-  Server-side role, quota and exam-integrity checks are essential. -->
+  Teacher/admin access is checked before preview initialization; backend authorization remains essential for future AI APIs. -->
 <style>
 :root{--bg:#f5f9fc;--surface:#fff;--glass:rgba(255,255,255,.85);--ink:#1b3246;--muted:#768a9b;--line:#e3eaf1;--soft:#edf3f7;--cyan:#0281af;--cyan2:#36b9d8;--wash:#e4f5fa;--purple:#8b7fd0;--violet:#eeebff;--success:#177f6a;--success-bg:#e5f8ee;--warn:#ad7a26;--warn-bg:#fff5db;--danger:#c45468;--danger-bg:#fff0f3;--shadow:0 18px 55px rgba(26,81,116,.08);--font:"Plus Jakarta Sans",system-ui,sans-serif;color-scheme:light}
 :root[data-theme="dark"]{--bg:#091a28;--surface:#102838;--glass:rgba(16,40,56,.89);--ink:#ebf6fa;--muted:#a1b8c5;--line:#294352;--soft:#183444;--cyan:#57c8e8;--cyan2:#99e2f3;--wash:#153f51;--purple:#c4b9ff;--violet:#302c52;--success:#5dd9b8;--success-bg:#153f37;--warn:#f8c96f;--warn-bg:#413519;--danger:#ff9dae;--danger-bg:#4b2738;--shadow:0 20px 55px rgba(0,0,0,.22);color-scheme:dark}
@@ -69,9 +69,26 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 @media(max-width:1060px){.shell{grid-template-columns:232px minmax(0,1fr)}}
 @media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.topbar{padding:0 12px}.studio-name{font-size:11px}.conversation-head{height:59px;padding:0 13px}.welcome{padding:24px 0}.conversation{padding:16px}.composer-area{padding:0 12px max(10px,env(safe-area-inset-bottom))}}
 @media(max-width:430px){.prompt-grid{grid-template-columns:1fr}.toplink,.studio-name{display:none}.chat-options summary{min-height:34px}}
+
+/* Keep AI Studio's site navigation aligned with Quizer's shell navigation. */
+#app[hidden],#ai-access-gate[hidden]{display:none!important}
+.quizer-site-nav{display:flex;align-items:center;gap:2px;min-width:0}
+.quizer-site-nav a{padding:9px 10px;border-radius:9px;white-space:nowrap;font-size:11px;font-weight:750;color:var(--muted)}
+.quizer-site-nav a:hover,.quizer-site-nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
+.quizer-site-menu{position:relative;display:none;flex:none}
+.quizer-site-menu summary{list-style:none;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:750;cursor:pointer}
+.quizer-site-menu summary::-webkit-details-marker{display:none}
+.quizer-site-menu nav{position:absolute;top:calc(100% + 10px);right:0;width:210px;max-width:calc(100vw - 24px);padding:6px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:35}
+.quizer-site-menu nav a{padding:11px 12px;border-radius:8px;font-size:12px;font-weight:700}
+.quizer-site-menu nav a:hover,.quizer-site-menu nav a[aria-current="page"]{background:var(--wash);color:var(--cyan)}
+.quizer-profile{white-space:nowrap}
+@media(max-width:1450px){.quizer-site-nav{display:none}.quizer-site-menu{display:block}}
+@media(max-width:760px){.quizer-site-menu summary{padding:8px}.quizer-site-menu summary span{display:none}.quizer-profile{display:none}}
+@media(max-width:430px){.quizer-site-menu nav{right:-42px}}
 </style>
 </head>
 <body data-page="ai">
+<div id="ai-access-gate" role="status" style="padding:24px;font:600 15px system-ui;color:var(--ink)">Checking AI Studio access…</div>
 <svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
 <symbol id="ic-spark" viewBox="0 0 24 24"><path d="m12 2 2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7ZM19 18v4m-2-2h4"/></symbol>
 <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
@@ -107,12 +124,16 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.5 3 9 8 11 5-2 8-5.5 8-11V5l-8-3Zm-4 10 3 3 5-6"/></symbol>
 </svg>
 <a class="skip" href="#workspace">Skip to workspace</a>
-<div class="app" id="app">
+<div class="app" id="app" hidden>
 <header class="topbar">
 <button class="icon-btn mobile-only" aria-label="Open chat history" data-act="sidebar"><svg class="ico"><use href="#ic-bars"/></svg></button>
 <a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span>math quiz<span style="color:var(--cyan)">.</span></span></a>
 <span class="studio-name">AI Studio</span><span class="grow"></span>
-<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink" href="problems.html">Problem bank</a>
+<nav class="quizer-site-nav" aria-label="Main navigation">
+<a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a>
+</nav>
+<details class="quizer-site-menu"><summary aria-label="Open website navigation"><svg class="ico sm"><use href="#ic-bars"/></svg><span>Menu</span></summary><nav aria-label="Website navigation"><a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a><a href="profile.html">Profile</a></nav></details>
+<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink quizer-profile" href="profile.html">Profile</a>
 <div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
 </header>
 <div class="shell" id="shell">
@@ -389,7 +410,40 @@ function init(){
  // prevent leaking grading keys/active exam content, and cap model budgets.
  window.QuizerAIStudioPreview={getState:()=>JSON.parse(JSON.stringify(state))};
 }
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+// This standalone page checks Quizer session capabilities before starting the preview.
+async function authorizeAndStart(){
+ const gate=document.getElementById("ai-access-gate");
+ const app=document.getElementById("app");
+ const deny=(message)=>{app.hidden=true;gate.hidden=false;gate.textContent=message;};
+ try{
+  const auth=await import("./js/firebase-client.js");
+  await auth.initFirebase();
+  const settled=()=>new Promise(resolve=>{
+   let stop=()=>{};
+   stop=auth.watchSession(s=>{
+    if(s.status==="error"||s.status==="unconfigured"||(s.authResolved&&(!s.user||s.roleResolved))){
+     queueMicrotask(()=>stop());
+     resolve(s);
+    }
+   });
+  });
+  const session=await settled();
+  if(session.status==="error"||session.status==="unconfigured"){deny("Unable to verify AI Studio access. Please reload after the service is available.");return;}
+  if(!session.user){location.replace("login.html?next=ai.html");return;}
+  if(!session.roleResolved||session.accountStatus!=="active"||!(session.capabilities?.admin||session.capabilities?.teach)){
+   deny("AI Studio is available to teachers and administrators. Return to Home or contact the site administrator.");
+   return;
+  }
+  gate.hidden=true;app.hidden=false;init();
+  // Revocations and account switches take effect in this tab, too.
+  auth.watchSession(s=>{
+   if(!s.user||s.status==="error"||s.accountStatus!=="active"||!s.roleResolved||!(s.capabilities?.admin||s.capabilities?.teach)){
+    deny("AI Studio access is no longer available. Reload after your permissions are verified.");
+   }
+  });
+ }catch(error){console.error("AI access check failed",error);deny("Unable to verify AI Studio access. Please try again later.");}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",authorizeAndStart,{once:true});else authorizeAndStart();
 })();
 </script>
 </body></html>
