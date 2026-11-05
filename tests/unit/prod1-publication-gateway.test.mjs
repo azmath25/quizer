@@ -200,3 +200,46 @@ test("large private publication bounds SQL concurrency and preserves order",asyn
   assert(f.stats.maxInFlight<=8);
   assert(f.stats.maxInFlight>1);
 });
+
+test("current Neon publication skips all SQL and protected bundle work",async()=>{
+  const f=makeFixture(3);
+  const quiz=f.docs["quizzes/quiz_1"];
+  const d=f.docs["quizzes/quiz_1/drafts/current"];
+  quiz.publishedRevisionId="qrv_ready";
+  quiz.lastPublishedRevisionId="qrv_ready";
+  f.docs["quizzes/quiz_1/revisions/qrv_ready"]={
+    state:"ready",sourceDraftVersion:d.version,itemCount:d.itemOrder.length,
+    itemOrder:[...d.itemOrder],title:d.title,description:d.description,
+    subject:d.subject,difficulty:d.difficulty,settings:{...d.settings},
+  };
+  const before=structuredClone(f.docs);
+  const result=await createProd1PublicationGateway(f.root).publish(auth,makeRequest());
+  assert.deepEqual(result,{unchanged:true,revisionId:"qrv_ready",jobId:null});
+  assert.equal(f.stats.sqlCount,0);
+  assert.equal(f.stats.assetCount,0);
+  assert.equal(f.stats.writes,0);
+  assert.equal(f.stats.legacyCount,0);
+  assert.deepEqual(f.docs,before);
+  assert.equal(f.stats.txCount,1,"No-op needs only an authenticated read-only fence");
+});
+test("changed Neon ordering or settings still starts a new publication",async()=>{
+  for(const mutation of [
+    d=>d.itemOrder.reverse(),
+    d=>d.settings.penalty=1,
+  ]){
+    const f=makeFixture(2),quiz=f.docs["quizzes/quiz_1"];
+    const d=f.docs["quizzes/quiz_1/drafts/current"];
+    quiz.publishedRevisionId="qrv_ready";
+    f.docs["quizzes/quiz_1/revisions/qrv_ready"]={
+      state:"ready",sourceDraftVersion:d.version,itemCount:d.itemOrder.length,
+      itemOrder:[...d.itemOrder],title:d.title,description:d.description,
+      subject:d.subject,difficulty:d.difficulty,settings:{...d.settings},
+    };
+    mutation(d);
+    const result=await createProd1PublicationGateway(f.root).publish(auth,makeRequest());
+    assert.equal(result.unchanged,undefined);
+    assert(result.jobId);
+    assert(f.stats.sqlCount>0);
+    assert(f.stats.writes>0);
+  }
+});
