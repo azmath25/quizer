@@ -346,9 +346,9 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
             ("activity.html","Activity"),
         ]
         for route,label in sections:
-            open_page(page,route,"main > .tabs.workspace-subnav")
+            open_page(page,route,"main > div > .tabs.workspace-subnav")
             page.evaluate("window.scrollTo(0,0)")
-            tabs=page.locator("main > .tabs.workspace-subnav")
+            tabs=page.locator("main > div > .tabs.workspace-subnav")
             require(tabs.count()==1,
                     label+" should have exactly one primary submenu")
             position=tabs.evaluate("(el) => getComputedStyle(el).position")
@@ -374,7 +374,7 @@ def author_check(browser,width,height,touch,quiz_id,scale=False):
             require(abs(position["x"]-first["x"])<=2,
                     "Submenus do not share a horizontal anchor: "+label)
 
-        open_page(page,"teaching.html","main > .tabs.workspace-subnav")
+        open_page(page,"teaching.html","main > div > .tabs.workspace-subnav")
         nav=page.locator('main > .tabs[aria-label="Teaching workspace"]')
         original=rect(nav)
         for target in ("requests","results","quizzes"):
