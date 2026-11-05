@@ -1,0 +1,64 @@
+name: Quizer unchanged publish and Manage tabs regression
+on:
+  push:
+    branches:
+      - fix/quizer-publish-noop-and-manage-tabs-2026-11-05
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quizer-noop-manage-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit-backend-static:
+    name: Unit, backend, static and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - name: Strict publication/no-op regression
+        run: node --test tests/unit/quiz-publish-noop.test.mjs
+      - name: Full unit suite
+        run: npm test
+      - name: Backend tests
+        run: npm run test:backend
+      - name: Static verifier and frontend build
+        run: |
+          npm run verify:static
+          npm run build
+  firebase-emulators:
+    name: Firestore rules, authorization and attempts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - name: Emulator API integration
+        run: |
+          npm run test:integration
+          npm run test:transport
