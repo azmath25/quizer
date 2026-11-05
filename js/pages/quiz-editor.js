@@ -804,6 +804,12 @@ async function edit(root, quizId) {
       expectedVersion: quiz.version,
       expectedDraftVersion: draft.version,
     });
+    if (job.unchanged) {
+      dirty = false;
+      saveState.textContent = "Already published · no changes";
+      message(root, "This exact draft is already published. No new job was needed.", "info");
+      return;
+    }
     await waitForJob(
       job.jobId,
       (j) =>
