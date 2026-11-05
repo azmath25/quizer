@@ -98,7 +98,16 @@ def viewport_check(browser, width, height, touch, attempt_id, scale=False):
         page.locator("#flag").wait_for(state="visible", timeout=55000)
         flag = page.locator("#flag")
         star = page.locator("#star")
-        timer = page.locator("#timer")
+        timer = page.locator("#timer-mobile" if width <= 900 else "#timer")
+        require(timer.is_visible(), f"Quiz clock is hidden at {width}px")
+        if width > 900:
+            require(page.locator(".runner-sidebar").locator("#timer").count()==1,
+                    "Desktop clock must be inside the right-side Problems rail")
+        else:
+            require(page.locator(".runner-mobile-bar").locator("#timer-mobile").count()==1,
+                    "Compact clock must be inside sticky bar below site header")
+            require(timer.get_attribute("role")=="timer",
+                    "Compact clock requires timer semantics")
         status = page.locator("#save-status")
         require(status.is_visible(),
                 f"mobile saving/status indicator is invisible at {width}px")
@@ -122,6 +131,18 @@ def viewport_check(browser, width, height, touch, attempt_id, scale=False):
             if touch:
                 require(page.evaluate("document.documentElement.dataset.input") == "touch",
                         f"touch input was misclassified after {name} at {width}px")
+        # Scrolling through the questions cannot make the compact clock
+        # disappear or cover the sticky website header.
+        if width <= 900:
+            page.evaluate("window.scrollTo(0, Math.min(document.documentElement.scrollHeight / 3, 320))")
+            page.wait_for_timeout(120)
+            head = rect(page.locator("#site-header"))
+            clock_rect = rect(page.locator(".runner-mobile-bar"))
+            require(clock_rect["top"] >= head["bottom"] - 2,
+                    f"Clock covers website header at {width}px: {clock_rect}")
+            require(clock_rect["top"] <= head["bottom"] + 6,
+                    f"Clock is not pinned below header at {width}px: {clock_rect}")
+            page.evaluate("window.scrollTo(0, 0)")
         old = rect(timer)
         page.wait_for_timeout(1200)
         new = rect(timer)
