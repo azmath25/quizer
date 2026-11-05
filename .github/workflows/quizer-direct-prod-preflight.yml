@@ -1,0 +1,50 @@
+name: Quizer direct production release preflight (no deployment)
+
+on:
+  push:
+    branches:
+      - release/quizer-direct-prod-2026-11-05
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    name: Validate pinned release and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Validate release script syntax
+        run: bash -n scripts/release/quizer-direct-prod-2026-11-05.sh
+      - name: Verify exact reviewed source and deployment scope
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const s=readFileSync('scripts/release/quizer-direct-prod-2026-11-05.sh','utf8');
+          for (const v of [
+            'SOURCE_BRANCH="main"',
+            'EXPECTED_SOURCE_HEAD="5401027a91458f6fd3da290a65afdf3753c8b6a4"',
+            'EXPECTED_PUBLIC_HEAD="b0d986fd112d04d3503639f2a05c6cba32e30eb8"',
+            'VERIFIED_CONSOLIDATED_HEAD="61613bbfb9bf5cf22a43be946debdc7ccc9c612a"',
+            'FRONTEND_PUSHED=0',
+            'rollback(){',
+            '--only functions:mathquiz:api,functions:mathquiz:processJob,functions:mathquiz:scheduledMaintenance',
+          ]) assert.ok(s.includes(v),'Missing release safety check: '+v);
+          assert.ok(!s.includes('--only firestore:') && !s.includes('--only hosting'));
+          console.log('Pinned main, previous public head, secrets and rollback scope validated.');
+          JS
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Static frontend verifier
+        run: npm run verify:static
+      - name: Build production frontend bundle
+        run: npm run build
