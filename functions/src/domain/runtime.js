@@ -438,11 +438,12 @@ export async function dispatch(
       return prior.result;
     }
     const result = await def.fn(c, request);
-    // Genuine no-op quiz/problem saves have no state change to deduplicate.
-    // Keep idempotency receipts for all other mutations and changed saves.
-    const readonlySave = ["saveQuizDraft", "saveProblemRevision"].includes(request.action)
-      && result?.unchanged === true;
-    if (receipt && !readonlySave)
+    // Unchanged saves and unchanged publication are genuine read-only
+    // requests: do not allocate receipts, jobs, revisions or audit writes.
+    const readonlyMutation = [
+      "saveQuizDraft", "saveProblemRevision", "publishQuiz",
+    ].includes(request.action) && result?.unchanged === true;
+    if (receipt && !readonlyMutation)
       c.set(receipt, {
         action: request.action,
         inputHash,
