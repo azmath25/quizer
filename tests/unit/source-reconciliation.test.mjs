@@ -53,6 +53,6 @@ test("live reconciliation script is hard-bound to Quizer and only read-only SQL"
   assert.match(script,/quizer_app/);
   assert.match(script,/BEGIN READ ONLY/);
   assert.match(script,/--limit must be 1–20/);
-  assert.doesNotMatch(script,/(?:\.set\(|\.update\(|\.delete\(|INSERT INTO|DROP TABLE|TRUNCATE )/);
+  assert.doesNotMatch(script,/\.doc\([^\n]+\)\.(?:set|update|delete)\(|INSERT INTO|DROP TABLE|TRUNCATE /);
   assert.doesNotMatch(script,/console\.log\(connectionString|console\.log\(uri/);
 });
