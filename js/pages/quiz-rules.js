@@ -1,8 +1,14 @@
 import { e, duration, points, icon, pageHead, notice, linkButton } from "../components/ui.js";
+import { onLeave } from "../core/router.js";
 
 // A full-page preflight, not a modal. It NEVER creates an attempt,
 // retrieves protected questions or starts the exam timer.
 export function showQuizRules(root, quiz, { begin, started }) {
+  let left = false;
+  // The student may use main navigation while a Start request is pending.
+  // Never render a late response over a different route. Any committed
+  // attempt remains recoverable from its normal quiz overview.
+  onLeave(() => { left = true; });
   const overview = root.querySelector(".quiz-overview");
   if (!overview) throw new Error("Quiz overview is unavailable.");
   const panel = document.createElement("section");
@@ -75,6 +81,7 @@ export function showQuizRules(root, quiz, { begin, started }) {
   const backButton = panel.querySelector("#rules-back");
   backButton.addEventListener("click", () => {
     if (starting) return;
+    left = true;
     panel.remove();
     overview.hidden = false;
     overview.querySelector("#start")?.focus({ preventScroll: true });
@@ -89,7 +96,9 @@ export function showQuizRules(root, quiz, { begin, started }) {
     try {
       // The server creates the attempt and chooses the official start time.
       attempt = await begin();
+      if (left || !panel.isConnected) return;
     } catch (error) {
+      if (left || !panel.isConnected) return;
       starting = false;
       beginButton.disabled = false;
       backButton.disabled = false;
@@ -108,6 +117,7 @@ export function showQuizRules(root, quiz, { begin, started }) {
     try {
       await started(attempt);
     } catch (error) {
+      if (left) return;
       root.innerHTML = pageHead("Attempt started") +
         notice("Your attempt started, but the first problem could not be displayed. You can safely resume this same attempt.", "warning") +
         '<section class="panel"><p>' + e(error?.message || "Please retry.") +
