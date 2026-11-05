@@ -444,6 +444,14 @@ main {
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
   }
+  /* Manage Quiz uses ordinary in-flow section navigation. Floating the four
+     section tabs over content obscures form headings and action controls. */
+  body[data-page="quiz-manage"] .tabs[aria-label="Quiz management"] {
+    position: static;
+    top: auto;
+    z-index: auto;
+    box-shadow: none;
+  }
 }
 @media (max-width: 760px) {
   /* Mobile forms, cards and actions should occupy the available width. */
@@ -522,5 +530,18 @@ body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor
   body:is([data-page="teaching"],[data-page="quiz-manage"],[data-page="quiz-editor"],
     [data-page="problem-edit"],[data-page="problems"],[data-page="admin"]) {
     --workspace-control-height: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  body[data-page="quiz-manage"] .tabs[aria-label="Quiz management"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  body[data-page="quiz-manage"] .tabs[aria-label="Quiz management"] button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
   }
 }

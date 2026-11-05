@@ -1,3 +1,4 @@
+import { isCurrentPublishedDraft } from "../bundles/publication-noop.js";
 import {
   define,
   manage,
@@ -516,6 +517,15 @@ define(
       "INVALID_FIELDS",
       "Set a closing time for after-close release.",
     );
+    // A matching immutable revision is already serving this exact draft.
+    // Do not allocate a job, re-read protected grading or copy 500 slots.
+    if (quiz.publishedRevisionId) {
+      const published = await c.get(
+        `quizzes/${r.quizId}/revisions/${quiz.publishedRevisionId}`, false,
+      );
+      if (isCurrentPublishedDraft(quiz, draft, published))
+        return { unchanged: true, revisionId: quiz.publishedRevisionId, jobId: null };
+    }
     await c.rate("publish", 10, 60000);
     const sources = [];
     for (const itemId of draft.itemOrder) {

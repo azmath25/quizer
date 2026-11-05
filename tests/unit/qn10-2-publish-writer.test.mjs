@@ -5,7 +5,10 @@ import { validateProblem } from "../../shared/schema.js";
 import { fingerprint } from "../../functions/src/neon/write-repository.js";
 import { createPrivateBundlePublisher } from "../../functions/src/bundles/publish-writer.js";
 import { createPrivateBundleStoragePort } from "../../functions/src/bundles/private-storage.js";
-import { MAX_BUNDLE_BYTES, BUNDLE_CONTENT_TYPE } from "../../functions/src/bundles/published-bundle.js";
+import {
+  MAX_BUNDLE_BYTES,BUNDLE_CONTENT_TYPE,preparePublishedBundle,
+  makePublishedBundleManifest,
+} from "../../functions/src/bundles/published-bundle.js";
 
 const grading = n => ({
   correctOptionId:null,acceptedAnswers:[String(n+1)],
@@ -299,4 +302,111 @@ test("simultaneous workers reusing same immutable source produce only one object
   assert.equal(h.state.activationCount,1);
   assert.equal([a,b].filter(x=>x.activated).length,1);
   assert.equal([a,b].filter(x=>x.alreadyPublished).length,1);
+});
+
+
+async function seedPreviousPrivateBundle(h) {
+  const plan=h.state.plan;
+  const oldItems=plan.sources.map(slot=>{
+    const loaded=h.revisionById.get(slot.problemRevisionId);
+    return {itemId:slot.itemId,problemId:slot.problemId,
+      problemRevisionId:slot.problemRevisionId,points:slot.points,
+      content:loaded.content,grading:loaded.grading};
+  });
+  const bundle=preparePublishedBundle({
+    format:"quizer.published_bundle.v1",
+    quizId:plan.quizId,revisionId:plan.previousPublishedRevisionId,
+    revisionNumber:1,title:plan.revision.title,
+    description:plan.revision.description,subject:plan.revision.subject,
+    difficulty:plan.revision.difficulty,settings:plan.revision.settings,
+    itemOrder:plan.revision.itemOrder,itemCount:oldItems.length,
+    totalPoints:plan.revision.totalPoints,items:oldItems,
+  });
+  await h.storage.createOnly({
+    storagePath:bundle.storagePath,bytes:bundle.bytes,
+    contentType:BUNDLE_CONTENT_TYPE,cacheControl:"private, no-store",
+    ifGenerationMatch:0,
+  });
+  const stored=await h.storage.readExact({
+    storagePath:bundle.storagePath,maxBytes:MAX_BUNDLE_BYTES,
+  });
+  const manifest=makePublishedBundleManifest(bundle,stored.generation);
+  plan.previousPublishedBundle={
+    revisionId:plan.previousPublishedRevisionId,manifest,
+  };
+  return {manifest,prepared:bundle};
+}
+
+test("500 unchanged verified bundle items are reused with zero SQL/Firestore revision resolves",async()=>{
+  const h=harness(500);
+  await seedPreviousPrivateBundle(h);
+  const result=await h.publisher.publish({jobId:"job_qn10_2"});
+  assert.equal(h.resolveCalls,0);
+  assert.equal(result.manifest.itemCount,500);
+  assert.equal(h.rawStorage.objects.size,2,"Old and new revisions remain immutable");
+  assert.equal(h.state.activationCount,1);
+});
+
+test("one changed revision in a 100-slot publication triggers exactly one source resolve",async()=>{
+  const h=harness(100);
+  await seedPreviousPrivateBundle(h);
+  const item=h.state.plan.sources[47];
+  const newest=validateProblem(content(1000),grading(1000));
+  item.problemRevisionId="prv_changed";
+  item.source.problemRevisionId="prv_changed";
+  item.contentHash=fingerprint(newest);
+  h.revisionById.set("prv_changed",{
+    ...newest,problemId:item.problemId,problemRevisionId:"prv_changed",
+  });
+  const result=await h.publisher.publish({jobId:"job_qn10_2"});
+  assert.equal(h.resolveCalls,1);
+  assert.equal(result.manifest.itemCount,100);
+  const json=JSON.parse(h.rawStorage.objects.get(result.manifest.storagePath)
+    .bytes.toString("utf8"));
+  assert.equal(json.items[47].grading.acceptedAnswers[0],"1001");
+  assert.equal(json.items[46].grading.acceptedAnswers[0],"47");
+});
+
+test("order-only republish reuses 100 immutable pins without resolving sources",async()=>{
+  const h=harness(100);
+  await seedPreviousPrivateBundle(h);
+  h.state.plan.sources.reverse();
+  h.state.plan.revision.itemOrder.reverse();
+  const result=await h.publisher.publish({jobId:"job_qn10_2"});
+  assert.equal(h.resolveCalls,0);
+  const body=JSON.parse(h.rawStorage.objects.get(result.manifest.storagePath)
+    .bytes.toString("utf8"));
+  assert.equal(body.itemOrder[0],"itm_99");
+});
+
+test("wrong prior generation and tampered canonical bytes fail closed before new bundle upload",async()=>{
+  for(const tamper of [
+    h=>{h.state.plan.previousPublishedBundle.manifest={
+      ...h.state.plan.previousPublishedBundle.manifest,generation:"12345",
+    };},
+    h=>{
+      const path=h.state.plan.previousPublishedBundle.manifest.storagePath;
+      const prior=h.rawStorage.objects.get(path);
+      prior.bytes[10]^=1;
+    },
+  ]){
+    const h=harness(5);
+    await seedPreviousPrivateBundle(h);
+    tamper(h);
+    await assert.rejects(h.publisher.publish({jobId:"job_qn10_2"}),
+      e=>e.reason==="RESOURCE_UNAVAILABLE");
+    assert.equal(h.resolveCalls,0);
+    assert.equal(h.rawStorage.objects.size,1);
+    assert.equal(h.state.latestPublished,"qrv_old");
+  }
+});
+
+test("untrusted previous revision pointers cannot request protected prior grading",async()=>{
+  const h=harness(4);
+  await seedPreviousPrivateBundle(h);
+  h.state.plan.previousPublishedBundle.revisionId="qrv_other";
+  await assert.rejects(h.publisher.publish({jobId:"job_qn10_2"}),
+    e=>e.reason==="VERSION_CONFLICT");
+  assert.equal(h.rawStorage.objects.size,1);
+  assert.equal(h.resolveCalls,0);
 });

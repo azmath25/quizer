@@ -200,3 +200,111 @@ test("large private publication bounds SQL concurrency and preserves order",asyn
   assert(f.stats.maxInFlight<=8);
   assert(f.stats.maxInFlight>1);
 });
+
+test("current Neon publication skips all SQL and protected bundle work",async()=>{
+  const f=makeFixture(3);
+  const quiz=f.docs["quizzes/quiz_1"];
+  const d=f.docs["quizzes/quiz_1/drafts/current"];
+  quiz.publishedRevisionId="qrv_ready";
+  quiz.lastPublishedRevisionId="qrv_ready";
+  f.docs["quizzes/quiz_1/revisions/qrv_ready"]={
+    state:"ready",sourceDraftVersion:d.version,itemCount:d.itemOrder.length,
+    itemOrder:[...d.itemOrder],title:d.title,description:d.description,
+    subject:d.subject,difficulty:d.difficulty,settings:{...d.settings},
+  };
+  const before=structuredClone(f.docs);
+  const result=await createProd1PublicationGateway(f.root).publish(auth,makeRequest());
+  assert.deepEqual(result,{unchanged:true,revisionId:"qrv_ready",jobId:null});
+  assert.equal(f.stats.sqlCount,0);
+  assert.equal(f.stats.assetCount,0);
+  assert.equal(f.stats.writes,0);
+  assert.equal(f.stats.legacyCount,0);
+  assert.deepEqual(f.docs,before);
+  assert.equal(f.stats.txCount,1,"No-op needs only an authenticated read-only fence");
+});
+test("changed Neon ordering or settings still starts a new publication",async()=>{
+  for(const mutation of [
+    d=>d.itemOrder.reverse(),
+    d=>d.settings.penalty=1,
+  ]){
+    const f=makeFixture(2),quiz=f.docs["quizzes/quiz_1"];
+    const d=f.docs["quizzes/quiz_1/drafts/current"];
+    quiz.publishedRevisionId="qrv_ready";
+    f.docs["quizzes/quiz_1/revisions/qrv_ready"]={
+      state:"ready",sourceDraftVersion:d.version,itemCount:d.itemOrder.length,
+      itemOrder:[...d.itemOrder],title:d.title,description:d.description,
+      subject:d.subject,difficulty:d.difficulty,settings:{...d.settings},
+    };
+    mutation(d);
+    const result=await createProd1PublicationGateway(f.root).publish(auth,makeRequest());
+    assert.equal(result.unchanged,undefined);
+    assert(result.jobId);
+    assert(f.stats.sqlCount>0);
+    assert(f.stats.writes>0);
+  }
+});
+
+
+test("100 identical draft-slot pins use one origin lookup, one Neon batch and one asset check",async()=>{
+  const f=makeFixture(100);
+  const root=f.root,first=f.docs["quizzes/quiz_1/draftItems/itm_0"];
+  for(let i=1;i<100;i++){
+    f.docs["quizzes/quiz_1/draftItems/itm_"+i]={
+      ...first,itemId:"itm_"+i,
+    };
+  }
+  let origins=0,groupCalls=0;
+  root.resolveOrigin=async()=>{origins++;return "neon_revision";};
+  root.neonReader.getProblemBatchForTeacher=async({actor,pins})=>{
+    groupCalls++;
+    assert.equal(actor.uid,"teacher_1");
+    assert.equal(pins.length,1);
+    return pins.map(pin=>({
+      problemId:pin.problemId,revisionId:pin.revisionId,
+      problem:{ownerId:actor.uid,lifecycle:"active"},
+      content:{...normalized.content,contentHash:fingerprint(normalized)},
+      grading:{...normalized.grading},
+    }));
+  };
+  const result=await createProd1PublicationGateway(root)
+    .publish(auth,makeRequest());
+  assert(result.jobId);
+  assert.equal(f.docs["jobs/"+result.jobId].input.sources.length,100);
+  assert.equal(origins,1);
+  assert.equal(groupCalls,1);
+  assert.equal(f.stats.sqlCount,0);
+  assert.equal(f.stats.assetCount,1);
+});
+test("120 distinct Neon revision preflights are grouped into three <=50-row reads",async()=>{
+  const f=makeFixture(120),groupSizes=[];
+  f.root.neonReader.getProblemBatchForTeacher=async({actor,pins})=>{
+    groupSizes.push(pins.length);
+    return pins.map(pin=>({
+      problemId:pin.problemId,revisionId:pin.revisionId,
+      problem:{ownerId:actor.uid,lifecycle:"active"},
+      content:{...normalized.content,contentHash:fingerprint(normalized)},
+      grading:{...normalized.grading},
+    }));
+  };
+  const result=await createProd1PublicationGateway(f.root)
+    .publish(auth,makeRequest());
+  assert(result.jobId);
+  assert.deepEqual(groupSizes,[50,50,20]);
+  assert.equal(f.stats.sqlCount,0);
+  assert.equal(f.stats.assetCount,120);
+  assert.equal(f.docs["jobs/"+result.jobId].input.sources.length,120);
+});
+test("wrong Neon batch pin identity fails before any private job creation",async()=>{
+  const f=makeFixture(3);
+  f.root.neonReader.getProblemBatchForTeacher=async({pins})=>
+    pins.map((pin,index)=>({
+      problemId:pin.problemId,revisionId:index===0?"prv_wrong":pin.revisionId,
+      problem:{ownerId:"teacher_1",lifecycle:"active"},
+      content:{...normalized.content,contentHash:fingerprint(normalized)},
+      grading:{...normalized.grading},
+    }));
+  await assert.rejects(createProd1PublicationGateway(f.root)
+    .publish(auth,makeRequest()),/different revision/);
+  assert.equal(f.stats.writes,0);
+  assert.equal(f.stats.assetCount,0);
+});

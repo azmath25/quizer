@@ -86,7 +86,24 @@ export function createFirestoreBundlePublicationStore({
         sources.every((source,index)=>
           source.itemId===revision.itemOrder[index]),
         "VERSION_CONFLICT","Pinned source manifest mismatch.");
+      // The currently serving revision is a trusted, immutable source of
+      // unchanged question bytes. The worker may reuse its validated content
+      // only after checking this manifest's exact generation and SHA-256.
+      // Never use a client-supplied pointer or an unpublished old revision.
+      let previousPublishedBundle=null;
+      if(quiz.publishedRevisionId){
+        const prevId=id(quiz.publishedRevisionId);
+        const previous=await c.get(
+          "quizzes/"+quizId+"/revisions/"+prevId,false);
+        if(previous?.state==="ready" && previous.bundle){
+          validatePublishedBundleManifest(previous.bundle,quizId,prevId);
+          previousPublishedBundle={
+            revisionId:prevId,manifest:previous.bundle,
+          };
+        }
+      }
       return {
+        previousPublishedBundle,
         jobId,quizId,revisionId,ownerId:quiz.ownerId,
         leaseOwner:job.leaseOwner,
         jobInputHash:hash(job.input),

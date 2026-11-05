@@ -83,3 +83,52 @@ test("QN11.4 protected grading query enforces authorization after header lookup"
     actor:student,problemId:row.problem_id}),denied("ROLE_REQUIRED"));
   assert.equal(f.calls.length,before);
 });
+
+
+test("owner's 50 exact protected revisions are read in ONE permission-filtered SQL query",async()=>{
+  const pins=Array.from({length:50},(_,i)=>({
+    problemId:"prb_"+i,revisionId:"prv_"+i}));
+  const calls=[],revision=fixture.revision;
+  const port={query:async(sql,params)=>{
+    calls.push({sql,params});
+    return {rows:pins.map((pin,i)=>({
+      ...row,problem_id:pin.problemId,revision_id:pin.revisionId,
+      problem_revision_number:row.revision_number,
+      revision_number:i+1,content_json:revision.content_json,
+      grading_json:revision.grading_json,
+      source_json:revision.source_json??{},content_hash:revision.content_hash,
+      created_at:"2026-11-03T06:00:00.000Z",
+      created_by_uid:owner.uid,
+    }))};
+  }};
+  const repo=createQuizerNeonReadRepository(port);
+  const result=await repo.getProblemBatchForTeacher({actor:owner,pins});
+  assert.equal(result.length,50);
+  assert.equal(calls.length,1);
+  assert.match(calls[0].sql,/unnest\(\$2::varchar\[\],\$3::varchar\[\]\)/);
+  assert.match(calls[0].sql,/p.owner_uid=\$1 AND p.lifecycle='active'/);
+  assert.match(calls[0].sql,/r.revision_id=pins.revision_id/);
+  assert.deepEqual(calls[0].params,[owner.uid,
+    pins.map(p=>p.problemId),pins.map(p=>p.revisionId)]);
+  assert.equal(result[49].revisionId,"prv_49");
+  assert.equal(result[0].problem.ownerId,owner.uid);
+  assert.deepEqual(result[0].grading,revision.grading_json);
+});
+test("batch read fails closed for unauthorized roles, short SQL result, wrong pin order and oversized batch",async()=>{
+  let queries=0;
+  const pins=[{problemId:"prb_0",revisionId:"prv_0"},
+    {problemId:"prb_1",revisionId:"prv_1"}];
+  const port={query:async()=>{queries++;
+    return {rows:[{...row,problem_id:"prb_0",revision_id:"prv_0",
+      created_at:"2026-11-03T06:00:00.000Z"}]};}};
+  const repo=createQuizerNeonReadRepository(port);
+  await assert.rejects(repo.getProblemBatchForTeacher({actor:student,pins}),
+    denied("ROLE_REQUIRED"));
+  assert.equal(queries,0);
+  await assert.rejects(repo.getProblemBatchForTeacher({actor:owner,pins}),
+    denied("RESOURCE_UNAVAILABLE"));
+  assert.equal(queries,1);
+  await assert.rejects(repo.getProblemBatchForTeacher({actor:owner,
+    pins:Array.from({length:51},()=>pins[0])}),denied("INVALID_FIELDS"));
+  assert.equal(queries,1);
+});
