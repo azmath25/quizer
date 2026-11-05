@@ -753,3 +753,96 @@ fieldset.choices {
   .rules-actions { align-items: stretch; flex-direction: column-reverse; }
   .rules-actions > .button { width: 100%; justify-content: center; }
 }
+
+/* Examination clock: a fixed visual anchor without obscuring answers.
+   Desktop clock belongs to the right Problems rail, not the title row. */
+.runner-mobile-bar { display: none; }
+@media (min-width: 901px) {
+  .runner-layout > .runner-sidebar {
+    position: sticky;
+    top: 86px;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 99px);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .runner-sidebar-timer {
+    flex: 0 0 auto;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .runner-sidebar-timer > span {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 700;
+  }
+  .runner-sidebar-timer .timer {
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0;
+    box-shadow: none;
+  }
+  .runner-sidebar-content {
+    overflow-y: auto;
+    min-height: 0;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .runner-sidebar-content > h2 { margin-top: 2px; }
+}
+@media (max-width: 900px) {
+  /* On tablets and phones, the narrow clock is pinned directly beneath
+     the sticky website header and remains visible while scrolling. */
+  .runner-sidebar-timer { display: none; }
+  .runner-sidebar-content { overflow: visible; }
+  .runner-mobile-bar {
+    position: sticky;
+    top: 74px;
+    z-index: 29;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    margin: 0 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .runner-mobile-position {
+    min-width: 0;
+    font-size: .83rem;
+    font-weight: 700;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .runner-mobile-bar .timer {
+    border: 0;
+    box-shadow: none;
+    padding: 5px 6px;
+    background: transparent;
+    font-size: 1.1rem;
+    min-height: 44px;
+  }
+  .runner-mobile-bar .timer > span { min-width: 5ch; }
+  .runner-mobile-bar:has(.timer.warn) { border-color: var(--warning); }
+  .runner-mobile-bar:has(.timer.urgent) { border-color: var(--danger); }
+  .runner-question { scroll-margin-top: 151px; }
+}
+@media (max-width: 760px) {
+  .runner-mobile-bar {
+    top: 62px;
+    margin-inline: -8px;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .runner-question { scroll-margin-top: 145px; }
+}
+@media (max-width: 380px) {
+  .runner-mobile-bar { padding: 6px 9px; gap: 7px; }
+  .runner-mobile-bar .timer { font-size: .98rem; }
+  .runner-mobile-position { font-size: .77rem; }
+}
