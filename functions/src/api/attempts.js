@@ -193,19 +193,24 @@ define(
     }
     const itemPath = (itemId) =>
       `quizzes/${r.quizId}/revisions/${revisionId}/items/${itemId}`;
-    const itemDocs = new Map(
-      await Promise.all(
-        selected.map(async (itemId) => [itemId, await c.get(itemPath(itemId))]),
-      ),
-    );
-    if (total === null)
-      total = selected.reduce((sum, itemId) => sum + itemDocs.get(itemId).points, 0);
-    const order = settings.shuffleQuestions ? shuffle(selected) : selected,
-      optionOrder = {};
-    for (const itemId of order) {
-      const ids = itemDocs.get(itemId).options.map((o) => o.id);
-      optionOrder[itemId] = settings.shuffleOptions ? shuffle(ids) : ids;
-    }
+    const order=settings.shuffleQuestions?shuffle(selected):selected;
+    // Most quizzes do not shuffle answer choices. The published revision
+    // already pins their order/total points, so reading all 500 item documents
+    // before the timer can start serves no purpose. Fetch the first item only
+    // and preserve default choice order in the student renderer. Retry-only
+    // and shuffled-choice attempts still require their complete item plan.
+    const fullPlan=Boolean(r.sourceAttemptId)||settings.shuffleOptions===true;
+    const firstIds=fullPlan?order:[order[0]];
+    const itemDocs=new Map(await Promise.all(firstIds.map(async itemId=>
+      [itemId,await c.get(itemPath(itemId))])));
+    if(total===null)
+      total=selected.reduce((sum,itemId)=>sum+itemDocs.get(itemId).points,0);
+    const optionOrder={};
+    if(fullPlan)
+      for(const itemId of order){
+        const ids=itemDocs.get(itemId).options.map(o=>o.id);
+        optionOrder[itemId]=settings.shuffleOptions?shuffle(ids):ids;
+      }
     const profile = await c.get(`users/${c.actor.uid}`, false),
       attemptId = c.key("att_", r.quizId);
     const times = [
