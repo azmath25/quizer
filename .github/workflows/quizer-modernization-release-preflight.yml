@@ -1,0 +1,51 @@
+name: Quizer modernization production release preflight (no cloud deployment)
+on:
+  push:
+    branches: [release/quizer-modernization-prod-2026-11-05]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm}
+      - name: Verify script syntax and exact release target
+        run: |
+          bash -n scripts/release/quizer-modernization-prod-2026-11-05.sh
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const s=readFileSync('scripts/release/quizer-modernization-prod-2026-11-05.sh','utf8');
+          for(const expected of [
+            'PROJECT="sat-quiz-fd317"',
+            'PROJECT_NUMBER="476816329871"',
+            'REGION="europe-west1"',
+            'SOURCE_BRANCH="main"',
+            'EXPECTED_SOURCE_HEAD="15314fc9860be734f9987a312862685c59c543f8"',
+            'EXPECTED_PUBLIC_HEAD="a80e0b02669ef4cc6ed52b7d8d282ea60060f923"',
+            'VERIFIED_FEATURE_HEAD="ecd2c0d42555dea97e08773238533e3ac26c69f9"',
+            'BACKEND_STARTED=0','FRONTEND_PUSHED=0',
+            "rollback(){",
+            'functions:mathquiz:api,functions:mathquiz:processJob,functions:mathquiz:scheduledMaintenance',
+            'grep -qx',
+            'PAGES_STATUS',
+          ])assert(s.includes(expected),'Required guarded release assertion absent: '+expected);
+          assert(!s.includes('firebase deploy --only firestore'));
+          assert(!s.includes('--only hosting'));
+          assert(!s.includes('db/quizer/003_attempts_v2_DISPOSABLE_ONLY.sql'));
+          JS
+      - name: Verify binary source equals fully tested commit
+        run: |
+          git merge-base --is-ancestor ecd2c0d42555dea97e08773238533e3ac26c69f9 15314fc9860be734f9987a312862685c59c543f8
+          git diff --exit-code ecd2c0d42555dea97e08773238533e3ac26c69f9 15314fc9860be734f9987a312862685c59c543f8 -- ':!docs/**' ':!scripts/release/**' ':!.github/workflows/**'
+          echo 'Verified release source matches CI-verified feature.'
+      - name: Install locked dependencies and check static production frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run verify:static
+          npm run build
