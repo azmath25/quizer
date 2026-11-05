@@ -21,6 +21,7 @@ import {
 } from "../../shared/schema.js";
 import { participant } from "./access.js";
 import { updateStatistics } from "../domain/statistics.js";
+import { initialQuizItemReads } from "../domain/quiz-start-plan.js";
 export function attemptManager(actor, a) {
   return (
     !!actor?.emailVerified &&
@@ -200,7 +201,10 @@ define(
     // and preserve default choice order in the student renderer. Retry-only
     // and shuffled-choice attempts still require their complete item plan.
     const fullPlan=Boolean(r.sourceAttemptId)||settings.shuffleOptions===true;
-    const firstIds=fullPlan?order:[order[0]];
+    const firstIds=initialQuizItemReads(order,{
+      shuffleOptions:settings.shuffleOptions===true,
+      retry:Boolean(r.sourceAttemptId),
+    });
     const itemDocs=new Map(await Promise.all(firstIds.map(async itemId=>
       [itemId,await c.get(itemPath(itemId))])));
     if(total===null)
