@@ -88,7 +88,41 @@ export function createPrivateBundlePublisher({
     }
     const {quizId,revisionId} = requirePinnedPlan(plan,jobId);
     const items = [];
+    // Read the previous bundle exactly once when the trusted Firestore job
+    // preflight supplied its *currently serving* immutable revision. The
+    // reader validates Storage generation, SHA-256, canonical bytes, source
+    // revision and all secret grading. Never accept a browser-supplied bundle.
+    const reusable=new Map();
+    if(plan.previousPublishedBundle){
+      const previous=plan.previousPublishedBundle;
+      assert(previous.revisionId===plan.previousPublishedRevisionId &&
+        previous.revisionId!==revisionId,
+        "VERSION_CONFLICT","Unpinned previous publication.");
+      const old=await readPrivatePublishedBundle({
+        manifest:previous.manifest,quizId,revisionId:previous.revisionId,
+        authorizePinnedRead:async()=>({
+          authorized:true,pinnedRevisionId:previous.revisionId,
+        }),
+        readObject:({storagePath,generation,maxBytes})=>
+          storage.readExact({storagePath,generation,maxBytes}),
+      });
+      for(const item of old.items)reusable.set(item.itemId,item);
+    }
     for (const slot of plan.sources) {
+      const old=reusable.get(slot.itemId);
+      if(old && old.problemId===slot.problemId &&
+          old.problemRevisionId===slot.problemRevisionId) {
+        // The immutable content hash is recomputed from protected bytes, not
+        // copied from untrusted metadata. Changed grading, images or text can
+        // never silently reuse the previous contents.
+        const normalized=validateProblem(old.content,old.grading);
+        if(fingerprint(normalized)===slot.contentHash){
+          items.push({itemId:slot.itemId,problemId:slot.problemId,
+            problemRevisionId:slot.problemRevisionId,points:slot.points,
+            content:normalized.content,grading:normalized.grading});
+          continue;
+        }
+      }
       // This injected port MUST fetch the EXACT immutable Neon problem
       // revision, not its mutable/latest problem bank pointer.
       const port=slot.source.kind==="firestore_legacy"
