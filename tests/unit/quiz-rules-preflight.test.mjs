@@ -13,7 +13,7 @@ const privateStart=read("functions/src/bundles/private-start-export.js");
 test("start button opens a real rules screen, never a confirmation dialog",()=>{
   const start=quiz.slice(quiz.indexOf('action(root, "#start"'),
     quiz.indexOf('action(root, "#request-access"'));
-  assert.match(start,/showQuizRules\(root, q,/);
+  assert.match(start,/showQuizRules\(root, retrySource \?/);
   assert.doesNotMatch(start,/dialog\(/);
   assert.match(start,/begin:\s*\(\) => api\("startAttempt"/);
   assert.match(start,/history\.replaceState/);
