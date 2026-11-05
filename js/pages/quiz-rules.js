@@ -100,6 +100,8 @@ export function showQuizRules(root, quiz, { begin, started }) {
     beginButton.disabled = true;
     backButton.disabled = true;
     status.textContent = "Starting your attempt and opening the first question…";
+    const note = panel.querySelector(".rules-timer-note");
+    if (note) note.textContent = "Confirming start…";
     let attempt;
     try {
       // The server creates the attempt and chooses the official start time.
@@ -112,6 +114,7 @@ export function showQuizRules(root, quiz, { begin, started }) {
       backButton.disabled = false;
       status.textContent =
         "The request did not complete. If an attempt was created, reopening the quiz will resume it.";
+      if (note) note.textContent = "Start not confirmed";
       panel.querySelector(".rules-error")?.remove();
       const errorNode = document.createElement("div");
       errorNode.className = "rules-error";
