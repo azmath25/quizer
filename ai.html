@@ -69,6 +69,27 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 @media(max-width:1060px){.shell{grid-template-columns:232px minmax(0,1fr)}}
 @media(max-width:760px){.shell{grid-template-columns:minmax(0,1fr)}.topbar{padding:0 12px}.studio-name{font-size:11px}.conversation-head{height:59px;padding:0 13px}.welcome{padding:24px 0}.conversation{padding:16px}.composer-area{padding:0 12px max(10px,env(safe-area-inset-bottom))}}
 @media(max-width:430px){.prompt-grid{grid-template-columns:1fr}.toplink,.studio-name{display:none}.chat-options summary{min-height:34px}}
+
+/* Quizer site-level navigation inside the independent AI Studio preview.
+   The links intentionally match js/components/shell.js without requiring
+   Firebase initialization or background role/profile API calls. */
+.studio-global-nav{display:flex;align-items:center;gap:4px;min-width:0;flex:0 1 auto}
+.studio-global-nav>a{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 11px;color:var(--muted);font-size:11px;font-weight:800;border-radius:9px;white-space:nowrap}
+.studio-global-nav>a:hover,.studio-global-nav>a[aria-current="page"]{color:var(--cyan);background:var(--wash)}
+.studio-global-nav>a:focus-visible,.studio-profile:focus-visible,.studio-nav-dropdown summary:focus-visible,.studio-nav-dropdown a:focus-visible{outline:3px solid var(--cyan2);outline-offset:2px}
+.studio-profile{display:inline-flex;align-items:center;min-height:36px;padding:8px 12px;margin-left:5px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:11px;font-weight:800;white-space:nowrap}
+.studio-profile:hover{border-color:var(--cyan);color:var(--cyan)}
+.studio-nav-dropdown{display:none;position:relative;flex:none}
+.studio-nav-dropdown>summary{display:flex;align-items:center;gap:6px;min-height:42px;padding:9px 11px;cursor:pointer;list-style:none;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:11px;font-weight:800;color:var(--ink)}
+.studio-nav-dropdown>summary::-webkit-details-marker{display:none}
+.studio-nav-dropdown>summary:hover,.studio-nav-dropdown[open]>summary{color:var(--cyan);border-color:var(--cyan)}
+.studio-nav-dropdown>nav{position:absolute;z-index:50;top:calc(100% + 8px);left:0;width:200px;max-height:min(70dvh,410px);overflow:auto;padding:7px;border:1px solid var(--line);border-radius:13px;background:var(--surface);box-shadow:var(--shadow)}
+.studio-nav-dropdown>nav a{display:flex;align-items:center;min-height:43px;padding:11px 12px;border-radius:8px;font-size:12px;font-weight:750;color:var(--ink)}
+.studio-nav-dropdown>nav a:hover,.studio-nav-dropdown>nav a[aria-current="page"]{color:var(--cyan);background:var(--wash)}
+.topbar .tools{flex:none}
+@media(max-width:1200px){.studio-global-nav{display:none}.studio-nav-dropdown{display:block}.studio-profile{display:none}}
+@media(max-width:760px){.studio-nav-dropdown>summary{padding:8px 10px}.studio-nav-dropdown>nav{left:auto;right:0}.topbar .tag.demo{display:none}}
+@media(max-width:520px){.brand-label{display:none}.studio-nav-dropdown>summary span{display:none}.studio-nav-dropdown>summary{width:37px;justify-content:center;padding:8px}.topbar{gap:7px}.topbar .tools{gap:0}.topbar .tools .icon-btn{width:33px;height:36px}}
 </style>
 </head>
 <body data-page="ai">
@@ -110,10 +131,22 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <div class="app" id="app">
 <header class="topbar">
 <button class="icon-btn mobile-only" aria-label="Open chat history" data-act="sidebar"><svg class="ico"><use href="#ic-bars"/></svg></button>
-<a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span>math quiz<span style="color:var(--cyan)">.</span></span></a>
-<span class="studio-name">AI Studio</span><span class="grow"></span>
-<span class="tag demo"><span class="dot"></span> Preview · no live AI</span><a class="toplink" href="problems.html">Problem bank</a>
-<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button></div>
+<a href="index.html" class="brand"><span class="brand-icon"><svg class="ico lg"><use href="#ic-spark"/></svg></span><span class="brand-label">math quiz<span style="color:var(--cyan)">.</span></span></a>
+<!-- Match the actual Quizer shell navigation: Home, Quizzes, My activity,
+     Teaching, AI Studio and Admin. Site authorization remains enforced by
+     destination pages; this local preview does not fetch user roles. -->
+<nav class="studio-global-nav" aria-label="Main navigation">
+<a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a>
+</nav>
+<details class="studio-nav-dropdown" id="studio-nav-dropdown">
+<summary aria-label="Open Quizer navigation"><svg class="ico"><use href="#ic-bars"/></svg><span>Menu</span></summary>
+<nav aria-label="Quizer navigation menu">
+<a href="index.html">Home</a><a href="quizzes.html">Quizzes</a><a href="activity.html">My activity</a><a href="teaching.html">Teaching</a><a href="ai.html" aria-current="page">AI Studio</a><a href="admin.html">Admin</a><a href="profile.html">Profile</a>
+</nav>
+</details>
+<span class="grow"></span>
+<span class="tag demo"><span class="dot"></span> Preview · no live AI</span>
+<div class="tools"><button class="icon-btn" data-act="search" aria-label="Search chats" title="Search chats • Ctrl+K"><svg class="ico"><use href="#ic-search"/></svg></button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg class="ico"><use href="#ic-settings"/></svg></button><button class="icon-btn" data-act="theme" aria-label="Toggle dark mode"><svg class="ico" id="theme-icon"><use href="#ic-moon"/></svg></button><button class="icon-btn outline" data-act="inspector" aria-label="Toggle job inspector" aria-expanded="false" title="Processing details"><svg class="ico"><use href="#ic-panel"/></svg></button><a class="studio-profile" href="profile.html">Profile</a></div>
 </header>
 <div class="shell" id="shell">
 <aside class="sidebar" aria-label="Conversation history">
