@@ -228,6 +228,20 @@ def viewport_check(browser, width, height, touch, attempt_id, scale=False):
                 timeout=20000)
         page.screenshot(path=str(OUTPUT / f"{width}px-{'large-text' if scale else 'normal'}-runner.png"),
                         full_page=False)
+        if width == 1024 and not scale:
+            page.goto(BASE + "/index.html", wait_until="domcontentloaded")
+            page.locator(".home-simple .home-results .section-head").wait_for(
+                state="visible", timeout=40000)
+            left = rect(page.locator(".home-simple > .stack .home-section .section-head").first)
+            right = rect(page.locator(".home-simple .home-results > .section-head"))
+            require(abs(left["top"] - right["top"]) <= 2,
+                    "Dashboard section headings do not align: " +
+                    str({"quizzes":left,"results":right}))
+            panel = rect(page.locator(".home-results-panel"))
+            require(panel["top"] >= right["bottom"],
+                    "Recent results panel starts above its section title")
+            page.screenshot(path=str(OUTPUT / "1024px-home-alignment.png"),
+                            full_page=False)
         require(not errors, f"browser uncaught errors at {width}px: {errors[:4]}")
         print(f"PASS responsive runner width={width} touch={touch} " +
               f"flag/star=stable timer=stable save=visible grid>=44 " +
