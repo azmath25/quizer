@@ -35,6 +35,40 @@ try:
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 page.locator("#conversation-head .chat-options").wait_for()
+                # Independent preview exposes Quizer's exact site menu, without
+                # loading Firebase or calling protected APIs just for nav.
+                expected = [
+                    ("Home", "index.html"), ("Quizzes", "quizzes.html"),
+                    ("My activity", "activity.html"),
+                    ("Teaching", "teaching.html"),
+                    ("AI Studio", "ai.html"), ("Admin", "admin.html"),
+                ]
+                nav = page.locator(".studio-global-nav")
+                links = nav.locator("a")
+                pairs = [(link.inner_text(), link.get_attribute("href"))
+                         for link in links.all()]
+                check(pairs == expected,
+                      f"AI Studio nav differs from Quizer at {width}px: {pairs}")
+                check(nav.locator('a[aria-current="page"]').inner_text() == "AI Studio",
+                      "AI Studio active navigation state missing")
+                menu = page.locator("#studio-nav-dropdown")
+                if width <= 1200:
+                    check(menu.is_visible() and not nav.is_visible(),
+                          f"Compact site navigation missing at {width}px")
+                    menu.locator("summary").click()
+                    menu_links = menu.locator("nav a")
+                    mobile_pairs = [(link.inner_text(), link.get_attribute("href"))
+                                    for link in menu_links.all()]
+                    check(mobile_pairs == expected + [("Profile", "profile.html")],
+                          f"Dropdown does not match Quizer links: {mobile_pairs}")
+                    check(menu_links.filter(has_text="AI Studio").count() == 1,
+                          "Active AI Studio link missing in compact navigation")
+                    menu.locator("summary").click()
+                else:
+                    check(nav.is_visible() and not menu.is_visible(),
+                          "Desktop navigation should show the full Quizer menu")
+                    check(page.locator(".studio-profile").is_visible(),
+                          "Desktop Profile link is missing")
                 theme = page.locator('.tools [data-act="theme"]')
                 check("Light" in theme.get_attribute("aria-label"),
                       "AI Studio must default to light for a new local user")
