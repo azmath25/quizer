@@ -99,7 +99,7 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   mode.value = "explain";
   mode.disabled = !allowed;
   footer.append(mode, element("span", "", "Enter to send · Shift+Enter for a new line"),
-    element("span", "", "4/min · 25/day (UTC)"));
+    element("span", "", "4/min · 250/day (UTC)"));
   form.append(compose, footer);
 
   panel.append(head, note, log, form);
