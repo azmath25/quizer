@@ -4,7 +4,6 @@
 set -euo pipefail
 
 PROJECT="sat-quiz-fd317"
-BRANCH="feature/quizer-mimo-file-extraction-20261107"
 EXPECTED_WORKFLOW="c_mw5e6wmr_wma1bg"
 
 if [[ ! -f package.json || ! -f functions/package.json ||
@@ -45,7 +44,7 @@ echo "Only functions:mimoExtractStart, functions:mimoExtractStatus, and function
 echo "Existing api, processJob, scheduledMaintenance, and mimoTeacherChat will not be redeployed."
 npx firebase deploy \
   --project "${PROJECT}" \
-  --only "functions:mimoExtractStart,functions:mimoExtractStatus,functions:mimoExtractImage" \
+  --only "functions:mathquiz:mimoExtractStart,functions:mathquiz:mimoExtractStatus,functions:mathquiz:mimoExtractImage" \
   --non-interactive
 
 echo "Extraction function deployment command completed successfully."
