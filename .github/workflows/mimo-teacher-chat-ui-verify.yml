@@ -30,6 +30,8 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
       - run: npm test
       - run: npm run verify:static
       - run: npm run build
