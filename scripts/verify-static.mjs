@@ -55,7 +55,9 @@ for (const file of [
     /(?:from\s*|import\s*)["'](\.[^"']+)["']/g,
   )) {
     try {
-      await stat(path.resolve(path.dirname(file), spec));
+      // ESM cache-busting query strings are valid URLs, not part of the
+      // local filename (the HTML validator already strips them).
+      await stat(path.resolve(path.dirname(file), spec.split(/[?#]/, 1)[0]));
     } catch {
       errors.push(`${path.relative(root, file)} → missing ${spec}`);
     }
