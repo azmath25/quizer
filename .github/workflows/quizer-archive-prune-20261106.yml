@@ -37,6 +37,7 @@ jobs:
             fi
             tag="archive/quizer-cleanup-20261106/$branch"
             existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+            if [[ "$branch" == "design/ai-navigation-parity-2026-11-05" ]]; then echo "DEBUG tag lookup returned: [$existing]"; fi
             if [[ -z "$existing" || "$existing" == "null" ]]; then
               if ! gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$expected" >/dev/null; then
                 echo "FAILED to create archive tag: $tag"; failures=$((failures+1)); continue
