@@ -117,7 +117,9 @@ function mountDesk(session) {
     extractStatus.textContent="Choose a PDF, PNG or JPEG to begin a new extraction.";
   }
   async function chooseSource(file) {
+    const previousJob=activeJob;
     resetSource();
+    if(previousJob){activeJob=previousJob;extractRefresh.hidden=false;}
     const version = selectionVersion;
     if (!file) return;
     tell("Checking the file signature and size locally…");
@@ -422,6 +424,17 @@ function mountDesk(session) {
       const status=await readMimoExtraction(activeJob);
       if(!stillOwner())return;
       if(status.state==="completed"){
+        if(!current || !/\.(pdf|png|jpe?g)$/i.test(current.name)){
+          extractionMessage("Select the original PDF/image used for this job before reviewing its questions.",true);
+          return;
+        }
+        const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await current.file.arrayBuffer())))
+          .map(x=>x.toString(16).padStart(2,"0")).join("");
+        if(!stillOwner())return;
+        if(digest!==status.page?.source?.sha256){
+          extractionMessage("The selected source file does not match this Mimo job. Re-select the original PDF/image.",true);
+          return;
+        }
         review=buildTeacherReview(status.page);
         extractResult.hidden=false;extractRefresh.hidden=true;
         extractDecision.textContent="Diagram plan: "+(status.diagramDecision||"not available");
