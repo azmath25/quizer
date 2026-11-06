@@ -46,11 +46,20 @@ async def test_touch(browser, width):
             page = await fresh(context)
             locator=page.locator(target)
             await locator.scroll_into_view_if_needed()
-            await locator.tap(timeout=10000)
+            bounds=await locator.bounding_box()
+            assert bounds, "Quiz-card tap target is not visible"
+            # Click at a physical point, not locator.tap(), since the
+            # stretched heading link deliberately overlays sibling text.
+            await page.touchscreen.tap(
+                bounds["x"] + bounds["width"]/2,
+                bounds["y"] + bounds["height"]/2)
             await page.wait_for_url("**/quiz.html?id=quiz_one",timeout=10000)
             await page.close()
         page=await fresh(context)
-        await page.locator(".quiz-card:nth-child(2) .subject").tap(timeout=10000)
+        management=await page.locator(".quiz-card:nth-child(2) .subject").bounding_box()
+        await page.touchscreen.tap(
+            management["x"] + management["width"]/2,
+            management["y"] + management["height"]/2)
         await page.wait_for_url("**/quiz-manage.html?id=quiz_manage",timeout=10000)
         await page.close()
 
