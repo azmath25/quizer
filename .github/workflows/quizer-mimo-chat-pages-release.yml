@@ -100,3 +100,7 @@ jobs:
         run: |
           gh api -X GET "repos/${GITHUB_REPOSITORY}/pages" --jq '{url: .html_url, status: .status, build_type: .build_type}' || true
           gh api -X GET "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=6" --jq '.[] | {id,sha,ref,created_at}' || true
+          for deployment_id in $(gh api -X GET "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=3" --jq '.[].id'); do
+            echo "Deployment status: ${deployment_id}"
+            gh api -X GET "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" --jq '.[0] | {state,environment_url,description,created_at}' || true
+          done
