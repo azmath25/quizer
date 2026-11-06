@@ -220,7 +220,14 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
   }
   async function status({auth,data}) {
     const {ref,job}=await owned(auth,data?.jobId);
-    if (!job.runId) return {state:job.state,error:job.error||null,jobId:data.jobId};
+    if (!job.runId) {
+      // A worker/callable can terminate after the atomic reservation, before saving
+      // a Mimo run ID. Do not leave the teacher staring at "accepted" forever.
+      const stale=job.state==="accepted" &&
+        Date.now()-Date.parse(job.createdAt)>3*60*1000;
+      return {state:stale?"attention":job.state,
+        error:stale?"MIMO_OUTCOME_UNKNOWN":job.error||null,jobId:data.jobId};
+    }
     const run=await client(projectKey,fetchImpl).run(job.runId);
     if (run.status!=="completed") {
       const state=["failed","cancelled"].includes(run.status)?"failed":"running";
