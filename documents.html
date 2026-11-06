@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0281af"><meta name="referrer" content="no-referrer">
+  <meta name="description" content="Quizer Document & Image Desk: private browser previews, image crops and teacher-controlled AI text requests.">
+  <title>Document & Image Desk · Math Quiz</title>
+  <link rel="icon" href="assets/favicon.svg">
+  <link rel="stylesheet" href="assets/css/tokens.css?v=13">
+  <link rel="stylesheet" href="assets/css/base.css?v=13">
+  <link rel="stylesheet" href="assets/css/layout.css?v=14">
+  <link rel="stylesheet" href="assets/css/components.css?v=13">
+  <link rel="stylesheet" href="assets/css/documents.css?v=1">
+  <script src="js/appearance-init.js"></script>
+  <script type="module" src="js/pages/documents.js?v=1"></script>
+</head>
+<body data-page="documents">
+  <a class="skip-link" href="#main">Skip to Document Desk</a>
+  <header id="site-header"></header>
+  <main id="main" tabindex="-1"><p class="doc-access" role="status">Checking your teacher access…</p></main>
+  <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
+  <footer id="site-footer"></footer>
+  <template id="doc-desk-template">
+    <div class="doc-desk">
+      <div class="doc-page-head">
+        <div><p class="doc-eyebrow">Teacher workspace · documents and figures</p>
+          <h1>Document &amp; Image Desk</h1>
+          <p>Open PDFs and images locally, crop figures, and choose exactly which text to send to Mimo.</p></div>
+        <a class="doc-ai-link" href="ai.html">AI Studio preview</a>
+      </div>
+      <div class="doc-workspace">
+        <section class="doc-file-panel" aria-label="Document preview">
+          <div class="doc-toolbar">
+            <label class="doc-pick" for="doc-source">Choose PDF, image or TeX</label>
+            <input id="doc-source" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.tex,application/pdf,image/png,image/jpeg,image/webp,text/plain" hidden>
+            <button id="doc-clear" class="doc-secondary" type="button" disabled>Clear</button>
+            <span id="doc-file-name" class="doc-file-name">No file chosen</span>
+          </div>
+          <div id="doc-feedback" class="doc-feedback" role="status" aria-live="polite">Your original stays in this browser. Nothing is uploaded automatically.</div>
+          <div id="doc-preview" class="doc-preview"><div class="doc-placeholder"><strong>Open a source file</strong>
+            <span>PDF: view in your browser · Image: inspect and crop · TXT/TeX: review the text.</span></div></div>
+          <div id="doc-image-controls" class="doc-image-controls" hidden>
+            <span>Drag over the image to select a diagram or figure.</span>
+            <button id="doc-download-crop" class="doc-secondary" type="button" disabled>Download cropped PNG</button>
+            <button id="doc-save-image" class="doc-secondary" type="button">Save image privately to Quizer</button>
+          </div>
+          <p class="doc-privacy">Browser preview only. PDFs and image pixels are not sent to Mimo by this page. Saving an image to Quizer is a separate, explicit action.</p>
+        </section>
+        <aside class="doc-ai-panel" aria-label="Ask about selected text">
+          <div class="doc-assistant-head">
+            <p class="doc-eyebrow">Existing authenticated Mimo chat</p>
+            <h2>Review source text</h2>
+            <p>Copy selectable PDF text into the excerpt box, or open a TXT/TeX file. For an image, enter your own transcription; image OCR is not active yet.</p>
+          </div>
+          <form id="doc-ai-form">
+            <label for="doc-excerpt">Text to share with AI</label>
+            <textarea id="doc-excerpt" rows="7" maxlength="3800" placeholder="Paste selected PDF text, a problem statement, or your transcription of an image…" aria-describedby="doc-excerpt-limit"></textarea>
+            <p id="doc-excerpt-limit" class="doc-field-note">Maximum 3,800 characters; only this selected text is used as source context.</p>
+            <label for="doc-question">Your request</label>
+            <textarea id="doc-question" rows="3" maxlength="3000" placeholder="Extract numbered problems and flag anything uncertain…" required></textarea>
+            <label class="doc-consent"><input type="checkbox" id="doc-consent"> Send this excerpt and request to Mimo. No PDF/image binary will be sent.</label>
+            <button id="doc-ask" class="doc-primary" type="submit">Ask Mimo about this text</button>
+            <p class="doc-field-note">Teacher quota applies: 4 requests/minute, 250/day. There are no automatic retries.</p>
+          </form>
+          <div id="doc-ai-log" class="doc-ai-log" role="log" aria-live="polite" aria-label="Document AI response"></div>
+        </aside>
+      </div>
+    </div>
+  </template>
+</body>
+</html>

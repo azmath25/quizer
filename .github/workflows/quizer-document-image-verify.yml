@@ -1,0 +1,60 @@
+name: Document & Image Desk and teacher 250/day verification (no deploy)
+on:
+  push:
+    branches: [feature/quizer-document-image-workbench-20261106]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-document-image-desk
+  cancel-in-progress: true
+
+jobs:
+  documents-and-backend:
+    name: Document Desk, teacher quota, unit, static and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
+      - run: node --check js/pages/documents.js
+      - run: node --check js/services/local-document.js
+      - run: node --check functions/src/index.js
+      - run: node --test tests/unit/document-desk.test.mjs
+      - run: node --test functions/test/mimo-teacher-chat.test.mjs
+      - run: npm test
+      - run: npm run test:backend
+      - run: npm run verify:static
+      - run: npm run build
+  firebase-regressions:
+    name: Existing Firebase rules, emulator and transport
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run test:integration
+      - run: npm run test:transport

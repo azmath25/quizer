@@ -5,6 +5,7 @@ const links = [
   ["quiz", "quizzes.html", "Quizzes"],
   ["activity", "activity.html", "My activity"],
   ["teach", "teaching.html", "Teaching"],
+  ["documents", "documents.html", "Documents"],
   ["ai", "ai.html", "AI Studio"],
   ["admin", "admin.html", "Admin"],
 ];
@@ -110,7 +111,8 @@ export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
     const nav = links
       .filter(([key]) => key !== "teach" || s.capabilities.teach)
       .filter(([key]) => key !== "admin" || s.capabilities.admin)
-      .filter(([key]) => key !== "ai" || s.capabilities.teach || s.capabilities.admin);
+      .filter(([key]) => key !== "ai" || s.capabilities.teach || s.capabilities.admin)
+      .filter(([key]) => key !== "documents" || s.capabilities.teach || s.capabilities.admin);
     const active = (url) =>
       url.split(".")[0] === page ||
       (page === "home" && url === "index.html") ||

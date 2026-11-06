@@ -82,7 +82,7 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   compose.append(input, send);
   const footer = element("div", "qa-footer");
   footer.append(element("span", "", "Enter to send · Shift+Enter for a new line"),
-    element("span", "", "Teacher limit: 4/min · 25/day (UTC)"));
+    element("span", "", "Teacher limit: 4/min · 250/day (UTC)"));
   form.append(compose, footer);
 
   panel.append(head, note, log, form);
