@@ -1,3 +1,4 @@
+import { getSession } from "../firebase-client.js";
 import { installBankSearchShortcut } from "../components/workspace-controls.js";
 import { go, onLeave } from "../core/router.js";
 import { api, apiSWR } from "../services/api.js";
@@ -35,6 +36,7 @@ import {
 import { toLatex } from "../services/ai.js";
 import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
 import { openAskAIPopup } from "../components/ask-ai-popup.js";
+import { canUseMimoTeacherChat } from "../services/mimo-chat.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -318,7 +320,7 @@ export async function mount(root, session) {
           "data-star",
         ) +
         `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
-        btn("ai", "bulb", "Ask AI about this problem", "data-ask-ai") +
+        (canUseMimoTeacherChat(session) ? btn("ai", "bulb", "Ask AI about this problem", "data-ask-ai") : "") +
         btn("download", "download", "Download .tex", "data-download") +
         btn("solve", "bulb", "Answer and solution", "data-solve") +
         `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>`;
@@ -479,7 +481,7 @@ export async function mount(root, session) {
         },
         root,
       );
-    else if (t.hasAttribute("data-ask-ai"))
+    else if (t.hasAttribute("data-ask-ai") && canUseMimoTeacherChat(getSession()))
       busy(t, async () => {
         // Bank access is already teacher/admin-only. Do not send grading keys
         // or solutions automatically; context is the problem statement/choices.
