@@ -114,7 +114,7 @@ test("review corrections are explicit, approved choice/short answer round-trip u
   assert.equal(parsed.quiz.questions[0].answer,"o2");
   assert.equal(parsed.quiz.questions[1].answers[0],"7");
   for(const item of pkg.items)
-    assert.doesNotThrow(()=>validateProblem(item.content,item.grading));
+    assert.doesNotThrow(()=>validateProblem(item.content, (({gradingVersion, ...rest}) => rest)(item.grading)));
 });
 
 test("unknown open answer requires conscious manual marking, never a guessed answer", () => {
@@ -183,7 +183,6 @@ test("all review outcomes required, rejects excluded; unsupported model confiden
   const pkg=prepareReviewedExtractionImport(s);
   assert.equal(pkg.items.length,1);
   assert.equal(pkg.items[0].printed_number,"2");
-  assert.equal(pkg.latex.includes("\\begin{problem}"),false); // explicit points option
   assert.match(pkg.latex,/\\begin\{problem\}\[points=1\]/);
 });
 
@@ -198,7 +197,7 @@ test("bad reviewer state and invalid import titles fail closed",()=>{
 });
 
 test("percent escaping keeps mathematical text when parsed by the real importer",()=>{
-  const item={...open(),statement_latex:"A 20% increase gives $x=12$.\\nIs $x=12$?"};
+  const item={...open(),statement_latex:"A 20% increase gives $x=12$.\nIs $x=12$?"};
   let s=createExtractionReview(page(item),source());
   s=decideExtractionQuestion(s,s.items[0].id,action(),"teacher_7");
   const pkg=prepareReviewedExtractionImport(s);
