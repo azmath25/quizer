@@ -31,7 +31,7 @@ test("student cards have a full-front native link and keep View quiz visible", (
     quizId: "student-1", title: "Algebra", subject: "Mathematics",
     questionCount: 12, durationSeconds: 300,
   });
-  assert.match(html, /class="qc-front"><a class="qc-tap-target" href="quiz.html\?id=student-1" aria-hidden="true" tabindex="-1"><\/a>/);
+  assert.match(html, /class="qc-face qc-front"><a class="qc-tap-target" href="quiz.html\?id=student-1" aria-hidden="true" tabindex="-1"><\/a>/);
   assert.match(html, /<h3><a href="quiz.html\?id=student-1">Algebra<\/a><\/h3>/);
   assert.match(html, /<a class="text-link" href="quiz.html\?id=student-1">View quiz /);
   assert.doesNotMatch(html, /onclick=|ontouchstart=/);
