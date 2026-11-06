@@ -70,3 +70,151 @@
 .ai-grip--n { top: 0; left: 14px; right: 0; height: 8px; cursor: ns-resize; }
 .ai-grip--nw { top: 0; left: 0; width: 16px; height: 16px; cursor: nwse-resize; }
 @media (max-width: 640px) { .ai-grip--w, .ai-grip--nw { display: none; } .ai-panel { width: calc(100vw - 16px); right: 8px; } }
+
+/* Restored floating controls: assistant, in-page text/math clip, and
+   permissioned tab-pixel crop. All controls are local until Send. */
+.ai-dock {
+  position: fixed;
+  right: 18px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 61;
+}
+.ai-dock .ai-fab {
+  position: static;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 13px;
+  font: 700 .9rem inherit;
+  justify-content: center;
+  cursor: pointer;
+}
+.ai-dock .ai-snip-fab, .ai-dock .ai-pixel-fab {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.ai-dock-handle {
+  touch-action: none;
+  cursor: grab;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  font-size: 1.2rem;
+  min-width: 34px;
+  min-height: 44px;
+  padding: 7px;
+}
+.ai-dock-handle:active { cursor: grabbing; }
+.ai-dock-handle:focus-visible, .ai-dock .ai-fab:focus-visible,
+.ai-head [data-ai="snip-page"]:focus-visible,
+.ai-head [data-ai="snip"]:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+#ai-assistant.is-open .ai-dock { display: none; }
+.ai-head [data-ai="snip-page"], .ai-head [data-ai="snip"] {
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 1.1rem;
+}
+.ai-capture-in-progress #ai-assistant { visibility: hidden !important; }
+.snip-page-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  background: rgba(15, 23, 42, .16);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.snip-page-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--primary, #0281af);
+  background: rgba(2,129,175,.1);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+  border-radius: 3px;
+}
+.snip-page-hint {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 9px 12px;
+  max-width: calc(100% - 90px);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: .85rem;
+  text-align: center;
+  pointer-events: none;
+}
+.snip-page-cancel {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+}
+.snip-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  cursor: crosshair;
+  background: var(--text);
+  touch-action: none;
+}
+.snip-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.snip-box {
+  position: absolute;
+  border: 2px solid var(--primary, #0281af);
+  background: transparent;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .36);
+  pointer-events: none;
+}
+.snip-hint {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: .85rem;
+  pointer-events: none;
+}
+.ai-clip-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: min(40vh, 360px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: .85rem;
+}
+@media(max-width:760px) {
+  .ai-dock { bottom: calc(84px + env(safe-area-inset-bottom)); right: 12px; gap: 5px; }
+  .ai-dock .ai-fab-text { display: none; }
+  .ai-dock .ai-pixel-fab { display: none; }
+  .ai-dock-handle { min-width: 30px; }
+  .ai-dock .ai-fab { padding: 10px 12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .ai-dock .ai-fab, .ai-dock .ai-fab span { animation: none; transition: none; }
+}
