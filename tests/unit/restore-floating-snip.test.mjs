@@ -60,8 +60,10 @@ test("snipping prepares local composer content; it never sends implicitly",()=>{
   assert.doesNotMatch(selection,/await send\(|api\(|fetch\(/);
 });
 test("no provider or student exam bypass is introduced",()=>{
-  assert.match(assistant,/const allowed = !!session\?\.capabilities\?\.teach;/);
+  assert.match(assistant,/const allowed = !!session\?\.capabilities\?\.teach && canUseMimoTeacherChat\(session\);/);
   assert.match(assistant,/if \(!allowed\)/);
+  assert.match(assistant,/await sendTeacherChatMessage\(payload\)/);
+  assert.doesNotMatch(assistant,/await askAssistant\(/);
   assert.match(provider,/export const AI_CONNECTED = false;/);
-  assert.match(shell,/import\("\.\/assistant\.js\?v=16"\)/);
+  assert.match(shell,/import\("\.\/assistant\.js\?v=17"\)/);
 });
