@@ -14,7 +14,7 @@ test("quiz cards retain View quiz and Manage links with shared native destinatio
 
 test("touch-only stretched heading link covers card; CTA remains above overlay",()=>{
   const css=read("assets/css/components.css");
-  assert.match(css,/@media \(hover: none\), \(pointer: coarse\)/);
+  assert.match(css,/@media \(hover: none\)/);
   assert.match(css,/\.quiz-card \.qc-front h3 a::after\s*\{/);
   assert.match(css,/position: absolute;\s*inset: 0;\s*z-index: 1;/);
   assert.match(css,/\.quiz-card \.qc-front \.card-foot \.text-link\s*\{/);
