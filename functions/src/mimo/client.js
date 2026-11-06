@@ -65,7 +65,7 @@ export function createMimoClient({
   fetchImpl = globalThis.fetch, timeoutMs = 25000,
 } = {}) {
   const cfg = config({ origin, projectKey, workflowId, version, costLimitUsd });
-  if (typeof fetchImpl !== 'function' || !Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 60000)
+  if (typeof fetchImpl !== 'function' || !Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 110000)
     throw new MimoTransportError('MIMO_NOT_CONFIGURED');
 
   async function request(method, path, { body, idempotencyKey } = {}) {
@@ -103,16 +103,16 @@ export function createMimoClient({
 
   return Object.freeze({
     /** Use the SAME requestId on ambiguous retries, otherwise charges can duplicate. */
-    start({ uid, requestId, input }) {
+    start({ uid, requestId, input, background = true }) {
       if (typeof uid !== 'string' || !uid || uid.length > 128 ||
           typeof requestId !== 'string' || !REQUEST_ID.test(requestId) ||
           typeof input !== 'string' || !input.trim() ||
-          Buffer.byteLength(input, 'utf8') > 12000) {
+          Buffer.byteLength(input, 'utf8') > 12000 || typeof background !== 'boolean') {
         throw new MimoTransportError('MIMO_INVALID_INPUT');
       }
       const digest = createHash('sha256').update(JSON.stringify([uid, requestId])).digest('hex');
       return request('POST', `/v1/workflows/${encodeURIComponent(cfg.workflowId)}/runs`, {
-        body: { input, version: cfg.version, background: true,
+        body: { input, version: cfg.version, background,
                 cost_limit_usd: cfg.costLimitUsd, cost_mode: 'hard' },
         idempotencyKey: `quizer-${digest}`,
       });
