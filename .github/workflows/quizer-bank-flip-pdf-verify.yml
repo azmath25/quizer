@@ -1,0 +1,44 @@
+name: Verify bank card full-width flip and teacher PDF placeholders
+on:
+  push:
+    branches:
+      - fix/bank-card-flip-pdf-placeholders-2026-11-06
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bank-flip-pdf-stub-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    name: Unit tests and static build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
+      - run: node --test tests/unit/bank-flip-pdf-placeholders.test.mjs
+      - run: npm test
+      - run: npm run verify:static
+      - run: npm run build
+  browser:
+    name: Chromium no-selection / selection and PDF geometry
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check playwright==1.58.0
+      - run: python tests/qa/bank-flip-pdf-browser.py
