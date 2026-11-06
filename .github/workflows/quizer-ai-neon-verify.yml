@@ -1,0 +1,61 @@
+name: Quizer AI Neon memory and documents verification (no deployment)
+
+on:
+  push:
+    branches:
+      - feature/quizer-ai-neon-memory-docs-20261106
+  pull_request:
+    branches:
+      - feature/quizer-mimo-teacher-chat-ui-20261106
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-ai-memory-feature
+  cancel-in-progress: true
+
+jobs:
+  unit-build:
+    name: AI memory, frontend, backend, static and bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
+      - run: npm test
+      - run: npm run test:backend
+      - run: npm run verify:static
+      - run: npm run build
+
+  emulator:
+    name: Existing Firebase quiz and transport regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+      - run: npm run test:integration
+      - run: npm run test:transport
