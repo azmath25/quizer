@@ -87,7 +87,7 @@ test("scissors and screenshot remain, file attachments cannot silently reach the
   const blocked=assistant.indexOf('if (files.length) {',assistant.indexOf('async function send('));
   const paid=assistant.indexOf('await sendTeacherChatMessage(payload)');
   assert.ok(blocked>=0 && blocked<paid);
-  assert.match(assistant,/No file upload/);
+  assert.match(assistant,/Text chat cannot read attached images or PDFs yet/);
   assert.match(assistant,/pendingFiles\.push\(file\)/);
   assert.match(styles,/\.ai-rich/);
 });
