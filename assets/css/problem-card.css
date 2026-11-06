@@ -241,3 +241,23 @@
     padding: 0 10px;
   }
 }
+
+/* The shared .flip-container rule in math.css uses inline-block.
+   In the bank it must be a block filling the card, otherwise only the
+   intrinsic-width portion of an extra-wide card rotates. */
+body[data-page="problems"] .problem-wrapper,
+body[data-page="problems"] .prob-card-box,
+body[data-page="problems"] .flip-container,
+body[data-page="problems"] .flip-card,
+body[data-page="problems"] .flip-face {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+body[data-page="problems"] .prob-card-box,
+body[data-page="problems"] .flip-container,
+body[data-page="problems"] .flip-card,
+body[data-page="problems"] .flip-face {
+  width: 100%;
+}
+body[data-page="problems"] .flip-container { display: block; }
