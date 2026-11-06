@@ -42,20 +42,64 @@ function updateThemeSwitcher(theme) {
   });
 }
 const EQUATIONS = ["e^{iπ}+1=0", "∑ 1/n²=π²/6", "∫ x² dx", "a²+b²=c²", "φ=(1+√5)/2", "lim n→∞", "∇·F", "x=(-b±√Δ)/2a", "sin²+cos²=1", "dy/dx", "∞", "π", "√2", "n!"];
+// The backdrop equations are deliberately plain decorative text (not MathJax).
+// Creating the spans before math.css has loaded flashes unstyled text across
+// the screen. Load BOTH backdrop styles before inserting any equation spans.
+function appendBackdropStyle(href) {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.onload = () => resolve();
+    link.onerror = () => reject(new Error("Backdrop stylesheet failed: " + href));
+    document.head.append(link);
+  });
+}
+
+// The home page does not need MathJax to draw decorative equations.
+// Fetch its pinned local bundle only AFTER the backdrop styles are ready.
+// Other entry pages retain their normal MathJax setup for question rendering.
+function loadHomeMathJax() {
+  if (window.MathJax?.startup?.promise) return window.MathJax.startup.promise;
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "assets/mathjax.js";
+    script.async = true;
+    script.onload = () => {
+      if (!window.MathJax?.startup?.promise)
+        return reject(new Error("MathJax did not initialize."));
+      window.MathJax.startup.promise.then(resolve, reject);
+    };
+    script.onerror = () => reject(new Error("MathJax download failed."));
+    document.head.append(script);
+  });
+}
+
 function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = "assets/css/math.css?v=13";
-  const polish = document.createElement("link");
-  polish.rel = "stylesheet";
-  polish.href = "assets/css/polish.css?v=13";
-  document.head.append(link, polish);
-  const bg = document.createElement("div");
-  bg.id = "math-bg";
-  bg.setAttribute("aria-hidden", "true");
-  bg.innerHTML = EQUATIONS.map((t, i) => `<span style="--x:${(i * 37 + 7) % 94}%;--d:${22 + ((i * 7) % 18)}s;--delay:${-i * 3.1}s;--s:${0.9 + ((i * 13) % 10) / 10}rem">${t}</span>`).join("");
-  document.body.prepend(bg);
+  const stylesheetLoads = [
+    appendBackdropStyle("assets/css/math.css?v=15"),
+    appendBackdropStyle("assets/css/polish.css?v=15"),
+  ];
+  const stylesReady = Promise.all(stylesheetLoads);
+  stylesReady.then(() => {
+    if (document.querySelector("#math-bg")) return;
+    const bg = document.createElement("div");
+    bg.id = "math-bg";
+    bg.setAttribute("aria-hidden", "true");
+    bg.innerHTML = EQUATIONS.map((t, i) => `<span style="--x:${(i * 37 + 7) % 94}%;--d:${22 + ((i * 7) % 18)}s;--delay:${-i * 3.1}s;--s:${0.9 + ((i * 13) % 10) / 10}rem">${t}</span>`).join("");
+    // The first visible frame is styled. A failed stylesheet means no
+    // decorative animation, rather than an unstyled flash.
+    document.body.prepend(bg);
+  }).catch(() => {});
+  if (document.body.dataset.page === "home") {
+    // Scripts in index.html no longer download MathJax during HTML parsing.
+    // Capture readiness synchronously so SPA navigation and render.typeset()
+    // can await it even if a user opens a quiz immediately.
+    window.mathQuizMathJaxReady = Promise.allSettled(stylesheetLoads)
+      .then(loadHomeMathJax) // Never block quiz math on a failed decoration CSS.
+      .catch(() => null);
+  }
 }
 export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
   if (showBackdrop) mountBackdrop();
