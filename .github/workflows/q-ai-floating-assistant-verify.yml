@@ -28,6 +28,8 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
       - run: node --check js/components/assistant.js
       - run: node --check js/services/floating-assistant-chat.js
       - run: node --test tests/unit/floating-assistant-mimo.test.mjs tests/unit/restore-floating-snip.test.mjs tests/unit/mimo-teacher-chat.test.mjs tests/unit/ai-chat-markdown.test.mjs
