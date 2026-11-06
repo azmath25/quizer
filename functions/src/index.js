@@ -13,7 +13,8 @@ import { dispatch } from "./router.js";
 import { runJob } from "./jobs/worker.js";
 import { sweep } from "./jobs/sweeper.js";
 import { REGION, ENFORCE_APP_CHECK } from "./config.js";
-import { createTeacherChat, TeacherChatError } from "./mimo/teacher-chat.js";
+import { TeacherChatError } from "./mimo/teacher-chat.js";
+import { createAiHub, aiHubErrorCode } from "./mimo/ai-hub.js";
 initializeApp();
 const db = getFirestore();
 
@@ -121,16 +122,18 @@ export const mimoTeacherChat = onCall(
     timeoutSeconds: 120,
     maxInstances: 2,
     enforceAppCheck: ENFORCE_APP_CHECK,
-    secrets: [QUIZER_MIMO_PROJECT_KEY],
+    secrets: [QUIZER_MIMO_PROJECT_KEY, NEON_URL],
   },
   async (request) => {
     try {
-      const handler = createTeacherChat({
+      const handler = createAiHub({
         db, projectKey: QUIZER_MIMO_PROJECT_KEY.value(),
+        databaseUrl: NEON_URL.value(),
       });
       return await handler({auth: request.auth, data: request.data});
     } catch (error) {
-      if (error instanceof TeacherChatError) {
+      const hubReason = aiHubErrorCode(error);
+      if (error instanceof TeacherChatError || hubReason) {
         const code = {
           AUTH_REQUIRED: "unauthenticated",
           EMAIL_UNVERIFIED: "permission-denied",
@@ -146,9 +149,15 @@ export const mimoTeacherChat = onCall(
           MIMO_NOT_COMPLETED: "unavailable",
           MIMO_INVALID_RESPONSE: "unavailable",
           MIMO_UNAVAILABLE: "unavailable",
-        }[error.code] || "internal";
+          THREAD_NOT_FOUND: "not-found",
+          DOCUMENT_NOT_FOUND: "not-found",
+          DOCUMENT_NOT_READY: "failed-precondition",
+          REQUEST_ID_CONFLICT: "already-exists",
+          MEMORY_NOT_CONFIGURED: "failed-precondition",
+        }[hubReason || error.code] || "internal";
         // Only fixed, predeclared codes, never upstream error bodies or secrets.
-        throw new HttpsError(code, error.code, {reason: error.code});
+        const reason = hubReason || error.code;
+        throw new HttpsError(code, reason, {reason});
       }
       console.error("mimo_teacher_chat_internal_failure");
       throw new HttpsError("internal", "Teacher chat is temporarily unavailable.");
