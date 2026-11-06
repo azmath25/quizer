@@ -300,7 +300,7 @@ function onLogClick(event) {
   if (event.target.closest("[data-ai=how]")) {
     state.messages.push({
       role:"assistant", confirmed:false,
-      text:"This assistant uses Quizer Firebase Authentication and the existing teacher-only Mimo chat workflow. You can ask follow-up questions; only completed exchanges are used as history. The existing chat quota is 4 requests per minute and 25 per UTC day. Scissors can select visible text, but file and screenshot processing is a separate feature.",
+      text:"This assistant uses Quizer Firebase Authentication and the existing teacher-only Mimo chat workflow. You can ask follow-up questions; only completed exchanges are used as history. The existing chat quota is 4 requests per minute and 250 per UTC day. Scissors can select visible text, but file and screenshot processing is a separate feature.",
     });
     save();
     render();
