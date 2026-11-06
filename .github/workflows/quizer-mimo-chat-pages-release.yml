@@ -1,0 +1,82 @@
+name: Quizer Mimo Chat approved GitHub Pages release
+
+on:
+  push:
+    branches:
+      - release/quizer-mimo-chat-github-pages-20261106
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-pages-approved-mimo-chat
+  cancel-in-progress: false
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install locked dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+      - name: Verify frontend and backend
+        run: |
+          npm run prepare:backend
+          npm test
+          npm run test:backend
+          npm run verify:static
+          npm run test:integration
+          npm run test:transport
+      - name: Build only the public static frontend
+        run: npm run build
+      - name: Validate Firebase project and expected Mimo bridge
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync,statSync} from 'node:fs';
+          const cfg=readFileSync('dist/js/firebase-config.js','utf8');
+          const client=readFileSync('dist/js/services/mimo-chat.js','utf8');
+          if (!cfg.includes('sat-quiz-fd317') ||
+              cfg.includes('quizer-staging-az26') ||
+              cfg.includes('mimo-backend-513412'))
+            throw new Error('Unexpected Firebase frontend identity');
+          if (!client.includes('mimoTeacherChat') ||
+              client.includes('QUIZER_MIMO_PROJECT_KEY') ||
+              client.includes('mimo-execution-'))
+            throw new Error('Public Mimo transport contract mismatch');
+          for (const name of ['index.html','quiz.html','login.html','problems.html','results.html','assets/css/ask-ai-popup.css'])
+            statSync('dist/'+name);
+          console.log('Validated public-only Quizer Mimo chat frontend');
+          JS
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy-pages:
+    needs: verify-and-build
+    if: ${{ github.ref == 'refs/heads/release/quizer-mimo-chat-github-pages-20261106' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy approved public frontend (no Firebase CLI or Google Cloud changes)
+        id: deployment
+        uses: actions/deploy-pages@v4
