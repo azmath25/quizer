@@ -20,7 +20,11 @@ class N {
 globalThis.document={createElement:tag=>new N(tag)};
 const source=readFileSync(new URL("../../js/components/ai-chat-library.js",import.meta.url),"utf8");
 const prepared=source.replace(/import \{[\s\S]*?\} from "\.\.\/services\/mimo-chat\.js";/,
- "const {listTeacherChats,getTeacherChat,listTeacherDocuments,createTeacherTextDocument,mimoChatErrorMessage}=globalThis.__libraryApi;");
+ "const listTeacherChats=(...x)=>globalThis.__libraryApi.listTeacherChats(...x);"+
+ "const getTeacherChat=(...x)=>globalThis.__libraryApi.getTeacherChat(...x);"+
+ "const listTeacherDocuments=(...x)=>globalThis.__libraryApi.listTeacherDocuments(...x);"+
+ "const createTeacherTextDocument=(...x)=>globalThis.__libraryApi.createTeacherTextDocument(...x);"+
+ "const mimoChatErrorMessage=(...x)=>globalThis.__libraryApi.mimoChatErrorMessage(...x);");
 assert.notEqual(source,prepared);
 const {createAiChatLibrary}=await import("data:text/javascript;base64,"+Buffer.from(prepared).toString("base64"));
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
