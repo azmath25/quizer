@@ -1,4 +1,6 @@
 import { askAssistant, AI_CONNECTED } from "../services/ai.js";
+import { sendTeacherChatMessage } from "../services/mimo-chat.js";
+import { getSession } from "../firebase-client.js";
 
 // A dedicated, in-page popup. It never navigates into the teacher/admin Studio.
 // Context must already be authorized and visible on the calling page.
@@ -28,6 +30,8 @@ function installStyle() {
 
 export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   installStyle();
+  const teacherChat = getSession().capabilities?.teach === true;
+  let history = [];
   active?.close();
   const overlay = document.createElement("div");
   overlay.className = "qa-overlay";
@@ -48,9 +52,11 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   head.append(name, closeButton);
   const hint = document.createElement("div");
   hint.className = "qa-context";
-  hint.textContent = AI_CONNECTED
-    ? "Ask questions about the selected result."
-    : "AI preview — live answers are not connected yet.";
+  hint.textContent = teacherChat
+    ? "Teacher chat · Mimo workflow · Responses may take a few moments."
+    : AI_CONNECTED
+      ? "Ask questions about the selected result."
+      : "AI preview — live answers are not connected yet.";
   const log = document.createElement("div");
   log.className = "qa-log";
   log.setAttribute("aria-live", "polite");
@@ -114,13 +120,35 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
     input.value = "";
     send.disabled = true;
     try {
-      const reply = await askAssistant({
-        prompt: "Use only the authorized page context below. Do not assume hidden answers or grading keys.\n\n" +
-          String(context).slice(0, 8000) + "\n\nQuestion: " + question,
-      });
+      let reply;
+      if (teacherChat) {
+        reply = await sendTeacherChatMessage({
+          message: question,
+          context: String(context).slice(0, 4000),
+          history,
+        });
+        // Keep only bounded context from completed chat turns.
+        history = [...history,
+          {role: "user", content: question.slice(0, 1200)},
+          {role: "assistant", content: reply.reply.slice(0, 1200)},
+        ].slice(-8);
+      } else {
+        reply = await askAssistant({
+          prompt: "Use only the authorized page context below. Do not assume hidden answers or grading keys.\n\n" +
+            String(context).slice(0, 8000) + "\n\nQuestion: " + question,
+        });
+      }
       if (!closed) append("assistant", String(reply.reply || "No reply available."));
     } catch (error) {
-      if (!closed) append("system", error?.message || "AI request failed.");
+      const reason = error?.details?.reason || "";
+      const explanation = reason === "MIMO_OUTCOME_UNKNOWN"
+        ? "Connection interrupted. Mimo may have processed this message; avoid immediately resending it."
+        : reason === "RATE_LIMITED" || reason === "MIMO_RATE_LIMITED"
+          ? "Chat request limit reached. Try again later."
+          : reason === "MIMO_PROJECT_NOT_AUTHORIZED"
+            ? "Mimo project key is not authorized for this chat workflow."
+            : error?.message || "AI request failed.";
+      if (!closed) append("system", explanation);
     } finally {
       if (!closed) { send.disabled = false; input.focus(); }
     }
