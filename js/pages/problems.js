@@ -35,6 +35,8 @@ import {
 import { toLatex } from "../services/ai.js";
 import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
 import { openAskAIPopup } from "../components/ask-ai-popup.js";
+import { canUseMimoTeacherChat } from "../services/mimo-chat.js";
+import { getSession } from "../firebase-client.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -319,7 +321,7 @@ export async function mount(root, session) {
         btn("star" + (star ? " is-active" : ""), "star", star ? "Remove star" : "Star", "data-star") +
         flipButton +
         `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>` +
-        btn("ai", "sparkles", "Ask AI about this problem", "data-ask-ai", "AI") +
+        (canUseMimoTeacherChat(session) ? btn("ai", "sparkles", "Ask AI about this problem", "data-ask-ai", "AI") : "") +
         btn("solve", "book", "Answer and solution", "data-solve", "Solution");
     const chips = [
       ["Owner", e(p.ownerDisplayName || "Teacher")],
@@ -478,7 +480,7 @@ export async function mount(root, session) {
         },
         root,
       );
-    else if (t.hasAttribute("data-ask-ai"))
+    else if (t.hasAttribute("data-ask-ai") && canUseMimoTeacherChat(getSession()))
       busy(t, async () => {
         // Bank access is already teacher/admin-only. Do not send grading keys
         // or solutions automatically; context is the problem statement/choices.
