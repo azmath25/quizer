@@ -1,0 +1,75 @@
+name: One-time Quizer archive old branch tips and prune
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/quizer-archive-prune-20261106.yml']
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  archive-and-prune:
+    if: github.repository == 'azmath25/quizer'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create exact commit tags, then remove only SHA-pinned closed branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open_refs=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --paginate --jq '.[].head.ref, .[].base.ref')
+          failures=0
+          deleted=0
+          archived=0
+          while read -r branch expected; do
+            [[ -z "$branch" ]] && continue
+            case "$branch" in
+              main|main-backup|work/*|backup/*|feature/q-ai4-*|feature/quizer-ai-neon-memory-docs-*|feature/diff-only-*)
+                echo "ERROR refused protected branch $branch"; exit 1 ;;
+            esac
+            if grep -Fxq "$branch" <<< "$open_refs"; then
+              echo "SKIPPED active pull request: $branch"; failures=$((failures+1)); continue
+            fi
+            now=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
+            if [[ -z "$now" ]]; then echo "SKIPPED absent branch: $branch"; continue; fi
+            if [[ "$now" != "$expected" ]]; then
+              echo "SKIPPED moved branch: $branch"; failures=$((failures+1)); continue
+            fi
+            tag="archive/quizer-cleanup-20261106/$branch"
+            existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+            if [[ -z "$existing" ]]; then
+              if ! gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$expected" >/dev/null; then
+                echo "FAILED to create archive tag: $tag"; failures=$((failures+1)); continue
+              fi
+            elif [[ "$existing" != "$expected" ]]; then
+              echo "SKIPPED: conflicting existing tag $tag"; failures=$((failures+1)); continue
+            fi
+            confirmed=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+            if [[ "$confirmed" != "$expected" ]]; then
+              echo "FAILED to confirm archive tag: $tag"; failures=$((failures+1)); continue
+            fi
+            archived=$((archived+1))
+            echo "ARCHIVED $branch -> $tag ($expected)"
+            final=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
+            if [[ "$final" != "$expected" ]]; then echo "SKIPPED moved-before-delete $branch"; failures=$((failures+1)); continue; fi
+            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null; then
+              echo "DELETED branch $branch"; deleted=$((deleted+1))
+            else echo "FAILED deletion $branch"; failures=$((failures+1)); fi
+          done <<'PINNED_BRANCHES'
+          design/ai-navigation-parity-2026-11-05 ad22b0784a42f100bf937a61bb9d6412d04997c9
+          design/ai-studio-single-page-2026-11-04 007ad50e44cdce43d73854369abaac6fd3b3abe6
+          feat/ai-browser-snip-ask 11777cdbb493289672a95b58d5f40a1bcab65388
+          feat/ai-workspace 3447113f33866d79e4315e12924d2a011233cb32
+          feature/ask-ai-bank-results-popup-2026-11-05 e43b729e765ca619d74ce0e642f10a57d8eefb60
+          feature/math-input-results-pass-tour-2026-11-05 f1a971d3c7ad3c8306e1a6e7a4ebc425a9c76096
+          feature/quizer-mimo-api-bridge-20261106 8fb17d7e8acb3ead441d0c0b08c99c5ce4aca7ba
+          feature/quizer-mimo-teacher-chat-ui-20261106 a35262e4bf70c6b49bcb2f4169b1e4cd1934b2e2
+          feature/restore-floating-snip-2026-11-05 2fa7bcd267586f5a2707aa6f9a0704a3aec18ef1
+          fix/mobile-quiz-card-tap-2026-11-06 3fc4c5ad5830ae18748d140db4b0af8b09fa3ef0
+          release/quizer-direct-prod-2026-11-05 2c5b0bd7471d8a06f89e567722b676c9ff35b480
+          release/quizer-modernization-prod-2026-11-05 088ba5a72458e90994bd3c35f95ad566a61eac9a
+          release/quizer-private-bundle-hotfix-2026-11-05 96bafca48c7b585406b5253dc3f0ef336fdc412a
+          PINNED_BRANCHES
+          echo "Archived $archived; deleted $deleted; failures $failures"
+          test "$failures" -eq 0
+          test "$deleted" -eq 13
