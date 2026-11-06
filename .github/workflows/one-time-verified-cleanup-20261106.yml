@@ -1,0 +1,63 @@
+name: One-time verified Quizer cleanup
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/one-time-verified-cleanup-20261106.yml']
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  prune:
+    if: github.repository == 'azmath25/quizer'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete unchanged already-merged branch refs only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open_heads=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --paginate --jq '.[].head.ref')
+          failures=0
+          deleted=0
+          while read -r branch expected; do
+            [[ -z "$branch" ]] && continue
+            case "$branch" in
+              main|main-backup|work/*|backup/pre-main-consolidation-20261106) echo "PROTECTED $branch"; exit 1 ;;
+            esac
+            if grep -Fxq "$branch" <<< "$open_heads"; then echo "SKIP OPEN PR $branch"; continue; fi
+            current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
+            if [[ -z "$current" ]]; then echo "SKIP ALREADY ABSENT $branch"; continue; fi
+            if [[ "$current" != "$expected" ]]; then echo "SKIP MOVED $branch"; failures=$((failures+1)); continue; fi
+            ahead=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$branch" --jq '.ahead_by' 2>/dev/null || true)
+            if [[ "$ahead" != "0" ]]; then echo "SKIP UNMERGED $branch (ahead=$ahead)"; failures=$((failures+1)); continue; fi
+            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null; then
+              echo "DELETED $branch"; deleted=$((deleted+1))
+            else echo "FAILED $branch"; failures=$((failures+1)); fi
+          done <<'PINNED_BRANCHES'
+          design/frontend-context-layout-2026-11-05 b27dc44b5df1cb84a24f1e27f1ee71beb8d52966
+          design/quizer-quiet-data-layout-2026-11-05 97054054006e947a9a3443e1c97b7fff7c06dcc6
+          feature/ai-site-shell-parity-2026-11-05 42176cecc4ca2f8609c11ab62c5f2e3d24d4f205
+          feature/mobile-full-card-quiz-tap-2026-11-06 a51c99f3b14ef28faa9ed11401a19aa1db8314cd
+          feature/q-ai3-extraction-contract-20261106 6c5c092c19664f39b15e0b30c7ec778a2a0ec65c
+          feature/quiz-rules-first-question-2026-11-05 0075ab2a5ce1ec7e814491d5130ff0e96ce33478
+          feature/quizer-full-modernization-2026-11-05 ecd2c0d42555dea97e08773238533e3ac26c69f9
+          feature/quizer-math-results-pass-tour-latest-2026-11-05 61613bbfb9bf5cf22a43be946debdc7ccc9c612a
+          fix/bank-card-flip-pdf-placeholders-2026-11-06 9041920202a092dcd4d3282195170e79b83dd0c5
+          fix/consistent-workspace-subnav-2026-11-05 f1bf9b41490134941e10ec692f37f698339cb7c3
+          fix/home-math-css-before-mathjax-2026-11-06 eac4db9fe2dbcacf4b2879d937a4fca924abb7fc
+          fix/problem-bank-grid-ai-discoverability-2026-11-05 189051b35344da769e8f5469248c9e581825f092
+          fix/quizer-historical-private-bundle-2026-11-05 4621db4d3200e6a277f7982a51c66daf4c796849
+          fix/quizer-publish-noop-and-manage-tabs-2026-11-05 51436931321135791f57232ac8186d4e124ddd6c
+          fix/quizer-timer-home-reliability-2026-11-05 91d5970a7e9cccfee3d2688180c42ebec834eabe
+          integration/quizer-frontend-backend-2026-11-05 25ab968b707cfdda37ad7acbf9d5568c3fd40f4f
+          perf/on-demand-quiz-loading-2026-11-05 69de7419b1ba855901dbbb0becc1d91341881cc6
+          perf/quizer-safe-api-coalescing-2026-11-05 e725baef05d744638ea280453ec084d1cc20d464
+          release/quizer-smooth-ui-2026-11-05 b0d986fd112d04d3503639f2a05c6cba32e30eb8
+          main-backup-2026-11-05 e5ceb11f110ab85a04033ffe9638fd1a23d85c40
+          main-pre-ai-shell-2026-11-05 5401027a91458f6fd3da290a65afdf3753c8b6a4
+          main-pre-modernization-release-2026-11-05 9cdd590b34f5492130ecd86c56ae90d846417214
+          main-pre-private-bundle-fix-2026-11-05 a80e0b02669ef4cc6ed52b7d8d282ea60060f923
+          PINNED_BRANCHES
+          echo "Deleted $deleted of 23 selected branches; failures=$failures"
+          test "$failures" -eq 0
