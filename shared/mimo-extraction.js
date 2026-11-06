@@ -27,7 +27,7 @@ const QUESTION_FIELDS = [
   "diagram_requires_reconstruction", "continuation",
   "review_required", "review_reasons", "uncertain_spans",
 ];
-const BLOCKED_LATEX = /\\(?:begin|end)\s*\{\s*(?:problem|question|exercise|choices|oneparchoices|checkboxes|solution)\s*\}|\\(?:answer|accepted|correctchoice|choice|quiztitle|quizsubject|quizdescription|explanation|points)\b/i;
+const BLOCKED_LATEX = /\\(?:begin|end)\s*\{\s*(?:document|problem|question|exercise|choices|oneparchoices|checkboxes|solution)\s*\}|\\(?:answer|accepted|correctchoice|choice|quiztitle|quizsubject|quizdescription|explanation|points)\b/i;
 const UNSAFE_CONTROL = /\\(?:input|include(?!graphics)|write\d*|openout|read\d*|immediate|href|url|require|class|cssId|style|html\w*)\b/i;
 
 export class ExtractionContractError extends Error {
@@ -180,6 +180,8 @@ function toCandidate(q, imageBindings, manualMarkingConfirmed) {
   const images = bindings(imageBindings);
   const expected = [...q.statement_latex.matchAll(/\\includegraphics(?:\[[^\]]*\])?\s*\{([^}]+)\}/g)]
     .map(match => match[1].trim());
+  if (q.has_figure && !q.figure_description)
+    fail("Question " + q.printed_number + " needs a reviewed figure description");
   if (q.has_figure && (!expected.length || Object.keys(images).length === 0))
     fail("Question " + q.printed_number + " needs a reviewed, linked figure image");
   if (!q.has_figure && Object.keys(images).length)
@@ -336,10 +338,20 @@ export function prepareReviewedExtractionImport(session, {title = "Reviewed math
     fail("Importer parsed a different number of approved questions");
   for (let i = 0; i < entries.length; i++) {
     const q = parsed.quiz.questions[i], expected = entries[i].content;
+    const grading = entries[i].grading;
+    const sameOptions = q.type !== "choice" || (
+      q.options.length === expected.options.length &&
+      q.options.every((o, k) => o.text === protectLatex(expected.options[k].textLatex))
+    );
+    const sameAnswers = q.type === "choice"
+      ? q.answer === grading.correctOptionId
+      : JSON.stringify(q.answers) === JSON.stringify(
+          grading.acceptedAnswers.map(protectLatex)
+        );
     if (q.prompt !== protectLatex(expected.statementLatex) ||
         q.type !== expected.type || q.answerMode !== expected.answerMode ||
-        (q.type === "choice" && q.options.length !== expected.options.length))
-      fail("Importer round-trip altered a reviewed problem");
+        !sameOptions || !sameAnswers)
+      fail("Importer round-trip altered reviewed problem content or answer");
   }
   const requiredAssets = [...new Set(entries.flatMap(e =>
     Object.keys(e.content.questionAssetBindings)))].sort();
