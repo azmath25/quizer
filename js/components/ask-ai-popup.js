@@ -30,6 +30,9 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   const allowed = canUseMimoTeacherChat(getSession());
   const pageContext = String(context || "").slice(0, 4000);
   let history = [];
+  let threadId = null;
+  let documentId = null;
+  let library = null;
   let pending = false;
   let closed = false;
 
@@ -47,13 +50,17 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   heading.append(name, element("span", "qa-subtitle",
     allowed ? "Mimo · Teacher assistant" : "Teacher assistant"));
   const headActions = element("div", "qa-actions");
+  const libraryButton = element("button", "qa-action", "Library");
+  libraryButton.type = "button";
+  libraryButton.setAttribute("aria-label", "Open saved chats and documents");
+  libraryButton.setAttribute("aria-expanded", "false");
   const newChat = element("button", "qa-action", "New Chat");
   newChat.type = "button";
   newChat.setAttribute("aria-label", "Start a new chat");
   const closeButton = element("button", "qa-action qa-close", "×");
   closeButton.type = "button";
   closeButton.setAttribute("aria-label", "Close AI chat");
-  headActions.append(newChat, closeButton);
+  headActions.append(libraryButton, newChat, closeButton);
   head.append(heading, headActions);
 
   const note = element("p", "qa-note",
@@ -79,10 +86,20 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   send.disabled = !allowed;
   input.disabled = !allowed;
   newChat.disabled = !allowed;
+  libraryButton.disabled = !allowed;
   compose.append(input, send);
   const footer = element("div", "qa-footer");
-  footer.append(element("span", "", "Enter to send · Shift+Enter for a new line"),
-    element("span", "", "Teacher limit: 4/min · 25/day (UTC)"));
+  const mode = element("select", "qa-mode");
+  mode.setAttribute("aria-label", "Assistant response mode");
+  for (const [value,label] of [["explain","Explain"],["hint","Hints only"],["check","Check steps"],["simplify","Simplify"],["format_latex","LaTeX"]]) {
+    const option = element("option", "", label);
+    option.value = value;
+    mode.append(option);
+  }
+  mode.value = "explain";
+  mode.disabled = !allowed;
+  footer.append(mode, element("span", "", "Enter to send · Shift+Enter for a new line"),
+    element("span", "", "4/min · 25/day (UTC)"));
   form.append(compose, footer);
 
   panel.append(head, note, log, form);
@@ -124,7 +141,9 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
     log.append(node);
     scroll();
   };
-  const focusables = () => [newChat, closeButton, input, send].filter(node => !node.disabled);
+  const focusables = () => library?.isOpen()
+    ? [libraryButton, newChat, closeButton, ...library.root.querySelectorAll("button,input,textarea")].filter(node => !node.disabled)
+    : [libraryButton, newChat, closeButton, input, send, mode].filter(node => !node.disabled);
 
   function close() {
     if (closed) return;
@@ -152,10 +171,46 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
     }
   }
 
+  libraryButton.addEventListener("click", async () => {
+    if (pending || closed || !allowed || library) return;
+    try {
+      const {createAiChatLibrary} = await import("./ai-chat-library.js");
+      if (closed) return;
+      library = createAiChatLibrary({
+        panel,log,form,trigger:libraryButton,
+        onClose:()=>input.focus(),
+        onChat:result=>{
+          threadId = result.thread?.id || null;
+          history = result.messages.slice(-8).map(item=>({
+            role:item.role,content:item.content.slice(0,1200),
+          }));
+          log.replaceChildren();
+          for (const item of result.messages.slice(-50))
+            addMessage(item.role,item.content);
+          if (!result.messages.length) empty();
+        },
+        onDocument:record=>{
+          documentId = record.documentId;
+          note.textContent = documentId
+            ? "Using selected document: " + String(record.title || "Notes").slice(0,120)
+            : "Only the selected, visible page context is included. Do not share confidential grading keys.";
+        },
+      });
+      // First click initializes the library; show its contents immediately.
+      libraryButton.click();
+    } catch {
+      if (!closed) addError("Saved chat library is temporarily unavailable.", "");
+    }
+  });
   newChat.addEventListener("click", () => {
     if (pending || closed) return;
+    library?.close();
     history = [];
+    threadId = null;
+    documentId = null;
+    note.textContent = "Only the selected, visible page context is included. Do not share confidential grading keys.";
     input.value = "";
+    mode.value = "explain";
     empty();
     input.focus();
   });
@@ -188,6 +243,8 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
     pending = true;
     send.disabled = true;
     newChat.disabled = true;
+    libraryButton.disabled = true;
+    mode.disabled = true;
     input.readOnly = true; // keep the draft visible and unchanged until resolved
     form.setAttribute("aria-busy", "true");
     const loading = element("div", "qa-pending", "Mimo is thinking");
@@ -205,10 +262,17 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
         context: pageContext,
         history: history.slice(-8),
         requestId,
+        threadId,documentId,mode:mode.value,
       });
       if (closed) return;
       loading.remove();
       addMessage("assistant", response.reply);
+      if (response.threadId) threadId = response.threadId;
+      if (response.warningCode === "MEMORY_UNAVAILABLE") {
+        const warning = element("p", "qa-note", "Answer received, but Neon history could not be saved. Do not resend this answer.");
+        warning.setAttribute("role", "status");
+        log.append(warning);
+      }
       history = [...history,
         {role: "user", content: question.slice(0, 1200)},
         {role: "assistant", content: response.reply.slice(0, 1200)}].slice(-8);
@@ -230,6 +294,8 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
         form.removeAttribute("aria-busy");
         send.disabled = false;
         newChat.disabled = false;
+        libraryButton.disabled = false;
+        mode.disabled = false;
         input.focus();
       }
     }
