@@ -457,6 +457,7 @@ function mountDesk(session) {
       const result=await submitMimoExtraction(current.file,page);
       if(!stillOwner()||selectionVersion!==version)return;
       activeJob=result.jobId;
+      try{sessionStorage.setItem("mathquiz.recovery.mimo-extraction."+ownerUid,activeJob);}catch{}
       extractConsent.checked=false;
       extractRefresh.hidden=false;
       extractionMessage("Job started: "+activeJob+". Click Refresh status when Mimo finishes.");
@@ -512,6 +513,15 @@ function mountDesk(session) {
   });
 
   noFile();
+  // A background Mimo run survives page navigation. Resume only for the same signed-in teacher.
+  try {
+    const previous=sessionStorage.getItem("mathquiz.recovery.mimo-extraction."+ownerUid);
+    if(/^[a-f0-9]{64}$/.test(previous||"")){
+      activeJob=previous;
+      extractRefresh.hidden=false;
+      extractionMessage("Previous Mimo job "+previous.slice(0,14)+"… available. Re-select the source page to review it, then click Refresh job status.");
+    }
+  }catch{}
   return {
     ownerUid,
     sessionEpoch,
