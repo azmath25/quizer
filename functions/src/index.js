@@ -14,6 +14,7 @@ import { runJob } from "./jobs/worker.js";
 import { sweep } from "./jobs/sweeper.js";
 import { REGION, ENFORCE_APP_CHECK } from "./config.js";
 import { createTeacherChat, TeacherChatError } from "./mimo/teacher-chat.js";
+import { createExtractionService, ExtractionError } from "./mimo/extraction.js";
 initializeApp();
 const db = getFirestore();
 
@@ -155,3 +156,50 @@ export const mimoTeacherChat = onCall(
     }
   },
 );
+
+
+/**
+ * Quizer document extraction: file bytes travel via authenticated Firebase callable.
+ * All Mimo project credentials and workflow choices are server-side.
+ */
+const extractionSecrets=[QUIZER_MIMO_PROJECT_KEY];
+const extractionErrors={
+  AUTH_REQUIRED:"unauthenticated", EMAIL_UNVERIFIED:"permission-denied",
+  ROLE_REQUIRED:"permission-denied", INVALID_FIELDS:"invalid-argument",
+  REQUEST_ID_CONFLICT:"already-exists", RATE_LIMITED:"resource-exhausted",
+  INVALID_PAGE_NUMBER:"invalid-argument", JOB_NOT_FOUND:"not-found",
+  JOB_NOT_READY:"failed-precondition",
+  MIMO_PROJECT_NOT_AUTHORIZED:"failed-precondition",
+  MIMO_NOT_CONFIGURED:"failed-precondition",
+  MIMO_NOT_FOUND:"not-found", MIMO_CONFLICT:"aborted",
+  MIMO_RATE_LIMITED:"resource-exhausted", MIMO_RUN_FAILED:"unavailable",
+  MIMO_OUTCOME_UNKNOWN:"unavailable", MIMO_UPSTREAM_UNAVAILABLE:"unavailable",
+  MIMO_REQUEST_REJECTED:"failed-precondition",
+  MIMO_INVALID_EXTRACTION:"failed-precondition",
+  MIMO_INVALID_RESPONSE:"unavailable",
+};
+async function extractionAction(action,request) {
+  try {
+    const bridge=createExtractionService({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value()});
+    return await bridge[action]({auth:request.auth,data:request.data});
+  } catch (error) {
+    if (error instanceof ExtractionError) {
+      throw new HttpsError(extractionErrors[error.code]||"internal",
+        error.code,{reason:error.code});
+    }
+    console.error("mimo_extraction_internal_failure");
+    throw new HttpsError("internal","Document extraction is temporarily unavailable.");
+  }
+}
+export const mimoExtractStart=onCall({
+  region:REGION,memory:"512MiB",timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>extractionAction("start",request));
+export const mimoExtractStatus=onCall({
+  region:REGION,memory:"256MiB",timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>extractionAction("status",request));
+export const mimoExtractImage=onCall({
+  region:REGION,memory:"256MiB",timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>extractionAction("image",request));
