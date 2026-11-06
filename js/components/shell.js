@@ -141,7 +141,7 @@ export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Text size</a></span>`;
     applyAppearance(s.profile?.preferences || localAppearance());
     if (showAssistant && s.authResolved)
-      import("./assistant.js?v=13").then((m) => m.mountAssistant(s)).catch(() => {});
+      import("./assistant.js?v=16").then((m) => m.mountAssistant(s)).catch(() => {});
   };
   document.querySelector("#site-header").addEventListener("click", (event) => {
     const choice = event.target.closest("[data-theme-choice]");
