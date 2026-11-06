@@ -99,3 +99,57 @@ test("quota, uncertain-outcome and authentication errors have actionable safe me
   assert.match(api.mimoChatErrorMessage({code: "functions/unavailable"}), /unavailable/i);
   assert.match(api.mimoChatErrorMessage({details: {reason: "MIMO_OUTCOME_UNKNOWN"}}), /Do not resend/i);
 });
+
+
+test("history and document helpers reuse the same teacher-only Firebase callable",async()=>{
+  session=allowedSession();
+  const requests=[];
+  services={functions:{},functionsSDK:{httpsCallable:(_,name,options)=>{
+    assert.equal(name,"mimoTeacherChat");
+    assert.equal(options.timeout,115000);
+    return async request=>{
+      requests.push(request);
+      return {data:{threads:[],documents:[],documentId:"doc-id",thread:{id:"chat"},messages:[]}};
+    };
+  }}};
+  await api.listTeacherChats();
+  await api.getTeacherChat("conversation-id");
+  await api.listTeacherDocuments();
+  await api.getTeacherDocument("document-id");
+  await api.createTeacherTextDocument({title:"Lesson",text:"x+1=2"});
+  assert.deepEqual(requests.map(row=>row.action),[
+    "chat.list","chat.get","document.list","document.get","document.create_text",
+  ]);
+  assert.equal(requests[1].threadId,"conversation-id");
+  assert.equal(requests[3].documentId,"document-id");
+  assert.equal(requests[4].text,"x+1=2");
+  assert.equal(requests.every(row=>!("projectKey" in row) && !("neonUrl" in row)),true);
+});
+
+test("new chat send attaches thread, document and math mode without automatic retry",async()=>{
+  session=allowedSession();
+  const requests=[];
+  services={functions:{},functionsSDK:{httpsCallable:()=>async payload=>{
+    requests.push(payload);
+    return {data:{reply:"Explanation",runId:"run",threadId:"saved-thread",saved:true}};
+  }}};
+  const result=await api.sendTeacherChatMessage({
+    message:"Explain the problem",requestId:"unique_send_1234567890",
+    threadId:"previous-thread",documentId:"selected-document",mode:"hint",
+  });
+  assert.equal(result.reply,"Explanation");
+  assert.equal(result.threadId,"saved-thread");
+  assert.equal(result.saved,true);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].action,"chat.send");
+  assert.equal(requests[0].threadId,"previous-thread");
+  assert.equal(requests[0].documentId,"selected-document");
+  assert.equal(requests[0].mode,"hint");
+});
+
+test("student accounts cannot list chat history, even with a guessed thread ID",async()=>{
+  session={...allowedSession(),capabilities:{teach:false,admin:false}};
+  services=null;
+  await assert.rejects(api.getTeacherChat("guessed-chat"),
+    error=>error.code==="functions/permission-denied");
+});
