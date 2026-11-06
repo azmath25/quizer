@@ -135,3 +135,16 @@ test("uncertain upload failure is not retried or falsely returned as completed",
   assert.equal(again.state,"attention");
   assert.equal(db.docs.get("mimoExtractionLimits/"+UID).count,1);
 });
+
+test("stale accepted job surfaces outcome unknown without replaying a paid upload",async()=>{
+  const db=firestore(),jobId="a".repeat(64),calls=[];
+  db.docs.set("mimoExtractionJobs/"+jobId,{
+    uid:UID,state:"accepted",runId:null,error:null,
+    createdAt:"2020-01-01T00:00:00.000Z",
+  });
+  const bridge=service(db,upstream(calls));
+  const value=await bridge.status({auth:auth(),data:{jobId}});
+  assert.equal(value.state,"attention");
+  assert.equal(value.error,"MIMO_OUTCOME_UNKNOWN");
+  assert.equal(calls.length,0);
+});
