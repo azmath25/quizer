@@ -105,3 +105,20 @@ test('teacher may send up to eight bounded prior turns',async()=>{
   }});
   assert.equal((await handler({auth,data:{...data(1),history}})).reply,'x=1');
 });
+
+
+test('daily quota accepts exactly 250 unique calls then refuses 251 (without paid network)',async()=>{
+  let tick=Date.parse('2026-11-06T00:00:00Z'),hits=0;
+  const {handler,db}=setup({
+    now:()=>tick,
+    fetchImpl:async()=>{hits++;return response();}
+  });
+  for(let i=1;i<=250;i++){
+    const result=await handler({auth,data:data(1000+i)});
+    assert.equal(result.reply,'x=1');
+    tick+=61_000; // avoids the separate rolling 4/minute throttle
+  }
+  await assert.rejects(handler({auth,data:data(2000)}),{code:'RATE_LIMITED'});
+  assert.equal(hits,250);
+  assert.equal(db.docs.get('mimoTeacherChatLimits/'+UID).count,250);
+});
