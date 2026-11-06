@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - release/quizer-mimo-chat-github-pages-20261106
+  pull_request:
+    branches:
+      - work/quizer-audit-optimization-2026-11
 
 permissions:
   contents: read
