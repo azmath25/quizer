@@ -5,11 +5,15 @@ import {
   canUseMimoTeacherChat, sendTeacherChatMessage, mimoChatErrorMessage,
 } from "../services/mimo-chat.js";
 import {inspectLocalDocument, makeTeacherContext} from "../services/local-document.js";
+import {
+  submitMimoExtraction,readMimoExtraction,readMimoPng,buildTeacherReview,
+  decideTeacherReview,exportTeacherReview,extractionError,decodeMimoPng,
+  MAX_MIMO_FILE_BYTES,
+} from "../services/mimo-extraction.js";
 
 /**
- * Document Desk is a real, client-only file preview and text-to-Mimo feature.
- * PDF/image binary is NEVER submitted to the text-only chat callable.
- * No persistent document job or extraction pipeline is represented here.
+ * Document Desk has separate text-chat and teacher-approved PDF/image extraction.
+ * Image bytes go only to the restricted file-extraction callable, never text chat.
  */
 const main = document.querySelector("#main");
 mountShell({showAssistant:false, showBackdrop:false});
@@ -50,10 +54,17 @@ function mountDesk(session) {
     imageControls = $("doc-image-controls"), downloadBtn = $("doc-download-crop"),
     saveImageBtn = $("doc-save-image"), fileLabel = $("doc-file-name"),
     excerpt = $("doc-excerpt"), question = $("doc-question"), consent = $("doc-consent"),
-    askBtn = $("doc-ask"), chatLog = $("doc-ai-log");
+    askBtn = $("doc-ask"), chatLog = $("doc-ai-log"),
+    extractBtn=$("doc-extract-start"), extractPage=$("doc-extract-page"),
+    extractConsent=$("doc-extract-consent"), extractRefresh=$("doc-extract-refresh"),
+    extractStatus=$("doc-extract-status"), extractResult=$("doc-extract-preview"),
+    extractSummary=$("doc-extract-summary"), extractDecision=$("doc-extract-decision"),
+    extractQuestions=$("doc-extract-questions"), extractExport=$("doc-extract-export"),
+    extractPng=$("doc-extract-png"), extractFigure=$("doc-extract-image");
   const urls = new Set();
   let current = null, cropped = null, cropUrl = null;
   let selectionVersion = 0, pending = false, uploadPending = false, disposed = false, history = [];
+  let extractPending=false,activeJob=null,review=null,generatedFigureUrl=null;
   const stillOwner = () => !disposed && authorised(getSession()) &&
     getSession().user.uid === ownerUid && getSession().epoch === sessionEpoch;
   function tell(text, isError = false) {
@@ -94,6 +105,16 @@ function mountDesk(session) {
     imageControls.hidden = true;
     downloadBtn.disabled = true;
     noFile();
+    extractConsent.checked=false;
+    extractBtn.disabled=true;
+    extractRefresh.hidden=true;
+    extractResult.hidden=true;
+    activeJob=null;review=null;
+    extractQuestions.replaceChildren();
+    extractFigure.replaceChildren();
+    extractFigure.hidden=true;
+    if(generatedFigureUrl){URL.revokeObjectURL(generatedFigureUrl);generatedFigureUrl=null;}
+    extractStatus.textContent="Choose a PDF, PNG or JPEG to begin a new extraction.";
   }
   async function chooseSource(file) {
     resetSource();
@@ -104,6 +125,11 @@ function mountDesk(session) {
       const meta = await inspectLocalDocument(file);
       if (version !== selectionVersion || !stillOwner()) return;
       current = {file, ...meta};
+      extractBtn.disabled=!("pdf"===meta.kind || ("image"===meta.kind && /\.(png|jpe?g)$/i.test(meta.name))) || meta.size>MAX_MIMO_FILE_BYTES;
+      extractPage.disabled=meta.kind!=="pdf";
+      extractStatus.textContent=extractBtn.disabled
+        ?"This file cannot be sent to Mimo vision (PDF, PNG or JPEG up to 8 MiB only)."
+        :"Ready for extraction. Review the file and check the consent box.";
       fileLabel.textContent = meta.name + " · " + Math.round(meta.size / 1024) + " KB";
       clearBtn.disabled = false;
       const url = meta.kind === "text" ? null : URL.createObjectURL(file);
@@ -287,6 +313,204 @@ function mountDesk(session) {
         " Request reference: "+id+". Do not automatically retry an uncertain request.",true);
     } finally {pending=false;if(stillOwner()) askBtn.disabled=false;}
   });
+
+  // The extraction flow is independent of the text-only chat above.
+  function extractionMessage(message,failed=false){
+    if(!stillOwner())return;
+    extractStatus.textContent=message;
+    extractStatus.dataset.error=String(failed);
+  }
+  function element(tag,text,cls){
+    const node=document.createElement(tag);
+    if(text!==undefined)node.textContent=String(text);
+    if(cls)node.className=cls;
+    return node;
+  }
+  function labelledControl(card,label,value,textarea=false){
+    const wrapper=element("label");
+    wrapper.append(element("span",label));
+    const input=element(textarea?"textarea":"input");
+    if(textarea){input.rows=3;input.value=value??"";}
+    else{input.type="text";input.value=value??"";}
+    wrapper.append(input);card.append(wrapper);
+    return input;
+  }
+  function parseOptions(text,question){
+    if(question.question_type!=="multiple_choice")return [];
+    const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    return lines.map((line,i)=>{
+      const m=/^([A-L])\s*:\s*(.+)$/.exec(line);
+      if(!m)throw Error("Option "+(i+1)+" must look like A: expression");
+      return {label:m[1],latex:m[2]};
+    });
+  }
+  function renderReview(){
+    if(!review||!stillOwner())return;
+    extractQuestions.replaceChildren();
+    extractSummary.textContent=review.items.length+" question(s) · quality: "+review.quality_status;
+    if(!review.items.length){
+      extractQuestions.append(element("p","No questions were extracted. Check that the PDF/image really contained visible content; this run must not be imported.","doc-field-note"));
+    }
+    for(const item of review.items){
+      const q=item.review?.edited||item.original;
+      const card=element("article",undefined,"doc-extract-question");
+      card.append(element("h4","Question "+q.printed_number+" · "+q.question_type.replaceAll("_"," ")));
+      if(q.review_required||q.uncertain_spans.length||q.review_reasons.length)
+        card.append(element("p","Review flags: "+[...q.review_reasons,...q.uncertain_spans.map(x=>x.reason)].join("; ").slice(0,800),"doc-field-note"));
+      const statement=labelledControl(card,"Statement (LaTeX)",q.statement_latex,true);
+      const options=q.question_type==="multiple_choice"?
+        labelledControl(card,"Options (one per line: A: ..., B: ...)",q.options.map(x=>x.label+": "+x.latex).join("\n"),true):null;
+      const answer=labelledControl(card,"Verified answer (required for multiple-choice)",q.answer||"");
+      const description=q.has_figure?
+        labelledControl(card,"Figure description",q.figure_description||"",true):null;
+      let assetAlias=null,assetId=null;
+      if(q.has_figure){
+        card.append(element("p","A figure needs a Quizer-owned image asset and a matching \\includegraphics{alias.png} reference before approval. Inspect/download the reconstructed PNG, then save it privately and enter the reviewed asset ID.","doc-field-note"));
+        assetAlias=labelledControl(card,"Figure alias used in \\includegraphics{...}","figure.png");
+        assetId=labelledControl(card,"Quizer private asset ID (ast_...)","");
+      }
+      const verifiedLabel=element("label",undefined,"doc-consent");
+      const verified=element("input");verified.type="checkbox";
+      verifiedLabel.append(verified,element("span","I checked this question against the source page."));
+      card.append(verifiedLabel);
+      const manualLabel=element("label",undefined,"doc-consent");
+      const manual=element("input");manual.type="checkbox";
+      manualLabel.append(manual,element("span","Use teacher manual marking if no answer key is available."));
+      card.append(manualLabel);
+      const rejectReason=labelledControl(card,"Reason if rejecting this question","");
+      const actions=element("div",undefined,"doc-review-actions");
+      const approve=element("button","Approve question","doc-primary");
+      const reject=element("button","Reject question","doc-secondary");
+      approve.type=reject.type="button";
+      actions.append(approve,reject);card.append(actions);
+      const state=element("div",item.decision==="pending"?"Awaiting teacher review":"Decision: "+item.decision,"doc-reviewed-state");
+      card.append(state);
+      const decide=action=>{
+        if(!stillOwner())return;
+        try{
+          const edits={statement_latex:statement.value,
+            options:options?parseOptions(options.value,q):[],
+            answer:answer.value.trim()||null,
+            figure_description:description?description.value.trim()||null:null};
+          const bindings=assetAlias?.value.trim()&&assetId?.value.trim()?
+            {[assetAlias.value.trim()]:assetId.value.trim()}:{};
+          review=decideTeacherReview(review,item.id,{
+            action,edits,figure_assets:bindings,
+            verified_against_source:verified.checked,
+            manual_marking_confirmed:manual.checked,
+            reason:action==="reject"?rejectReason.value.trim()||null:null,
+          },ownerUid);
+          renderReview();
+          extractionMessage("Teacher decision recorded locally. Nothing has been imported or published.");
+        }catch(err){state.textContent=err.message;state.dataset.error="true";}
+      };
+      approve.addEventListener("click",()=>decide("approve"));
+      reject.addEventListener("click",()=>decide("reject"));
+      extractQuestions.append(card);
+    }
+    extractExport.disabled=review.quality_status==="fail"||
+      !review.items.length||review.items.some(i=>i.decision==="pending")||
+      !review.items.some(i=>i.decision==="approve");
+  }
+  function filename(title){
+    return title.replace(/[^A-Za-z0-9_-]+/g,"_").slice(0,70)||"reviewed_questions";
+  }
+  async function updateExtraction(){
+    if(extractPending||!activeJob||!stillOwner())return;
+    extractPending=true;extractRefresh.disabled=true;
+    try{
+      const status=await readMimoExtraction(activeJob);
+      if(!stillOwner())return;
+      if(status.state==="completed"){
+        review=buildTeacherReview(status.page);
+        extractResult.hidden=false;extractRefresh.hidden=true;
+        extractDecision.textContent="Diagram plan: "+(status.diagramDecision||"not available");
+        extractPng.hidden=!status.hasReconstruction;
+        renderReview();
+        extractionMessage("Extraction completed. Check the original page and review each question.");
+      }else if(status.state==="failed"||status.state==="attention"){
+        extractRefresh.hidden=false;
+        extractionMessage("Extraction needs attention ("+(status.error||status.state)+"). No automatic retry is performed.",true);
+      }else{
+        extractRefresh.hidden=false;
+        extractionMessage("Mimo job "+activeJob.slice(0,14)+"… is "+status.state+". Click Refresh status to check again.");
+      }
+    }catch(err){if(stillOwner())extractionMessage(extractionError(err),true);}
+    finally{extractPending=false;if(stillOwner())extractRefresh.disabled=false;}
+  }
+  extractBtn.addEventListener("click",async()=>{
+    if(extractPending||!stillOwner()||!current||!extractConsent.checked){
+      extractionMessage("Choose a PDF/image and explicitly approve upload to Mimo.",true);
+      return;
+    }
+    if(!["pdf","image"].includes(current.kind)||!/\.(pdf|png|jpe?g)$/i.test(current.name)){
+      extractionMessage("Only PDF, PNG and JPEG are supported for Mimo extraction.",true);return;
+    }
+    const version=selectionVersion;
+    const page=current.kind==="pdf"?Number(extractPage.value):1;
+    if(!Number.isInteger(page)||page<1||page>100){
+      extractionMessage("Select a PDF page from 1 to 100.",true);return;
+    }
+    extractPending=true;extractBtn.disabled=true;extractRefresh.hidden=true;
+    extractionMessage("Securely uploading original source and starting Mimo. Do not resubmit if the outcome is uncertain…");
+    try{
+      const result=await submitMimoExtraction(current.file,page);
+      if(!stillOwner()||selectionVersion!==version)return;
+      activeJob=result.jobId;
+      extractConsent.checked=false;
+      extractRefresh.hidden=false;
+      extractionMessage("Job started: "+activeJob+". Click Refresh status when Mimo finishes.");
+    }catch(err){
+      if(stillOwner()&&selectionVersion===version)
+        extractionMessage(extractionError(err)+" Request reference: "+(err.requestId||"unavailable")+".",true);
+    }finally{
+      extractPending=false;
+      if(stillOwner())extractBtn.disabled=false;
+    }
+  });
+  extractRefresh.addEventListener("click",updateExtraction);
+  extractExport.addEventListener("click",()=>{
+    if(!review||!stillOwner())return;
+    try{
+      const title="Reviewed mathematics page "+review.source.page_number;
+      const prepared=exportTeacherReview(review,title);
+      const blob=new Blob([prepared.latex],{type:"text/x-tex;charset=utf-8"});
+      const url=URL.createObjectURL(blob),link=element("a");
+      link.href=url;link.download=filename(title)+".tex";link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),2000);
+      extractionMessage(prepared.items.length+" reviewed questions exported as LaTeX. Import the .tex through Quizer's Create quiz interface.");
+    }catch(err){extractionMessage(err.message,true);}
+  });
+  extractPng.addEventListener("click",async()=>{
+    if(!activeJob||!stillOwner())return;
+    extractPng.disabled=true;
+    try{
+      const image=decodeMimoPng(await readMimoPng(activeJob));
+      if(!stillOwner())return;
+      if(generatedFigureUrl)URL.revokeObjectURL(generatedFigureUrl);
+      generatedFigureUrl=URL.createObjectURL(image);
+      extractFigure.replaceChildren();
+      const preview=element("img");preview.src=generatedFigureUrl;
+      preview.alt="Mimo-reconstructed TikZ PNG; teacher must check geometry.";
+      const download=element("a","Download reconstructed PNG","doc-secondary");
+      download.href=generatedFigureUrl;download.download="mimo-reconstructed-diagram.png";
+      const save=element("button","Save PNG to Quizer private assets","doc-secondary");
+      save.type="button";
+      save.addEventListener("click",async()=>{
+        save.disabled=true;
+        try{
+          const file=new File([image],"mimo-reconstructed-diagram.png",{type:"image/png"});
+          const id=await uploadAsset(file,()=>{},"image");
+          if(stillOwner())extractionMessage("Reconstructed image saved privately as "+id+". Verify the figure, then enter this asset ID in the corresponding question's review form.");
+        }catch(err){if(stillOwner())extractionMessage("Could not save image: "+err.message,true);}
+        finally{save.disabled=false;}
+      });
+      extractFigure.append(preview,download,save);
+      extractFigure.hidden=false;
+    }catch(err){if(stillOwner())extractionMessage(extractionError(err),true);}
+    finally{if(stillOwner())extractPng.disabled=false;}
+  });
+
   noFile();
   return {
     ownerUid,
