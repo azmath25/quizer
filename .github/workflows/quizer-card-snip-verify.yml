@@ -1,0 +1,51 @@
+name: Verify Quizer touch cards, bank actions and snipping
+on:
+  push:
+    branches:
+      - feature/mobile-full-card-quiz-tap-2026-11-06
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quizer-card-snip-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Node regressions, static build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
+      - run: node --test tests/unit/quiz-card-touch-link.test.mjs tests/unit/problem-bank-action-order.test.mjs tests/unit/restore-floating-snip.test.mjs
+      - run: npm test
+      - run: npm run verify:static
+      - run: npm run build
+
+  mobile-browser:
+    name: Chromium touch and snip QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check playwright==1.58.0
+      - name: Browser touch and hover regression
+        run: python tests/qa/quiz-card-touch-browser.py
+      - name: Browser zero-permission snipping regression
+        run: python tests/qa/ai-snip-browser.py

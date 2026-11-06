@@ -656,3 +656,10 @@ body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])) {
     overflow: visible;
   }
 }
+
+/* A bank without selections should not turn one-column cards into
+   extra-wide panels. The inspector keeps its responsive layout once shown. */
+body[data-page="problems"] .bank-layout:not(:has(.selection-panel:not([hidden]))) #bank-list {
+  max-width: 820px;
+  width: 100%;
+}

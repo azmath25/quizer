@@ -48,6 +48,7 @@ export async function mount(root) {
       quiz.title,
       `Manage quiz · ${quiz.visibility === "public" ? "Public" : "Private"} · ${quiz.accessMode === "open" ? "Open access" : "Teacher approval"}`,
       linkButton("View quiz", `quiz.html?id=${quizId}`, "secondary") +
+        `<button type="button" class="button secondary" disabled title="PDF download coming soon" aria-label="Download PDF (coming soon)">Download PDF</button>` +
         linkButton("Edit draft", `upload.html?id=${quizId}`, "primary"),
     ) +
     `<div class="tabs workspace-subnav" role="tablist" aria-label="Quiz management">${["content", "access", "results", "history"].map((t) => `<button role="tab" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div><div data-message></div><div id="manage-panel"></div>`;

@@ -63,12 +63,29 @@
 .qc-symbol { font: italic 700 3rem ui-serif, Georgia, serif; opacity: 0.85; line-height: 1; }
 .qc-go { margin-top: 6px; padding: 6px 14px; border-radius: var(--radius-sm); background: var(--glass); font-weight: 700; font-size: 0.85rem; }
 .qc-go .icon { width: 14px; height: 14px; }
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .quiz-card:hover .qc-inner { transform: rotateY(180deg); }
   .quiz-card:hover .qc-back { cursor: pointer; }
 }
 .quiz-card:focus-within .qc-inner { transform: none; }
-@media (hover: none), (prefers-reduced-motion: reduce) {
+/* On touchscreens the front is the whole-card navigation target, but the
+   existing title and footer actions stay above it as independent links.
+   Native anchor taps are cancelled by the browser when scrolling starts. */
+.qc-tap-target { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .qc-front .qc-tap-target {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .qc-front :is(a, button, input, select, textarea, [role="button"]):not(.qc-tap-target) {
+    position: relative;
+    z-index: 2;
+  }
+}
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
   .qc-back { display: none; }
   .qc-inner { transition: none; }
 }
@@ -164,3 +181,30 @@ body[data-page="quiz"] .runner-question::after {
 @media (prefers-reduced-motion: reduce) { .flip-card, .logo-flip-card { transition: none; } .flip-card--auto { animation: none; } }
 .brand .logo-flip-container { display: inline-flex; align-items: center; align-self: center; line-height: 1; padding-bottom: 4px; }
 .brand .logo-face { line-height: 1; }
+
+/* Teacher quiz cards: PDF buttons are visible feature placeholders.
+   Desktop: below Manage on the reverse; touch: accessible on the front,
+   because touch cards deliberately never flip. */
+.qc-pdf-soon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 650;
+  opacity: .72;
+  cursor: not-allowed;
+}
+.qc-pdf-soon .icon { width: 15px; height: 15px; }
+.qc-back .qc-pdf-soon { margin-top: 2px; }
+.qc-pdf-front { display: none; }
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .qc-pdf-front { display: inline-flex; margin-top: 6px; color: var(--muted); }
+}
+.qc-foot-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }

@@ -35,6 +35,8 @@ import {
 import { toLatex } from "../services/ai.js";
 import { quickEdit, history, bulkEdit } from "../components/problem-tools.js";
 import { openAskAIPopup } from "../components/ask-ai-popup.js";
+import { canUseMimoTeacherChat } from "../services/mimo-chat.js";
+import { getSession } from "../firebase-client.js";
 export async function mount(root, session) {
   const params = new URLSearchParams(location.search),
     addTo = params.get("quiz");
@@ -304,24 +306,23 @@ export async function mount(root, session) {
       shared = p.bankVisibility === "teachers",
       link = new URL(`problem-edit.html?id=${p.id}`, location.href).href,
       trash = view === "trash";
-    const btn = (kind, symbol, label, extra = "") =>
-      `<button type="button" class="action-btn action-btn--${kind}" ${extra} ${tip(label)}>${icon(symbol)}</button>`;
+    const btn = (kind, symbol, label, extra = "", caption = "") =>
+      `<button type="button" class="action-btn action-btn--${kind}" ${extra} ${tip(label)}>${icon(symbol)}${caption ? `<span class="action-btn-caption">${e(caption)}</span>` : ""}</button>`;
     const star = isStarred(problemRef(p.id));
+    const flipButton = `<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button>`;
+    // Keep frequently used Solution on the far right.
     const actions = trash
-      ? btn("restore", "restore", "Restore", `data-restore="${id}"`) +
-        btn("copy", "copy", "Copy LaTeX", "data-copy-latex")
+      ? btn("copy", "copy", "Copy LaTeX", "data-copy-latex") +
+        flipButton +
+        btn("restore", "restore", "Restore", `data-restore="${id}"`)
       : btn("copy", "copy", "Copy LaTeX", "data-copy-latex") +
-        btn(
-          "star" + (star ? " is-active" : ""),
-          "star",
-          star ? "Remove star" : "Star",
-          "data-star",
-        ) +
-        `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
-        btn("ai", "bulb", "Ask AI about this problem", "data-ask-ai") +
         btn("download", "download", "Download .tex", "data-download") +
-        btn("solve", "bulb", "Answer and solution", "data-solve") +
-        `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>`;
+        `<div class="popover-wrapper"><button type="button" class="action-btn action-btn--pop" data-pop ${tip("Share")}>${icon("share")}</button><div class="action-popover"><div class="popover-title">Share this problem</div><div class="share-row"><input type="text" readonly value="${e(link)}" aria-label="Problem link"><button type="button" class="popover-btn" data-copy-link>Copy</button></div>${own && view === "mine" ? `<div class="popover-title">Visible to</div><button type="button" class="popover-btn wide" data-share="${id}" aria-pressed="${shared}">${visLabel(shared)}</button>` : ""}</div></div>` +
+        btn("star" + (star ? " is-active" : ""), "star", star ? "Remove star" : "Star", "data-star") +
+        flipButton +
+        `<a class="action-btn action-btn--external" href="problem-edit.html?id=${id}" target="_blank" rel="noopener" ${tip(own || session.capabilities.admin ? "Open and edit" : "Open")}>${icon("external")}</a>` +
+        (canUseMimoTeacherChat(session) ? btn("ai", "sparkles", "Ask AI about this problem", "data-ask-ai", "AI") : "") +
+        btn("solve", "book", "Answer and solution", "data-solve", "Solution");
     const chips = [
       ["Owner", e(p.ownerDisplayName || "Teacher")],
       ["Revision", p.revisionNumber],
@@ -345,7 +346,7 @@ export async function mount(root, session) {
         (own
           ? `<button type="button" class="button danger small" data-trash="${id}">${icon("trash")}Move to Trash</button>`
           : "");
-    return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}<button type="button" class="action-btn action-btn--flip" data-flip ${tip("Details")}>${icon("flip")}</button></div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3>${p.tags?.length ? `<div class="tag-row">${p.tags.map((t) => `<button type="button" class="tag-chip" data-tag="${e(t)}">${e(t)}</button>`).join("")}</div>` : ""}<div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
+    return `<div class="problem-wrapper" data-card="${id}"><div class="prob-tabs"><div class="tab-meta"><a class="meta-id" href="problem-edit.html?id=${id}">#${id.slice(0, 6)}</a>${p.difficulty ? `<span class="meta-tag">${e(p.difficulty)}</span>` : ""}<span class="meta-tag">${e(p.subject || "Mathematics")}</span></div><div class="tab-actions">${trash ? badge("Trash") : `<label class="prob-select"><input type="checkbox" data-select="${id}" ${selected.has(p.id) ? "checked" : ""}><span class="sr-only">Select ${e(p.title)}</span></label>`}${actions}</div></div><article class="prob-card-box"><div class="flip-container"><div class="flip-card"><div class="flip-face flip-face--front"><div class="prob-card__body"><h3 class="prob-title">${e(p.title)}</h3>${p.tags?.length ? `<div class="tag-row">${p.tags.map((t) => `<button type="button" class="tag-chip" data-tag="${e(t)}">${e(t)}</button>`).join("")}</div>` : ""}<div class="prob-card__text bank-body math-content" data-body="${id}"><div class="skeleton" style="height:56px"></div></div></div></div><div class="flip-face flip-face--back" inert><div class="meta-back"><div class="meta-back-chips">${chips}</div>${backActions ? `<div class="actions">${backActions}</div>` : ""}</div></div></div></div><div class="prob-card__solution"><div class="solution-inner" data-solution="${id}"></div></div></article></div>`;
   }
   async function paintSolution(row, node) {
     const d = await fetchDetail(row),
@@ -479,7 +480,7 @@ export async function mount(root, session) {
         },
         root,
       );
-    else if (t.hasAttribute("data-ask-ai"))
+    else if (t.hasAttribute("data-ask-ai") && canUseMimoTeacherChat(getSession()))
       busy(t, async () => {
         // Bank access is already teacher/admin-only. Do not send grading keys
         // or solutions automatically; context is the problem statement/choices.
