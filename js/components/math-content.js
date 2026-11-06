@@ -1,4 +1,4 @@
-import { latexHTML, typeset, clearMath } from "../render.js";
+import { latexHTML, typeset, clearMath } from "../render.js?v=15";
 import { resolveImages } from "../services/assets.js";
 import { e, points
 } from "./ui.js";
