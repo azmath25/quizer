@@ -21,18 +21,27 @@ const load = () => {
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY + "." + mountedUid));
     if (!saved || !Array.isArray(saved.messages)) return fresh();
-    return {
-      open: saved.open === true,
-      messages: saved.messages.slice(-60).filter(m =>
-        m && ["user", "assistant"].includes(m.role) && typeof m.text === "string"
-      ).map(m => ({
-        role: m.role, text: m.text.slice(0, 14000),
-        confirmed: m.confirmed === true,
-        error: m.error === true,
-        runId: typeof m.runId === "string" ? m.runId.slice(0, 128) : null,
-        requestId: typeof m.requestId === "string" ? m.requestId.slice(0, 100) : null,
-      })),
-    };
+    const messages = saved.messages.slice(-60).filter(m =>
+      m && ["user", "assistant"].includes(m.role) && typeof m.text === "string"
+    ).map(m => ({
+      role: m.role, text: m.text.slice(0, 14000),
+      confirmed: m.confirmed === true,
+      error: m.error === true,
+      runId: typeof m.runId === "string" ? m.runId.slice(0, 128) : null,
+      requestId: typeof m.requestId === "string" ? m.requestId.slice(0, 100) : null,
+    }));
+    // A reload can interrupt a billable request. Never silently imply that an
+    // unanswered message failed or resend it without reconciliation.
+    const last = messages.at(-1);
+    if (last?.role === "user" && !last.confirmed && last.requestId) {
+      messages.push({
+        role: "assistant", error: true, confirmed: false,
+        text: "The previous Mimo request was interrupted in this browser. " +
+          "It may have reached the model; do not resend automatically. " +
+          "Request reference: " + last.requestId,
+      });
+    }
+    return {open: saved.open === true, messages: messages.slice(-60)};
   } catch { return fresh(); }
 };
 const save = () => {
