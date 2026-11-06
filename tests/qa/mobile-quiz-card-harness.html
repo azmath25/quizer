@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="../../">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/math.css">
+  <title>Quiz-card mobile tap regression</title>
+</head>
+<body data-page="catalog">
+<main id="main">
+  <div>
+    <h1>Quiz browsing</h1>
+    <section id="cards" class="grid two"></section>
+    <div style="height:1200px" aria-hidden="true"></div>
+  </div>
+</main>
+<script type="module">
+  import { quizCard } from "./js/components/ui.js";
+  document.getElementById("cards").innerHTML =
+    quizCard({
+      quizId:"quiz_one",title:"Tap target quiz",
+      description:"A little longer description for body-area tapping",
+      subject:"Algebra",questionCount:8,totalPoints:16,
+      durationSeconds:1800,ownerDisplayName:"Teacher",
+    }) + quizCard({
+      quizId:"quiz_manage",title:"Manage target quiz",
+      description:"A management card with the same affordance",
+      subject:"Geometry",questionCount:6,totalPoints:12,
+      durationSeconds:900,ownerDisplayName:"Teacher",
+    }, {management:true});
+  window.quizCardsReady = true;
+</script>
+</body>
+</html>
