@@ -20,6 +20,7 @@ function draw(root, session, data) {
     ? `<nav class="quick-links" aria-label="Teacher shortcuts">
         <a class="quick-link" href="upload.html">${icon("plus")}Create quiz</a>
         <a class="quick-link" href="problems.html">${icon("book")}Problem bank</a>
+        <a class="quick-link" href="documents.html">${icon("book")}Document &amp; Image Desk</a>
         <a class="quick-link" href="ai.html">${icon("spark")}AI Studio · preview</a>
       </nav>`
     : "";
