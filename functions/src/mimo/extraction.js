@@ -102,7 +102,7 @@ function client(projectKey, fetchImpl) {
     try {
       response=await fetchImpl(EXTRACTION_WORKFLOW.origin + path, {
         method,headers:{Authorization:"Bearer "+projectKey,Accept:binary?"image/png":"application/json",...header},
-        ...(body===undefined?{}:{body}),redirect:"error",signal:AbortSignal.timeout(90000),
+        ...(body===undefined?{}:{body}),redirect:"error",signal:AbortSignal.timeout(method==="POST"?30000:20000),
       });
     } catch { fail("MIMO_OUTCOME_UNKNOWN"); }
     if ([401,403].includes(response.status)) fail("MIMO_PROJECT_NOT_AUTHORIZED");
