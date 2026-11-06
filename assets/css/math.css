@@ -63,12 +63,29 @@
 .qc-symbol { font: italic 700 3rem ui-serif, Georgia, serif; opacity: 0.85; line-height: 1; }
 .qc-go { margin-top: 6px; padding: 6px 14px; border-radius: var(--radius-sm); background: var(--glass); font-weight: 700; font-size: 0.85rem; }
 .qc-go .icon { width: 14px; height: 14px; }
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .quiz-card:hover .qc-inner { transform: rotateY(180deg); }
   .quiz-card:hover .qc-back { cursor: pointer; }
 }
 .quiz-card:focus-within .qc-inner { transform: none; }
-@media (hover: none), (prefers-reduced-motion: reduce) {
+/* On touchscreens the front is the whole-card navigation target, but the
+   existing title and footer actions stay above it as independent links.
+   Native anchor taps are cancelled by the browser when scrolling starts. */
+.qc-tap-target { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .qc-front .qc-tap-target {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .qc-front :is(a, button, input, select, textarea, [role="button"]):not(.qc-tap-target) {
+    position: relative;
+    z-index: 2;
+  }
+}
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
   .qc-back { display: none; }
   .qc-inner { transition: none; }
 }
