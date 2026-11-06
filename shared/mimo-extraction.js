@@ -14,6 +14,10 @@ export const EXTRACTED_PAGE_SCHEMA = "mimo.extracted_page.v1";
 export const REVIEW_SCHEMA = "quizer.extraction_review.v1";
 export const IMPORT_SCHEMA = "quizer.reviewed_extraction_import.v1";
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
+function validId(value) {
+  return typeof value === "string" && ID.test(value) &&
+    !["__proto__", "prototype", "constructor"].includes(value);
+}
 const HASH = /^[0-9a-f]{64}$/;
 const PRINTED = /^[A-Za-z0-9()._-]{1,32}$/;
 const ALIAS = /^[A-Za-z0-9_.-]{1,120}\.(?:png|jpe?g|webp)$/i;
@@ -75,8 +79,8 @@ function sourceRef(source) {
     "document_id", "source_artifact_id", "page_artifact_id",
     "page_number", "page_count", "sha256",
   ], "trusted source");
-  if (!ID.test(source.document_id) || !ID.test(source.source_artifact_id) ||
-      (source.page_artifact_id !== null && !ID.test(source.page_artifact_id)) ||
+  if (!validId(source.document_id) || !validId(source.source_artifact_id) ||
+      (source.page_artifact_id !== null && !validId(source.page_artifact_id)) ||
       !HASH.test(source.sha256))
     fail("Trusted source has invalid identifiers or checksum");
   if (!Number.isInteger(source.page_number) || !Number.isInteger(source.page_count) ||
@@ -163,7 +167,7 @@ function bindings(value) {
   if (Object.keys(value).length > 12) fail("Too many figure assets");
   const result = Object.create(null);
   for (const [alias, assetId] of Object.entries(value)) {
-    if (!ALIAS.test(alias) || !ID.test(assetId) ||
+    if (!ALIAS.test(alias) || !validId(assetId) ||
         ["__proto__", "constructor", "prototype"].includes(alias))
       fail("Invalid reviewed figure asset binding");
     result[alias] = assetId;
@@ -226,7 +230,7 @@ export function createExtractionReview(raw, source) {
 }
 export function decideExtractionQuestion(session, itemId, decision, reviewerId, now = new Date()) {
   if (session?.schema !== REVIEW_SCHEMA || !Array.isArray(session.items) ||
-      !ID.test(reviewerId) || !Number.isFinite(now.getTime()))
+      !validId(reviewerId) || !Number.isFinite(now.getTime()))
     fail("Invalid review session or reviewer");
   const idx = session.items.findIndex(row => row.id === itemId);
   if (idx < 0) fail("Review item not found");
@@ -305,7 +309,7 @@ export function prepareReviewedExtractionImport(session, {title = "Reviewed math
   for (const item of session.items) {
     if (item.decision !== "approve") continue;
     if (!item.review || !item.review.verified_against_source ||
-        !ID.test(item.review.by) ||
+        !validId(item.review.by) ||
         Number.isNaN(new Date(item.review.at).getTime()))
       fail("Approved question has no valid reviewer record");
     const question = confirmedChanges(item.original, {
@@ -332,7 +336,7 @@ export function prepareReviewedExtractionImport(session, {title = "Reviewed math
     fail("Importer parsed a different number of approved questions");
   for (let i = 0; i < entries.length; i++) {
     const q = parsed.quiz.questions[i], expected = entries[i].content;
-    if (q.prompt !== expected.statementLatex ||
+    if (q.prompt !== protectLatex(expected.statementLatex) ||
         q.type !== expected.type || q.answerMode !== expected.answerMode ||
         (q.type === "choice" && q.options.length !== expected.options.length))
       fail("Importer round-trip altered a reviewed problem");
