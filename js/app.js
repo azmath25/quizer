@@ -5,7 +5,7 @@ import {
   watchSession,
   logout,
 } from "./firebase-client.js";
-import { mountShell } from "./components/shell.js";
+import { mountShell } from "./components/shell.js?v=15";
 import {
   loading,
   pageHead,
