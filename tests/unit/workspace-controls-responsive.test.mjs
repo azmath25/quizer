@@ -32,8 +32,10 @@ test("latest backend compatibility utilities remain used on results route", () =
   assert.match(results,/minutesBetweenDates/);
   assert.match(read("js/core/date-time.js"),/export/);
 });
-test("no production deployment configuration changed in this milestone", () => {
+test("Quizer Pages deployment follows canonical main only and never deploys Firebase", () => {
   const pkg=read(".github/workflows/quizer-github-pages.yml");
-  assert.match(pkg,/work\/quizer-audit-optimization-2026-11/);
+  assert.match(pkg,/branches:\s*\n\s*- main\s*\n/);
+  assert.doesNotMatch(pkg,/work\/quizer-audit-optimization-2026-11/);
   assert.doesNotMatch(pkg,/design\/frontend-context-layout-2026-11-05/);
+  assert.doesNotMatch(pkg,/firebase deploy|firebase-tools|gcloud run deploy/i);
 });
