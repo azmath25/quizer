@@ -218,3 +218,20 @@
 @media(prefers-reduced-motion:reduce) {
   .ai-dock .ai-fab, .ai-dock .ai-fab span { animation: none; transition: none; }
 }
+
+/* Live teacher chat: safe Markdown/math nodes, bounded pending and file guidance. */
+.ai-rich { min-width: 0; overflow-wrap: anywhere; line-height: 1.6; }
+.ai-rich > * + * { margin-top: .65em; }
+.ai-rich p { margin: 0; }
+.ai-rich ul, .ai-rich ol { padding-left: 1.4rem; }
+.ai-rich li + li { margin-top: .25rem; }
+.ai-rich pre { max-width: 100%; overflow-x: auto; padding: 9px; border: 1px solid var(--border); border-radius: var(--radius); }
+.ai-rich code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-rich pre code { white-space: pre; }
+.ai-rich a { text-decoration: underline; }
+.ai-rich .qa-display-math { overflow-x: auto; max-width: 100%; padding: 3px 0; }
+.ai-footnote { margin: 8px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.ai-limitation { margin-top: 8px !important; color: var(--muted); font-size: .78rem; }
+.ai-msg.user p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-msg .ai-typing { margin: 0; }
+.ai-composer[aria-busy="true"] { opacity: .85; }
