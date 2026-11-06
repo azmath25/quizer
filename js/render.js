@@ -6,6 +6,9 @@ export function typeset(root) {
   mathQueue = mathQueue
     .catch(() => {})
     .then(async () => {
+      // Initial Home defers its 2 MB MathJax bundle until background CSS is ready.
+      // Await that load if the user navigates into a problem immediately.
+      if (window.mathQuizMathJaxReady) await window.mathQuizMathJaxReady;
       if (!window.MathJax?.startup?.promise) return;
       await MathJax.startup.promise;
       if (root.isConnected) await MathJax.typesetPromise([root]);
