@@ -73,7 +73,7 @@ test("teacher-only floating button uses existing Mimo chat, not the old mock pro
   assert.match(assistant,/void typeset\(log\)/);
   assert.match(assistant,/KEY \+ "\." \+ mountedUid/);
   assert.match(assistant,/generation !== myGeneration/);
-  assert.match(assistant,/role:"assistant", error: true, confirmed: false/);
+  assert.match(assistant,/role:\\s*"assistant", error:\\s*true, confirmed:\\s*false/);
   assert.match(shell,/assistant\.js\?v=17/);
   assert.match(transport,/httpsCallable\(services\.functions, "mimoTeacherChat"/);
 });
