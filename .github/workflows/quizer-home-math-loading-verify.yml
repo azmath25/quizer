@@ -18,7 +18,11 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-node@v4
         with: {node-version: "22", cache: npm}
-      - run: npm ci --no-audit --no-fund
+      - name: Install locked frontend and backend test dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
       - name: Verify stylesheet loading and MathJax behavior
         run: node --test tests/unit/home-math-loading.test.mjs
       - name: Run frontend unit tests
