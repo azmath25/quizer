@@ -15,7 +15,7 @@ export const MIMO_CHAT_CONFIG = Object.freeze({
 });
 const REQUEST_ID = /^[a-zA-Z0-9_-]{16,100}$/;
 const MAX_PER_MINUTE = 4;
-const MAX_PER_DAY = 25;
+export const MAX_PER_DAY = 250;
 const LIMITS_COLLECTION = "mimoTeacherChatLimits";
 
 export class TeacherChatError extends Error {
