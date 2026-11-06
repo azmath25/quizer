@@ -19,7 +19,7 @@ export function mimoChatErrorMessage(error) {
   const reason = String(error?.details?.reason || error?.details?.code || "");
   const code = String(error?.code || "").replace(/^functions\//, "");
   if (reason === "RATE_LIMITED") {
-    return "Quizer limit reached (4 requests per minute or 25 per UTC day). Please try later.";
+    return "Quizer limit reached (4 requests per minute or 250 per UTC day). Please try later.";
   }
   if (reason === "MIMO_RATE_LIMITED") {
     return "Mimo is handling too many requests. Try again later; this message was not automatically retried.";
