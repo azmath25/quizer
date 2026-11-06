@@ -77,10 +77,11 @@ function loadHomeMathJax() {
 
 function mountBackdrop() {
   if (document.querySelector("#math-bg")) return;
-  const stylesReady = Promise.all([
+  const stylesheetLoads = [
     appendBackdropStyle("assets/css/math.css?v=15"),
     appendBackdropStyle("assets/css/polish.css?v=15"),
-  ]);
+  ];
+  const stylesReady = Promise.all(stylesheetLoads);
   stylesReady.then(() => {
     if (document.querySelector("#math-bg")) return;
     const bg = document.createElement("div");
@@ -95,9 +96,8 @@ function mountBackdrop() {
     // Scripts in index.html no longer download MathJax during HTML parsing.
     // Capture readiness synchronously so SPA navigation and render.typeset()
     // can await it even if a user opens a quiz immediately.
-    window.mathQuizMathJaxReady = stylesReady
-      .catch(() => {}) // Math content may still load if decoration CSS fails.
-      .then(loadHomeMathJax)
+    window.mathQuizMathJaxReady = Promise.allSettled(stylesheetLoads)
+      .then(loadHomeMathJax) // Never block quiz math on a failed decoration CSS.
       .catch(() => null);
   }
 }
