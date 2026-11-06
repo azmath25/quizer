@@ -13,6 +13,7 @@ import { dispatch } from "./router.js";
 import { runJob } from "./jobs/worker.js";
 import { sweep } from "./jobs/sweeper.js";
 import { REGION, ENFORCE_APP_CHECK } from "./config.js";
+import { createTeacherChat, TeacherChatError } from "./mimo/teacher-chat.js";
 initializeApp();
 const db = getFirestore();
 
@@ -25,6 +26,7 @@ const PROD1_ACTIVE=isProd1Enabled({
 });
 const NEON_URL=defineSecret("QUIZER_NEON_DATABASE_URL");
 const BANK_CURSOR_KEY=defineSecret("QUIZER_BANK_CURSOR_KEY");
+const QUIZER_MIMO_PROJECT_KEY=defineSecret("QUIZER_MIMO_PROJECT_KEY");
 const PROD1_BOUND_SECRETS=[NEON_URL,BANK_CURSOR_KEY];
 const prod1=createProd1EntrypointBridge({
   enabled:PROD1_ACTIVE,db,
@@ -105,4 +107,51 @@ export const scheduledMaintenance = onSchedule(
     secrets: PROD1_BOUND_SECRETS,
   },
   () => sweep(db, {runJobImpl:prod1.runJob}),
+);
+
+
+/**
+ * Quizer's existing teacher-only Mimo callable, source-controlled without
+ * touching quiz APIs. This deploys separately from the document frontend.
+ * Firebase deployment is NOT performed by GitHub Pages publication.
+ */
+export const mimoTeacherChat = onCall(
+  {
+    region: REGION,
+    memory: "256MiB",
+    timeoutSeconds: 120,
+    maxInstances: 2,
+    enforceAppCheck: ENFORCE_APP_CHECK,
+    secrets: [QUIZER_MIMO_PROJECT_KEY],
+  },
+  async (request) => {
+    try {
+      return await createTeacherChat({
+        db, projectKey: QUIZER_MIMO_PROJECT_KEY.value(),
+      })({auth: request.auth, data: request.data});
+    } catch (error) {
+      if (error instanceof TeacherChatError) {
+        const reason = error.code;
+        const code = {
+          AUTH_REQUIRED: "unauthenticated",
+          EMAIL_UNVERIFIED: "permission-denied",
+          ROLE_REQUIRED: "permission-denied",
+          INVALID_FIELDS: "invalid-argument",
+          REQUEST_ID_CONFLICT: "already-exists",
+          RATE_LIMITED: "resource-exhausted",
+          MIMO_RATE_LIMITED: "resource-exhausted",
+          MIMO_PROJECT_NOT_AUTHORIZED: "failed-precondition",
+          MIMO_WORKFLOW_OR_RUN_NOT_FOUND: "failed-precondition",
+          MIMO_NOT_CONFIGURED: "failed-precondition",
+          MIMO_OUTCOME_UNKNOWN: "unavailable",
+          MIMO_NOT_COMPLETED: "unavailable",
+          MIMO_INVALID_RESPONSE: "unavailable",
+          MIMO_UNAVAILABLE: "unavailable",
+        }[reason] || "internal";
+        throw new HttpsError(code, reason, {reason});
+      }
+      console.error("mimo_teacher_chat_internal_failure");
+      throw new HttpsError("internal","Teacher chat is temporarily unavailable.");
+    }
+  },
 );
