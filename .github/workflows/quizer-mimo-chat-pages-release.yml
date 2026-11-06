@@ -83,3 +83,20 @@ jobs:
       - name: Deploy approved public frontend (no Firebase CLI or Google Cloud changes)
         id: deployment
         uses: actions/deploy-pages@v4
+ 
+  audit-deployment:
+    needs: verify-and-build
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      deployments: read
+      pages: read
+    steps:
+      - name: Report latest GitHub Pages deployment (read-only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X GET "repos/${GITHUB_REPOSITORY}/pages" --jq '{url: .html_url, status: .status, build_type: .build_type}' || true
+          gh api -X GET "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=6" --jq '.[] | {id,sha,ref,created_at}' || true
