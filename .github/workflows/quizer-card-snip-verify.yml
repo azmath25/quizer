@@ -26,6 +26,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
       - run: node --test tests/unit/quiz-card-touch-link.test.mjs tests/unit/problem-bank-action-order.test.mjs tests/unit/restore-floating-snip.test.mjs
       - run: npm test
       - run: npm run verify:static
