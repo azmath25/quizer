@@ -1,158 +1,242 @@
-import { askAssistant, AI_CONNECTED } from "../services/ai.js";
-import { sendTeacherChatMessage } from "../services/mimo-chat.js";
 import { getSession } from "../firebase-client.js";
+import { canUseMimoTeacherChat, mimoChatErrorMessage, sendTeacherChatMessage } from "../services/mimo-chat.js";
+import { renderChatMarkdown } from "./ai-chat-markdown.js";
+import { typeset } from "./math-content.js";
 
-// A dedicated, in-page popup. It never navigates into the teacher/admin Studio.
-// Context must already be authorized and visible on the calling page.
+// One in-page assistant at a time. The browser talks only to the Firebase callable.
 let active = null;
 const STYLE_ID = "quizer-ask-ai-popup-style";
 
-function installStyle() {
+function installStyles() {
   if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = `
-  .qa-overlay{position:fixed;inset:0;z-index:1100;background:rgba(8,25,40,.45);display:flex;align-items:center;justify-content:center;padding:16px}
-  .qa-window{width:min(570px,100%);max-height:min(740px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;background:var(--surface,#fff);color:var(--ink,#1b3246);border:1px solid var(--line,#ddd);border-radius:17px;box-shadow:0 20px 70px rgba(0,0,0,.2)}
-  .qa-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line,#ddd)}
-  .qa-head strong{font-size:15px}.qa-close{border:0;background:transparent;color:inherit;font-size:23px;line-height:1;padding:5px;cursor:pointer}
-  .qa-log{flex:1;min-height:130px;overflow:auto;display:flex;flex-direction:column;gap:11px;padding:16px;white-space:pre-wrap;overflow-wrap:anywhere}
-  .qa-entry{padding:11px 13px;border-radius:12px;line-height:1.5;font-size:13px;background:var(--soft,#f1f5f9)}
-  .qa-entry.user{margin-left:12%;background:var(--wash,#e8f6fb)}.qa-entry.system{font-size:12px;color:var(--muted,#667)}
-  .qa-context{font-size:12px;color:var(--muted,#667);padding:8px 16px;border-bottom:1px solid var(--line,#ddd)}
-  .qa-form{border-top:1px solid var(--line,#ddd);padding:12px 16px;display:flex;gap:8px;align-items:end}
-  .qa-form textarea{resize:vertical;min-height:44px;max-height:145px;flex:1;width:100%;border:1px solid var(--line,#ddd);border-radius:10px;padding:10px;background:var(--surface,#fff);color:inherit;font:inherit}
-  .qa-form button{padding:12px;border-radius:10px;border:0;background:var(--accent,#0281af);color:#fff;font-weight:700;cursor:pointer}
-  @media(max-width:600px){.qa-overlay{align-items:flex-end;padding:0}.qa-window{max-height:calc(100dvh - env(safe-area-inset-top,0px) - 12px);height:min(85dvh,740px);border-radius:18px 18px 0 0}.qa-form{padding-bottom:max(12px,env(safe-area-inset-bottom))}}
-  `;
-  document.head.append(style);
+  const css = document.createElement("link");
+  css.id = STYLE_ID;
+  css.rel = "stylesheet";
+  css.href = "assets/css/ask-ai-popup.css?v=1";
+  document.head.append(css);
+}
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
 export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
-  installStyle();
-  const teacherChat = getSession().capabilities?.teach === true;
-  let history = [];
   active?.close();
-  const overlay = document.createElement("div");
-  overlay.className = "qa-overlay";
-  const panel = document.createElement("section");
-  panel.className = "qa-window";
+  installStyles();
+  const priorFocus = document.activeElement;
+  const allowed = canUseMimoTeacherChat(getSession());
+  const pageContext = String(context || "").slice(0, 4000);
+  let history = [];
+  let pending = false;
+  let closed = false;
+
+  const overlay = element("div", "qa-overlay");
+  const panel = element("section", "qa-window");
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", String(title));
-  const head = document.createElement("header");
-  head.className = "qa-head";
-  const name = document.createElement("strong");
-  name.textContent = title;
-  const closeButton = document.createElement("button");
-  closeButton.className = "qa-close";
+  panel.setAttribute("aria-labelledby", "qa-popup-heading");
+  panel.setAttribute("aria-describedby", "qa-popup-note");
+
+  const head = element("header", "qa-head");
+  const heading = element("div", "qa-heading");
+  const name = element("strong", "qa-title", String(title).slice(0, 160));
+  name.id = "qa-popup-heading";
+  heading.append(name, element("span", "qa-subtitle",
+    allowed ? "Mimo · Teacher assistant" : "Teacher assistant"));
+  const headActions = element("div", "qa-actions");
+  const newChat = element("button", "qa-action", "New Chat");
+  newChat.type = "button";
+  newChat.setAttribute("aria-label", "Start a new chat");
+  const closeButton = element("button", "qa-action qa-close", "×");
   closeButton.type = "button";
-  closeButton.textContent = "×";
   closeButton.setAttribute("aria-label", "Close AI chat");
-  head.append(name, closeButton);
-  const hint = document.createElement("div");
-  hint.className = "qa-context";
-  hint.textContent = teacherChat
-    ? "Teacher chat · Mimo workflow · Responses may take a few moments."
-    : AI_CONNECTED
-      ? "Ask questions about the selected result."
-      : "AI preview — live answers are not connected yet.";
-  const log = document.createElement("div");
-  log.className = "qa-log";
+  headActions.append(newChat, closeButton);
+  head.append(heading, headActions);
+
+  const note = element("p", "qa-note",
+    allowed
+      ? "Only the selected, visible page context is included. Do not share confidential grading keys."
+      : "Live Mimo chat requires a signed-in, verified teacher or administrator.");
+  note.id = "qa-popup-note";
+  const log = element("div", "qa-log");
+  log.setAttribute("role", "log");
+  log.setAttribute("aria-label", "AI conversation");
   log.setAttribute("aria-live", "polite");
-  const form = document.createElement("form");
-  form.className = "qa-form";
-  const input = document.createElement("textarea");
-  input.setAttribute("aria-label", "Ask AI a question");
-  input.placeholder = "Explain this problem, my answer, or how to improve…";
+  log.setAttribute("aria-relevant", "additions text");
+
+  const form = element("form", "qa-form");
+  const compose = element("div", "qa-compose");
+  const input = element("textarea", "qa-input");
+  input.setAttribute("aria-label", "Chat message");
+  input.placeholder = "Explain this problem or suggest a way to solve it…";
   input.maxLength = 3000;
-  const send = document.createElement("button");
+  input.rows = 2;
+  const send = element("button", "qa-send", "Send");
   send.type = "submit";
-  send.textContent = "Send";
-  form.append(input, send);
-  panel.append(head, hint, log, form);
+  send.disabled = !allowed;
+  input.disabled = !allowed;
+  newChat.disabled = !allowed;
+  compose.append(input, send);
+  const footer = element("div", "qa-footer");
+  footer.append(element("span", "", "Enter to send · Shift+Enter for a new line"),
+    element("span", "", "Teacher limit: 4/min · 25/day (UTC)"));
+  form.append(compose, footer);
+
+  panel.append(head, note, log, form);
   overlay.append(panel);
   document.body.append(overlay);
-  const previousFocus = document.activeElement;
-  const append = (role, value) => {
-    const row = document.createElement("div");
-    row.className = "qa-entry " + role;
-    row.textContent = value;
-    log.append(row);
-    log.scrollTop = log.scrollHeight;
+
+  const empty = () => {
+    const welcome = element("div", "qa-empty");
+    welcome.append(element("strong", "", allowed ? "How can I help?" : "Teacher access required"),
+      element("span", "", allowed
+        ? "Ask about the visible problem or quiz result. Follow-up questions stay in this chat until you start a new one."
+        : "Sign in with a verified teacher or administrator account to use Mimo chat."));
+    log.replaceChildren(welcome);
   };
-  append("system", "Context: " + String(title).slice(0, 140) +
-    ". Only information visible on this page is shared when you send a message.");
-  let closed = false;
+  const scroll = () => { log.scrollTop = log.scrollHeight; };
+  const addMessage = (role, text) => {
+    if (log.querySelector(".qa-empty")) log.replaceChildren();
+    const row = element("article", "qa-message " + role);
+    const label = element("span", "qa-role", role === "user" ? "You" : "Mimo");
+    const bubble = element("div", "qa-bubble");
+    if (role === "assistant") {
+      renderChatMarkdown(bubble, text);
+      // Existing site MathJax is local and configured with restricted TeX packages.
+      void typeset(bubble);
+    } else {
+      bubble.textContent = text;
+    }
+    row.append(label, bubble);
+    log.append(row);
+    scroll();
+    return row;
+  };
+  const addError = (message, requestId, uncertain = false) => {
+    const node = element("div", "qa-error");
+    node.setAttribute("role", "alert");
+    node.append(element("strong", "", "Message not confirmed"),
+      element("span", "", message));
+    if (uncertain) node.append(element("div", "", "Request reference: " + requestId));
+    log.append(node);
+    scroll();
+  };
+  const focusables = () => [newChat, closeButton, input, send].filter(node => !node.disabled);
+
   function close() {
     if (closed) return;
     closed = true;
     overlay.remove();
     document.removeEventListener("keydown", onKeydown);
-    previousFocus?.focus?.();
+    priorFocus?.focus?.({preventScroll: true});
     if (active?.close === close) active = null;
   }
   function onKeydown(event) {
-    if (event.key === "Escape") { event.preventDefault(); close(); }
-    if (event.key === "Tab") {
-      const controls = [closeButton, input, send];
-      const index = controls.indexOf(document.activeElement);
-      if (event.shiftKey && index === 0) { event.preventDefault(); send.focus(); }
-      else if (!event.shiftKey && index === controls.length - 1) {
-        event.preventDefault(); closeButton.focus();
+    if (closed) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    } else if (event.key === "Tab") {
+      const controls = focusables();
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      } else if (!panel.contains(document.activeElement)) {
+        event.preventDefault(); first.focus();
       }
     }
   }
-  active = { close };
-  closeButton.onclick = close;
-  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+
+  newChat.addEventListener("click", () => {
+    if (pending || closed) return;
+    history = [];
+    input.value = "";
+    empty();
+    input.focus();
+  });
+  closeButton.addEventListener("click", close);
+  overlay.addEventListener("click", event => {
+    if (event.target === overlay) close();
+  });
   document.addEventListener("keydown", onKeydown);
   input.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-      event.preventDefault(); form.requestSubmit();
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !pending) {
+      event.preventDefault();
+      form.requestSubmit();
     }
   });
+
   form.addEventListener("submit", async event => {
     event.preventDefault();
+    if (pending || closed || !allowed) return;
+    if (!canUseMimoTeacherChat(getSession())) {
+      addError("Your teacher session changed. Sign in or refresh before continuing.", "");
+      return;
+    }
     const question = input.value.trim();
-    if (!question || closed) return;
-    append("user", question);
-    input.value = "";
+    if (!question) return;
+
+    // Every intentional new submission gets a fresh request ID. Never retry automatically.
+    const requestId = crypto.randomUUID();
+    const submittedDraft = input.value;
+    const row = addMessage("user", question);
+    pending = true;
     send.disabled = true;
+    newChat.disabled = true;
+    input.readOnly = true; // keep the draft visible and unchanged until resolved
+    form.setAttribute("aria-busy", "true");
+    const loading = element("div", "qa-pending", "Mimo is thinking");
+    loading.setAttribute("role", "status");
+    const dots = element("span", "qa-dots");
+    dots.setAttribute("aria-hidden", "true");
+    dots.append(element("i"), element("i"), element("i"));
+    loading.append(dots);
+    log.append(loading);
+    scroll();
+
     try {
-      let reply;
-      if (teacherChat) {
-        reply = await sendTeacherChatMessage({
-          message: question,
-          context: String(context).slice(0, 4000),
-          history,
-        });
-        // Keep only bounded context from completed chat turns.
-        history = [...history,
-          {role: "user", content: question.slice(0, 1200)},
-          {role: "assistant", content: reply.reply.slice(0, 1200)},
-        ].slice(-8);
-      } else {
-        reply = await askAssistant({
-          prompt: "Use only the authorized page context below. Do not assume hidden answers or grading keys.\n\n" +
-            String(context).slice(0, 8000) + "\n\nQuestion: " + question,
-        });
-      }
-      if (!closed) append("assistant", String(reply.reply || "No reply available."));
+      const response = await sendTeacherChatMessage({
+        message: question,
+        context: pageContext,
+        history: history.slice(-8),
+        requestId,
+      });
+      if (closed) return;
+      loading.remove();
+      addMessage("assistant", response.reply);
+      history = [...history,
+        {role: "user", content: question.slice(0, 1200)},
+        {role: "assistant", content: response.reply.slice(0, 1200)}].slice(-8);
+      if (input.value === submittedDraft) input.value = "";
     } catch (error) {
-      const reason = error?.details?.reason || "";
-      const explanation = reason === "MIMO_OUTCOME_UNKNOWN"
-        ? "Connection interrupted. Mimo may have processed this message; avoid immediately resending it."
-        : reason === "RATE_LIMITED" || reason === "MIMO_RATE_LIMITED"
-          ? "Chat request limit reached. Try again later."
-          : reason === "MIMO_PROJECT_NOT_AUTHORIZED"
-            ? "Mimo project key is not authorized for this chat workflow."
-            : error?.message || "AI request failed.";
-      if (!closed) append("system", explanation);
+      if (closed) return;
+      loading.remove();
+      row.classList.add("failed");
+      const reason = String(error?.details?.reason || "");
+      const uncertain = reason === "MIMO_OUTCOME_UNKNOWN" ||
+        ["deadline-exceeded", "unavailable", "unknown"].includes(
+          String(error?.code || "").replace(/^functions\//, ""));
+      addError(mimoChatErrorMessage(error), requestId, uncertain);
+      // Keep the composed question, and do not add failed requests to history.
     } finally {
-      if (!closed) { send.disabled = false; input.focus(); }
+      pending = false;
+      if (!closed) {
+        input.readOnly = false;
+        form.removeAttribute("aria-busy");
+        send.disabled = false;
+        newChat.disabled = false;
+        input.focus();
+      }
     }
   });
-  input.focus();
-  return { close };
+
+  empty();
+  (allowed ? input : closeButton).focus();
+  active = {close};
+  return {close};
 }
