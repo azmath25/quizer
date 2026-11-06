@@ -85,6 +85,11 @@ function mountDesk(session) {
     cropUrl = null;
     fileInput.value = "";
     fileLabel.textContent = "No file chosen";
+    excerpt.value = "";
+    question.value = "";
+    consent.checked = false;
+    history = [];
+    chatLog.replaceChildren();
     clearBtn.disabled = true;
     imageControls.hidden = true;
     downloadBtn.disabled = true;
@@ -220,7 +225,7 @@ function mountDesk(session) {
     while (chatLog.childElementCount > 8) chatLog.lastElementChild.remove();
   }
   fileInput.addEventListener("change",event => void chooseSource(event.target.files?.[0]));
-  clearBtn.addEventListener("click",() => {resetSource();tell("Source cleared. Your excerpt remains until you edit or clear it.");});
+  clearBtn.addEventListener("click",() => {resetSource();tell("Source and its text context cleared from the workspace.");});
   downloadBtn.addEventListener("click",() => {
     if (!cropped || !cropUrl) return;
     const link = document.createElement("a");
@@ -260,6 +265,7 @@ function mountDesk(session) {
       context = makeTeacherContext(excerpt.value,current?.name || "Teacher excerpt");
     } catch(error) {addLog("Check the request",error.message,true);return;}
     const id = crypto.randomUUID();
+    const version = selectionVersion;
     pending = true;askBtn.disabled=true;
     addLog("You",message);
     addLog("Status","Waiting for one Mimo response…");
@@ -267,7 +273,7 @@ function mountDesk(session) {
       const answer = await sendTeacherChatMessage({
         message,context,history:history.slice(-8),requestId:id,
       });
-      if (!stillOwner()) return;
+      if (!stillOwner() || version !== selectionVersion) return;
       chatLog.querySelector(".doc-ai-entry")?.remove();
       addLog("Mimo · text context only",answer.reply);
       history = [...history,{role:"user",content:message.slice(0,1200)},
@@ -275,7 +281,7 @@ function mountDesk(session) {
       consent.checked=false;
       question.value="";
     } catch(error) {
-      if (!stillOwner()) return;
+      if (!stillOwner() || version !== selectionVersion) return;
       chatLog.querySelector(".doc-ai-entry")?.remove();
       addLog("Mimo request not confirmed",mimoChatErrorMessage(error) +
         " Request reference: "+id+". Do not automatically retry an uncertain request.",true);
@@ -284,6 +290,7 @@ function mountDesk(session) {
   noFile();
   return {
     ownerUid,
+    sessionEpoch,
     dispose() {
       disposed=true;
       resetSource();
@@ -294,7 +301,7 @@ function mountDesk(session) {
 }
 watchSession(session => {
   if (authorised(session)) {
-    if (desk && desk.ownerUid === session.user.uid) return;
+    if (desk && desk.ownerUid === session.user.uid && desk.sessionEpoch === session.epoch) return;
     desk?.dispose();
     desk = mountDesk(session);
   } else {
