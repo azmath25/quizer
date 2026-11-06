@@ -30,6 +30,18 @@ export function mimoChatErrorMessage(error) {
   if (reason === "MIMO_NOT_COMPLETED") {
     return "Mimo did not complete this run. No answer is available; please try a new message later.";
   }
+  if (reason === "THREAD_NOT_FOUND" || reason === "DOCUMENT_NOT_FOUND") {
+    return "This saved chat or document is unavailable for your account.";
+  }
+  if (reason === "DOCUMENT_NOT_READY") {
+    return "This document is not ready to use in chat.";
+  }
+  if (reason === "MEMORY_NOT_CONFIGURED") {
+    return "Saved chat history is not enabled yet. Your live Mimo chat may still be available.";
+  }
+  if (reason === "INVALID_FIELDS") {
+    return "The requested AI action contains invalid or excessive content.";
+  }
   if (reason === "MIMO_PROJECT_NOT_AUTHORIZED") {
     return "This project's chat workflow is not authorized. Please contact an administrator.";
   }
