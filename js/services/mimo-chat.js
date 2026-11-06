@@ -45,49 +45,69 @@ export function mimoChatErrorMessage(error) {
   return "Unable to send this message right now. Please check your session or try again later.";
 }
 
-export async function sendTeacherChatMessage({
-  message, context = "", history = [], requestId = crypto.randomUUID(),
-} = {}) {
+
+/** One Firebase callable for chat, history and text-document actions. */
+export async function teacherAiAction(payload) {
   const before = getSession();
   if (!canUseMimoTeacherChat(before)) {
     throw Object.assign(new Error("Verified teacher access is required."), {
       code: before?.user?.uid ? "functions/permission-denied" : "functions/unauthenticated",
     });
   }
-  const text = String(message || "").trim();
-  if (!text || text.length > 3000) throw new Error("The message must contain 1–3000 characters.");
-  if (typeof requestId !== "string" || !requestId || requestId.length > 128) {
-    throw new Error("Invalid request reference.");
-  }
-  // Defense-in-depth only. The server owns all access and quota enforcement.
-  const boundedHistory = (Array.isArray(history) ? history : [])
-    .filter((item) => item && (item.role === "user" || item.role === "assistant"))
-    .slice(-8)
-    .map((item) => ({role: item.role, content: String(item.content || "").slice(0, 1200)}));
-  const payload = {
-    message: text,
-    context: String(context || "").slice(0, 4000),
-    history: boundedHistory,
-    requestId,
-  };
   const services = await getFirebaseServices();
   const current = getSession();
   if (!canUseMimoTeacherChat(current) || current.epoch !== before.epoch ||
       current.user.uid !== before.user.uid) {
-    throw Object.assign(new Error("Session changed."), {code: "functions/unauthenticated"});
+    throw Object.assign(new Error("Session changed."), {code:"functions/unauthenticated"});
   }
   const callable = services.functionsSDK.httpsCallable(services.functions, "mimoTeacherChat", {
-    timeout: 115000,
+    timeout:115000,
   });
-  const response = await callable(payload); // exactly one call; deliberately no retry
+  const response = await callable(payload);
   const after = getSession();
   if (!canUseMimoTeacherChat(after) || after.epoch !== before.epoch ||
       after.user.uid !== before.user.uid) {
-    throw Object.assign(new Error("Session changed."), {code: "functions/unauthenticated"});
+    throw Object.assign(new Error("Session changed."), {code:"functions/unauthenticated"});
   }
-  const data = response?.data;
-  if (typeof data?.reply !== "string" || !data.reply.trim()) {
-    throw Object.assign(new Error("No response."), {code: "functions/unavailable"});
+  return response?.data;
+}
+
+export const listTeacherChats = () => teacherAiAction({action:"chat.list",limit:25});
+export const getTeacherChat = (threadId) => teacherAiAction({action:"chat.get",threadId});
+export const listTeacherDocuments = () => teacherAiAction({action:"document.list",limit:20});
+export const getTeacherDocument = (documentId) =>
+  teacherAiAction({action:"document.get",documentId});
+export const createTeacherTextDocument = ({title,text}) =>
+  teacherAiAction({action:"document.create_text",title,text});
+
+export async function sendTeacherChatMessage({
+  message, context = "", history = [], requestId = crypto.randomUUID(),
+  threadId = null, documentId = null, mode = "explain",
+} = {}) {
+  const text = String(message || "").trim();
+  if (!text || text.length > 3000) throw new Error("The message must contain 1–3000 characters.");
+  if (typeof requestId !== "string" || !requestId || requestId.length > 100) {
+    throw new Error("Invalid request reference.");
   }
-  return {reply: data.reply, runId: data.runId};
+  const boundedHistory = (Array.isArray(history) ? history : [])
+    .filter((item) => item && (item.role === "user" || item.role === "assistant"))
+    .slice(-8)
+    .map((item) => ({role: item.role, content: String(item.content || "").slice(0, 1200)}));
+  const result = await teacherAiAction({
+    action:"chat.send",
+    message:text,
+    context:String(context||"").slice(0,4000),
+    history:boundedHistory,
+    requestId,
+    mode,
+    ...(threadId ? {threadId} : {}),
+    ...(documentId ? {documentId} : {}),
+  });
+  if (typeof result?.reply !== "string" || !result.reply.trim()) {
+    throw Object.assign(new Error("No response."), {code:"functions/unavailable"});
+  }
+  return {
+    reply:result.reply,runId:result.runId,threadId:result.threadId || null,
+    saved:result.saved !== false,warningCode:result.warningCode || null,
+  };
 }
