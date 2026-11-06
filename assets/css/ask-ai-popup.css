@@ -25,3 +25,23 @@
 @media(max-width:600px){.qa-overlay{display:flex;align-items:flex-end;padding:0;backdrop-filter:none}.qa-window{width:100%;height:min(90dvh,850px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - 8px);border-radius:20px 20px 0 0}.qa-head{padding:13px 14px}.qa-title{font-size:14px}.qa-note{padding:9px 14px}.qa-log{padding:15px 12px;gap:12px}.qa-message{max-width:93%}.qa-form{padding:10px 12px max(12px,env(safe-area-inset-bottom,12px))}.qa-send{min-width:72px}.qa-footer span:first-child{display:none}}
 @media(max-width:360px){.qa-action{padding:0 8px}.qa-close{width:36px}.qa-subtitle{font-size:10px}.qa-compose{gap:6px}.qa-send{min-width:62px;padding:0 9px}}
 @media(prefers-reduced-motion:reduce){.qa-dots i{animation:none;opacity:.65}}
+
+/* Optional server-backed history and text documents live inside the popup. */
+.qa-library[hidden],.qa-log[hidden],.qa-form[hidden]{display:none!important}
+.qa-library{flex:1;overflow:auto;min-height:0;padding:16px 20px;display:flex;flex-direction:column;gap:18px}
+.qa-library-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.qa-library-top strong{font-size:15px}
+.qa-library-group{display:flex;flex-direction:column;gap:8px}
+.qa-library-group h3{font-size:13px;margin:0 0 4px}
+.qa-library-group p{font-size:11px;line-height:1.5;color:var(--muted,#677889);margin:0 0 6px}
+.qa-library-button{min-height:39px;padding:9px 12px;background:var(--soft,#f5f7fa);border:1px solid var(--line,#dce3eb);border-radius:10px;color:inherit;font:inherit;font-size:12px;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.qa-library-button:hover{background:var(--wash,#e8f5fb)}
+.qa-library-button:disabled{opacity:.5;cursor:not-allowed}
+.qa-library-paste{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line,#dce3eb);border-radius:12px}
+.qa-library-paste h4{font-size:12px;margin:0}
+.qa-library-paste input,.qa-library-paste textarea{box-sizing:border-box;width:100%;padding:10px;font:inherit;font-size:12px;color:inherit;background:var(--surface,#fff);border:1px solid var(--line,#dce3eb);border-radius:9px;min-width:0}
+.qa-library-paste textarea{min-height:85px;max-height:220px;resize:vertical}
+.qa-library-paste button{min-height:40px;border:0;background:var(--accent,#0281af);color:white;font:inherit;font-weight:700;border-radius:9px}
+.qa-mode{min-height:33px;max-width:140px;min-width:90px;border:1px solid var(--line,#dce3eb);border-radius:8px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:11px}
+.qa-library :is(button,input,textarea):focus-visible,.qa-mode:focus-visible{outline:3px solid var(--accent,#0281af);outline-offset:2px}
+@media(max-width:600px){.qa-library{padding:12px}.qa-head{gap:5px}.qa-actions{gap:4px}.qa-action{padding:0 8px}.qa-footer{align-items:center}.qa-mode{max-width:112px}}
