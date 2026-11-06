@@ -1,0 +1,54 @@
+name: Verify floating Mimo Assistant (no deploy)
+
+on:
+  push:
+    branches: [feature/q-ai-floating-assistant-mimo-20261106]
+  pull_request:
+    branches: [work/quizer-audit-optimization-2026-11]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: floating-mimo-assistant-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Assistant behavior, Quizer unit tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
+      - run: node --check js/components/assistant.js
+      - run: node --check js/services/floating-assistant-chat.js
+      - run: node --test tests/unit/floating-assistant-mimo.test.mjs tests/unit/restore-floating-snip.test.mjs tests/unit/mimo-teacher-chat.test.mjs tests/unit/ai-chat-markdown.test.mjs
+      - run: npm test
+      - run: npm run verify:static
+      - run: npm run build
+
+  backend:
+    name: Existing callable backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run test:backend
