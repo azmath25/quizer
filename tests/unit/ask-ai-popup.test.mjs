@@ -113,7 +113,7 @@ function setup() {
   const find = selector => document.body.querySelector(selector);
   return {popup, prior, find,
     form: find("form"), input: find("textarea"), send: find(".qa-send"),
-    newChat: find(".qa-action"), log: find(".qa-log")};
+    newChat: find(".qa-actions").children.find(node=>node.getAttribute("aria-label")==="Start a new chat"), log: find(".qa-log")};
 }
 
 test("verified teacher can send once, retains draft while pending and sends completed history", async () => {
