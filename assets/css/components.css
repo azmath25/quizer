@@ -890,7 +890,7 @@ html[data-input="touch"] textarea {
    vertical swipes remain scrolling, and keyboard/link semantics survive.
    Keep the existing "View quiz" / "Manage" link above the stretched hit area.
    Desktop hover flipping remains controlled by math.css. */
-@media (hover: none), (pointer: coarse) {
+@media (hover: none) {
   .quiz-card .qc-front {
     cursor: pointer;
   }
