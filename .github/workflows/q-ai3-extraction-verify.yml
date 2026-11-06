@@ -1,0 +1,58 @@
+name: Q-AI.3 extraction contract verification (no deploy)
+
+on:
+  push:
+    branches: [feature/q-ai3-extraction-contract-20261106]
+  pull_request:
+    branches: [work/quizer-audit-optimization-2026-11]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: q-ai3-extraction-contract
+  cancel-in-progress: true
+
+jobs:
+  domain-and-frontend:
+    name: Extraction domain, frontend, static and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run prepare:backend
+      - run: node --test tests/unit/q-ai3-extraction-contract.test.mjs
+      - run: npm test
+      - run: npm run verify:static
+      - run: npm run build
+
+  quiz-backend-regression:
+    name: Existing quiz backend and emulator regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix functions --no-audit --no-fund
+      - run: npm run test:backend
+      - run: npm run test:integration
+      - run: npm run test:transport
