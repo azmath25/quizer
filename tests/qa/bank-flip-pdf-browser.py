@@ -106,7 +106,7 @@ def main():
         try:
             for width,height,touch in [(1440,900,False),(1024,768,False),(390,844,True)]:
                 ctx=browser.new_context(viewport={"width":width,"height":height},
-                    has_touch=touch,is_mobile=touch,reduced_motion="reduce")
+                    has_touch=touch,is_mobile=touch,reduced_motion="no-preference")
                 try:
                     page=ctx.new_page()
                     seed(page)
