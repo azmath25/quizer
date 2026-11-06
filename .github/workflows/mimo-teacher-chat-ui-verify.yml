@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/quizer-mimo-teacher-chat-ui-20261106
+  pull_request:
+    branches:
+      - feature/quizer-mimo-api-bridge-20261106
   workflow_dispatch:
 
 permissions:
