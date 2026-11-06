@@ -883,3 +883,30 @@ html[data-input="touch"] textarea {
   outline-offset: 3px;
   border-radius: var(--radius-sm);
 }
+
+
+/* Touch-only enlarged quiz-card link. The heading's native <a> covers the
+   front face, so a deliberate tap navigates without custom touch handlers:
+   vertical swipes remain scrolling, and keyboard/link semantics survive.
+   Keep the existing "View quiz" / "Manage" link above the stretched hit area.
+   Desktop hover flipping remains controlled by math.css. */
+@media (hover: none), (pointer: coarse) {
+  .quiz-card .qc-front {
+    cursor: pointer;
+  }
+  .quiz-card .qc-front h3 a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .quiz-card .qc-front .card-foot .text-link {
+    position: relative;
+    z-index: 2;
+  }
+  .quiz-card .qc-front h3 a:focus-visible::after {
+    outline: 3px solid var(--primary);
+    outline-offset: -4px;
+    border-radius: var(--radius);
+  }
+}
