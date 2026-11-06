@@ -19,6 +19,7 @@ const pages = [
   "admin",
   "guide",
   "settings",
+  "documents",
 ];
 const errors = [];
 for (const page of pages) {
