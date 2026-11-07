@@ -57,7 +57,7 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   const openStudio = element("a", "qa-action", "AI Studio");
   openStudio.href = "ai.html";
   openStudio.setAttribute("aria-label", "Open saved conversations in AI Studio");
-  headActions.append(openStudio, newChat, closeButton);
+  headActions.append(newChat, openStudio, closeButton);
   head.append(heading, headActions);
 
   const note = element("p", "qa-note",
