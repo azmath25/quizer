@@ -10,13 +10,13 @@ import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
   buildTeacherReview,decideTeacherReview,exportTeacherReview,
   extractionError,decodeMimoPng} from "../services/mimo-extraction.js";
 import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
-import {uploadAsset} from "../services/assets.js";
+import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
 
 const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access");
 let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null,hasOlder=false;
-let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="";
+let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="",selectedImage=null;
 const originalSources=new Map();
 const batchReviews=new Map();
 let transientUrls=[];
@@ -66,6 +66,16 @@ function drawMessages(){
     if(m.role==="assistant"){renderChatMarkdown(body,m.content||"");}
     else body.textContent=m.content||"";
     box.append(body);target.append(box);
+    if(m.imageAssetId){
+      const img=node("img");img.alt="Private attached mathematics image";
+      img.loading="lazy";box.append(img);
+      const epoch=getSession().epoch;
+      void resolveImages({attached:m.imageAssetId},
+        {kind:"owned_upload",id:m.imageAssetId}).then(urls=>{
+        if(epoch===getSession().epoch&&img.isConnected&&urls.attached)
+          img.src=urls.attached;
+      }).catch(()=>{img.alt="Attached image unavailable for this account";});
+    }
     if(m.role==="assistant")void typeset(body);
   }
   target.scrollTop=target.scrollHeight;
@@ -77,7 +87,7 @@ async function loadThreads(){
 }
 async function openThread(id){
   const data=await teacherChatHistory("chat.get",{threadId:id});
-  threadId=id;messages=Array.isArray(data?.messages)?data.messages:[];
+  threadId=id;selectedImage=null;messages=Array.isArray(data?.messages)?data.messages:[];
   hasOlder=data?.hasMore===true;
   history.replaceState(null,"","ai.html?thread="+encodeURIComponent(id));
   activeTab("chat");drawThreads();drawMessages();
@@ -98,7 +108,7 @@ async function loadOlder(){
   finally{$("ai-load-older").disabled=false;}
 }
 function newThread(){
-  threadId=null;messages=[];hasOlder=false;imageContext="";
+  threadId=null;messages=[];hasOlder=false;imageContext="";selectedImage=null;
   history.replaceState(null,"","ai.html");
   drawThreads();drawMessages();$("ai-prompt").value="";activeTab("chat");
   $("ai-prompt").focus();
@@ -107,11 +117,13 @@ async function sendText(message,context=""){
   if(busyChat||!message.trim())return;
   busyChat=true;$("ai-send").disabled=true;
   const snapshot=messages.slice();
-  messages.push({role:"user",content:message});
+  messages.push({role:"user",content:message,
+    imageAssetId:selectedImage?.assetId||null,imageJobId:selectedImage?.jobId||null});
   drawMessages();status("Sending your message to Mimo…");
   try {
     const answer=await sendTeacherChatMessage({
       message,context,threadId,requestId:crypto.randomUUID(),
+      ...(selectedImage?{imageJobId:selectedImage.jobId,imageAssetId:selectedImage.assetId}:{}),
       history:snapshot.filter(m=>["user","assistant"].includes(m.role))
         .slice(-8).map(m=>({role:m.role,content:String(m.content||"").slice(0,1200)})),
     });
@@ -122,7 +134,7 @@ async function sendText(message,context=""){
       history.replaceState(null,"","ai.html?thread="+encodeURIComponent(threadId));
       await loadThreads();
     } else status("Reply received, but history could not be saved. Copy the answer before closing.",true);
-    $("ai-prompt").value="";
+    $("ai-prompt").value="";selectedImage=null;
     return true;
   }catch(error){messages=snapshot;drawMessages();status(safeError(error),true);
     return false;}
@@ -137,7 +149,11 @@ async function chatSubmit(event){
     if(!confirm("Send this photo to Mimo for private mathematics extraction?"))return;
     pendingImageQuestion=prompt||"Explain the mathematics in this photo.";
     try {
-      const result=await submitMimoExtraction(file,1,{target:"chat",costLimitUsd:0.15});
+      status("Saving the attached photo privately…");
+      const imageAssetId=await uploadAsset(file,()=>{},"image");
+      const result=await submitMimoExtraction(file,1,{
+        target:"chat",costLimitUsd:0.15,imageAssetId,
+      });
       originalSources.set(result.jobId,file);
       $("ai-chat-photo").value="";
       status("Photo accepted as background vision job. Select it after completion to discuss the extracted mathematics.");
@@ -475,12 +491,16 @@ async function selectJob(id){
       if(result.jobId&&jobs.find(x=>x.jobId===id)?.target==="chat"){
         const use=node("button","Discuss extracted mathematics in Assistant","ai-primary");
         use.type="button";use.onclick=()=>{
-          imageContext=JSON.stringify(result.page.questions.map(q=>({
-            text:q.statement_latex,options:q.options,figure:q.figure_description,
-          }))).slice(0,3500);
+          selectedImage={jobId:id,assetId:result.imageAssetId||
+            jobs.find(x=>x.jobId===id)?.imageAssetId};
+          imageContext="";
+          if(!selectedImage.assetId){
+            status("Reattach the original image to discuss this older job.",true);
+            selectedImage=null;return;
+          }
           $("ai-prompt").value=pendingImageQuestion||"Explain the mathematics in the attached photo.";
           pendingImageQuestion="";activeTab("chat");$("ai-prompt").focus();
-          status("Vision extraction available as bounded context for your next assistant message.");
+          status("This photo is attached to your next chat message. Mimo will use its verified image extraction, and the photo reference will remain in saved history.");
         };target.append(use);
       }
     }else if(["running","submitted","accepted"].includes(result.state)){
