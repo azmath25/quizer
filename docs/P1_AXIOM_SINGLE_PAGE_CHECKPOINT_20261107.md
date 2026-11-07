@@ -58,11 +58,38 @@ existing design tokens, authentication and live Firebase/Mimo services.
 These mocks prove code paths and front-end behavior, **not** that the
 production Groq provider or private compiler is currently functioning.
 
+
+## P1 recovery fixes added after failed live PDF inspection
+
+- The deployment screenshot showing the legacy three-column Document Lab
+  reflects the still-unmerged production `main` layout. This branch uses
+  a new Axiom-style shell. The entry JS/CSS URLs are versioned together
+  to avoid mixed old/new cache reads once the HTML is published.
+- A refreshed selected job synchronizes its state back into the inspector's
+  cached job list, preventing simultaneous `attention` and stale `running`
+  labels for the same job in one session.
+- Until Mimo has a provider-native organization-wide token-minute governor,
+  a document dispatches at most **one in-flight PDF page** at a time,
+  instead of three simultaneous pages. This is *only a burst mitigation*:
+  it is not a global TPM/RPM admission policy and does not prove
+  the root provider error is fixed.
+- P0 Quizer safe-error diagnostics are included directly in this P1
+  branch. Mimo may return only the old generic `MIMO_RUN_FAILED` until
+  its separately verified provider-diagnostic backend patch is deployed.
+  No raw upstream response or credential is sent to the browser.
+
+The actual November 7 source PDF produced failed Mimo runs on pages 1,
+2, and 3. Pages 1 and 2 failed in `processor`; page 3 failed in
+`extract`. Their reservations were released, but neither a provider
+HTTP status nor provider invoice outcome was saved in those historical
+runs. Do not auto-replay those paid jobs.
+
 ## Release prerequisites — not completed by this branch
 
-- P0 Mimo PR #33 (safe provider error diagnostics) and Quizer PR #34
-  (owner-safe PDF failure reasons) remain separate from P1; integrate
-  in a reviewed order and resolve any shared-file conflicts.
+- P0 Mimo PR #33 (safe provider failure diagnostics) remains separate
+  from P1 and is not deployed. Quizer PR #34's owner-safe diagnostic
+  fields have already been integrated into this P1 branch, avoiding
+  competing changes to the batch worker when releasing.
 - Production `mimo-worker` / Firebase function deployments were not
   performed. A real vision PDF and a real PDF with a TikZ figure need
   **separate, explicitly authorized bounded canary runs** after P0
