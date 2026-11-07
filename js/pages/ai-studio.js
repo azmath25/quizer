@@ -66,11 +66,13 @@ function drawMessages(){
     if(m.role==="assistant"){renderChatMarkdown(body,m.content||"");}
     else body.textContent=m.content||"";
     box.append(body);
-    const copy=node("button","Copy","ai-secondary");
+    const copy=node("button","","ai-copy-msg");
     copy.type="button";copy.className="ai-copy-msg";
+    copy.title="Copy message";
+    copy.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
     copy.setAttribute("aria-label",m.role==="user"?"Copy your message":"Copy assistant message");
     copy.onclick=async()=>{
-      try{await navigator.clipboard.writeText(String(m.content||""));copy.textContent="Copied";}
+      try{await navigator.clipboard.writeText(String(m.content||""));copy.title="Copied";copy.setAttribute("aria-label","Copied message");}
       catch{status("Copy unavailable — select the message text to copy.",true);}
     };
     box.append(copy);target.append(box);
