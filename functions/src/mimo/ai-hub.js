@@ -113,7 +113,7 @@ export function createAiHub({
       const visible=Array.isArray(thread.messages)?thread.messages:[];
       // Retain at least the latest pair for continuity even when all earlier
       // turns have been compacted. Never trust a browser-supplied transcript.
-      const unsummarized=Math.max(2, Math.min(8, visible.length-2*summarized));
+      const unsummarized=Math.max(2, Math.min(8, 2*Math.max(0,Number(thread.thread?.turnCount||0)-summarized)));
       history=visible.slice(-unsummarized).map(row=>({
         role:row.role,content:String(row.content||"").slice(0,1200),
       }));
