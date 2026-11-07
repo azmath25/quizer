@@ -17,8 +17,8 @@ def png_sample(width=64,height=64):
     def chunk(tag,data):
         return struct.pack(">I",len(data))+tag+data+struct.pack(
             ">I",zlib.crc32(tag+data)&0xffffffff)
-    scanlines=b"".join(b"\\x00"+b"\\xff\\xff\\xff\\xff"*width for _ in range(height))
-    return (b"\\x89PNG\\r\\n\\x1a\\n"+
+    scanlines=b"".join(b"\x00"+b"\xff\xff\xff\xff"*width for _ in range(height))
+    return (b"\x89PNG\r\n\x1a\n"+
             chunk(b"IHDR",struct.pack(">IIBBBBB",width,height,8,6,0,0,0))+
             chunk(b"IDAT",zlib.compress(scanlines))+
             chunk(b"IEND",b""))
