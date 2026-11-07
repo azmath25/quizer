@@ -161,3 +161,60 @@ test("timeout after start leaves fenced attention state and does not retry paid 
   await app.sweep();
   assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,0);
 });
+
+test("teacher review is durable, rejects conflicting saves and prepares only fully approved import",async()=>{
+  const db=firestore(),app=service(db,upstream());
+  const created=await app.start({auth:auth(uid),data:request("request_batch_review_00005")});
+  for(let i=0;i<8;i++)await app.sweep();
+  const one=await app.getPage({auth:auth(uid),
+    data:{jobId:created.jobId,pageNumber:1}});
+  assert.equal(one.review,null);
+  assert.equal(one.reviewVersion,0);
+  await assert.rejects(app.prepared({auth:auth(uid),data:{jobId:created.jobId}}),
+    {code:"REVIEW_INCOMPLETE"});
+  for(let page=1;page<=3;page++){
+    const result=await app.getPage({auth:auth(uid),data:{jobId:created.jobId,pageNumber:page}});
+    const decision={
+      itemId:"page"+page+"_item1",action:"approve",
+      edits:{statement_latex:"Solve 2x=4",options:[],answer:"2",
+        figure_description:null},
+      figure_assets:{},verified_against_source:true,
+      manual_marking_confirmed:false,reason:null,
+    };
+    const saved=await app.reviewPage({auth:auth(uid),data:{
+      jobId:created.jobId,pageNumber:page,
+      sourceSha256:result.page.source.sha256,
+      expectedVersion:0,decisions:[decision],
+    }});
+    assert.equal(saved.approvedCount,1);
+    assert.equal(saved.reviewVersion,1);
+    await assert.rejects(app.reviewPage({auth:auth(uid),data:{
+      jobId:created.jobId,pageNumber:page,
+      sourceSha256:result.page.source.sha256,
+      expectedVersion:0,decisions:[decision],
+    }}),{code:"REVIEW_VERSION_CONFLICT"});
+  }
+  const prepared=await app.prepared({auth:auth(uid),data:{jobId:created.jobId}});
+  assert.equal(prepared.items.length,3);
+  assert.equal(prepared.published,false);
+  assert.equal((prepared.latex.match(/begin\{problem\}/g)||[]).length,3);
+  await assert.rejects(app.prepared({auth:auth(uid2),data:{jobId:created.jobId}}),
+    {code:"JOB_NOT_FOUND"});
+});
+
+test("review cannot bind a forged or other-user private image asset",async()=>{
+  const db=firestore(),app=service(db,upstream());
+  const job=await app.start({auth:auth(uid),data:request("request_batch_review_00006")});
+  for(let i=0;i<8;i++)await app.sweep();
+  const page=await app.getPage({auth:auth(uid),
+    data:{jobId:job.jobId,pageNumber:1}});
+  await assert.rejects(app.reviewPage({auth:auth(uid),data:{
+    jobId:job.jobId,pageNumber:1,sourceSha256:page.page.source.sha256,
+    expectedVersion:0,decisions:[{
+      itemId:"page1_item1",action:"approve",
+      edits:{statement_latex:"2x=4",options:[],answer:"2",figure_description:null},
+      figure_assets:{"diagram.png":"ast_not_owned"},
+      verified_against_source:true,manual_marking_confirmed:false,reason:null,
+    }],
+  }}),{code:"INVALID_FIGURE_ASSET"});
+});
