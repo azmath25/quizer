@@ -16,62 +16,121 @@ export function normalizeSnipText(text) {
     .trim().slice(0, MAX_SNIP_TEXT);
 }
 
-function visibleTextIn(rect) {
-  const out = [], seen = new Set();
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  let scanned = 0;
-  while (walker.nextNode() && scanned < 12000 && out.join("").length < MAX_SNIP_TEXT) {
-    const node = walker.currentNode, value = node.textContent;
-    if (!value?.trim()) continue;
-    scanned += Math.min(value.length, 1000);
-    const el = node.parentElement;
-    if (!el || el.closest(
-      "script, style, noscript, template, [hidden], [inert], " +
-      "[aria-hidden='true'], details:not([open]), " +
-      "#ai-assistant, .snip-page-layer, .snip-layer, header, footer, nav"
-    )) continue;
-    const style = getComputedStyle(el);
-    if (style.display === "none" || style.visibility !== "visible" ||
-      Number(style.opacity) === 0) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    if (![...range.getClientRects()].some(r => intersects(r, rect))) continue;
-    const normalized = normalizeSnipText(value);
-    if (normalized && !seen.has(normalized)) {
-      out.push(normalized);
-      seen.add(normalized);
-    }
+// Build the selected text in DOCUMENT ORDER, not "all DOM text, then all
+// equations". MathJax SVG contains rendered glyph nodes that are not TeX:
+// they must be replaced by their original source, never appended after text.
+const HIDDEN_SNIP = [
+  "script","style","noscript","template","[hidden]","[inert]",
+  "[aria-hidden='true']","details:not([open])",
+  "#ai-assistant",".snip-page-layer",".snip-layer",
+  "mjx-assistive-mml","header","footer","nav"
+].join(", ");
+
+export function formatSnipMath(latex, display = false) {
+  if (typeof latex !== "string" || !latex.trim()) return "";
+  const source = latex.trim();
+  // Never truncate an equation in the middle of TeX syntax.
+  if (source.length > 3800 || /[\u0000-\u0008\u000e-\u001f]/.test(source)) return "";
+  return (display ? "\\[" : "\\(") + source + (display ? "\\]" : "\\)");
+}
+
+/**
+ * Pure formatter for deterministic testing. A visual line/block is kept
+ * together; different paragraph/list blocks remain separated. Identical
+ * options are NOT deduplicated, because two questions may repeat them.
+ */
+export function assembleSnipFragments(fragments, max = MAX_SNIP_TEXT) {
+  if (!Array.isArray(fragments) || !Number.isInteger(max) || max < 1) return "";
+  const chunks = [];
+  let length = 0, lastBlock = null;
+  for (const fragment of fragments) {
+    const value = String(fragment?.text ?? "").trim();
+    if (!value) continue;
+    const separator = chunks.length ? (fragment.block === lastBlock ? " " : "\n") : "";
+    const remaining = max - length - separator.length;
+    if (remaining <= 0) break;
+    // A clipped LaTeX command is worse than an omitted one.
+    if (fragment.kind === "math" && value.length > remaining) continue;
+    const safe = fragment.kind === "math" ? value : value.slice(0, remaining);
+    chunks.push(separator + safe);
+    length += separator.length + safe.length;
+    lastBlock = fragment.block;
+    if (length >= max) break;
   }
-  // MathJax's rendered SVG may contain no readable DOM text. Extract ONLY
-  // visible MathJax math items whose displayed rectangle intersects the snip.
+  return normalizeSnipText(chunks.join(""));
+}
+
+function isSnipVisible(el) {
+  if (!el || el.closest(HIDDEN_SNIP)) return false;
+  const style = getComputedStyle(el);
+  return style.display !== "none" && style.visibility === "visible" &&
+    Number(style.opacity) !== 0;
+}
+
+function snipBlock(el) {
+  return el.closest("p,li,blockquote,h1,h2,h3,h4,h5,h6,pre,tr,figcaption," +
+    ".problem-card,.problem-content,.qa-message,.ai-msg") ||
+    el.closest("div,section,article") || el;
+}
+
+function visibleTextIn(rect) {
+  const fragments = [];
+  let scanned = 0, budget = 0;
+  const emit = (text,kind,el) => {
+    if (!text || budget >= MAX_SNIP_TEXT) return;
+    const value = kind === "math" ? text : normalizeSnipText(text);
+    if (!value) return;
+    fragments.push({text:value,kind,block:snipBlock(el)});
+    budget += value.length + 1;
+  };
+  // Match the actual MathJax typeset roots and recover the TeX source.
+  // A root may be an SVG under mjx-container, or the container itself.
+  const mathRoots = new Map();
   const mathItems = window.MathJax?.startup?.document?.math;
   if (mathItems?.[Symbol.iterator]) {
     for (const item of mathItems) {
-      const r = item?.typesetRoot?.getBoundingClientRect?.();
-      if (!intersects(r, rect)) continue;
-      const latex = String(item.math ?? "").trim();
-      if (latex && !seen.has(latex)) {
-        out.push((item.display ? "\\[" : "\\(") + latex +
-          (item.display ? "\\]" : "\\)"));
-        seen.add(latex);
+      const originalRoot = item?.typesetRoot;
+      if (!originalRoot?.getBoundingClientRect) continue;
+      const root = originalRoot.closest?.("mjx-container") || originalRoot;
+      if (root?.nodeType !== 1) continue;
+      mathRoots.set(root, formatSnipMath(String(item.math ?? ""),!!item.display));
+    }
+  }
+  const walker = document.createTreeWalker(document.body,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  while (walker.nextNode() && scanned < 12000 && budget < MAX_SNIP_TEXT) {
+    const node = walker.currentNode;
+    if (node.nodeType === 1) {
+      if (mathRoots.has(node)) {
+        if (isSnipVisible(node) &&
+            intersects(node.getBoundingClientRect(), rect)) {
+          emit(mathRoots.get(node) ||
+            "[Formula unavailable as LaTeX — use Visual snip]", "math", node);
+        }
+        continue;
       }
-      if (out.join("").length >= MAX_SNIP_TEXT) break;
+      if (node.tagName === "IMG" && isSnipVisible(node) &&
+          intersects(node.getBoundingClientRect(),rect)) {
+        const description = normalizeSnipText(node.alt || "Selected image");
+        emit("[Figure: " + description + "]","image",node);
+      }
+      continue;
     }
+    const value = node.textContent;
+    if (!value?.trim()) continue;
+    scanned += Math.min(value.length,1000);
+    const el = node.parentElement;
+    if (!isSnipVisible(el)) continue;
+    // Never collect glyphs, accessibility MathML duplicates, or MathJax's
+    // hidden source while also emitting the exact original TeX above.
+    if (el.closest("mjx-container,.MathJax,mjx-assistive-mml,katex-mathml") ||
+        [...mathRoots.keys()].some(root => root.contains?.(node))) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    if (![...range.getClientRects()].some(r => intersects(r,rect))) continue;
+    emit(value,"text",el);
   }
-  // Image descriptions help identify figures but don't leak signed URLs,
-  // unreleased answer assets, or arbitrary image binary outside the selection.
-  for (const img of document.querySelectorAll("img")) {
-    if (img.closest("[hidden], [inert], [aria-hidden='true'], " +
-      "details:not([open]), #ai-assistant, .snip-page-layer")) continue;
-    if (!intersects(img.getBoundingClientRect(), rect)) continue;
-    const description = normalizeSnipText(img.alt || "Selected diagram or image");
-    if (description && !seen.has(description)) {
-      out.push("[Figure: " + description + "]");
-      seen.add(description);
-    }
-    if (out.join("").length >= MAX_SNIP_TEXT) break;
-  }
-  return normalizeSnipText(out.join("\n"));
+  return assembleSnipFragments(fragments);
 }
 
 export function selectPageRegion() {
