@@ -41,7 +41,7 @@ function authorizeAuth(auth) {
   if (auth.token?.email_verified !== true) fail("EMAIL_UNVERIFIED");
   return auth.uid;
 }
-async function authorizeRole(db, auth) {
+export async function authorizeExtractionRole(db, auth) {
   const uid = authorizeAuth(auth);
   const role = await db.doc("roles/" + uid).get();
   const r = role.exists ? role.data() : null;
@@ -49,7 +49,7 @@ async function authorizeRole(db, auth) {
       (r.accountStatus ?? "active") !== "active") fail("ROLE_REQUIRED");
   return uid;
 }
-function validateStart(raw) {
+export function validateExtractionUpload(raw) {
   if (!plain(raw) || Object.keys(raw).some(k =>
     !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd","target"].includes(k)))
     fail("INVALID_FIELDS");
@@ -103,7 +103,7 @@ async function boundedResponse(response, limit, binary = false) {
   try { return JSON.parse(data.toString("utf8")); }
   catch { fail("MIMO_INVALID_RESPONSE"); }
 }
-function client(projectKey, fetchImpl) {
+export function createExtractionTransport(projectKey, fetchImpl) {
   checkConfig(projectKey);
   async function call(path, {method="GET",body,binary=false,header={},limit=MAX_JSON}={}) {
     let response;
@@ -165,8 +165,8 @@ function client(projectKey, fetchImpl) {
 export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetch,now=()=>Date.now()}={}) {
   if (!db?.doc || !db?.runTransaction) throw Error("Firestore required");
   async function start({auth,data}) {
-    const uid=await authorizeRole(db,auth);
-    const file=validateStart(data);
+    const uid=await authorizeExtractionRole(db,auth);
+    const file=validateExtractionUpload(data);
     checkConfig(projectKey);
     const jobId=sha(uid+":"+file.requestId);
     const jobRef=db.doc("mimoExtractionJobs/"+jobId);
@@ -198,7 +198,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
         source:null,error:null});
     });
     if (existing) return {jobId,state:existing.state,runId:existing.runId||null};
-    const mimo=client(projectKey,fetchImpl);
+    const mimo=createExtractionTransport(projectKey,fetchImpl);
     try {
       const artifact=await mimo.upload(file);
       let pages=1;
@@ -226,7 +226,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     }
   }
   async function list({auth,data}) {
-    const uid=await authorizeRole(db,auth);
+    const uid=await authorizeExtractionRole(db,auth);
     if (data && (typeof data!=="object" || Array.isArray(data) ||
         Object.keys(data).some(key=>key!=="limit"))) fail("INVALID_FIELDS");
     const limit=data?.limit ?? 25;
@@ -246,7 +246,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     }))};
   }
   async function owned(auth,jobId) {
-    const uid=await authorizeRole(db,auth);
+    const uid=await authorizeExtractionRole(db,auth);
     if (typeof jobId!=="string"||!SHA.test(jobId)) fail("INVALID_FIELDS");
     const ref=db.doc("mimoExtractionJobs/"+jobId),record=await ref.get();
     if (!record.exists || record.data()?.uid!==uid) fail("JOB_NOT_FOUND");
@@ -282,7 +282,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       return {state:stale?"attention":job.state,
         error:stale?"MIMO_OUTCOME_UNKNOWN":job.error||null,jobId:data.jobId};
     }
-    const mimo=client(projectKey,fetchImpl);
+    const mimo=createExtractionTransport(projectKey,fetchImpl);
     const run=await mimo.run(job.runId);
     let stageRows=[];
     try {stageRows=stages(await mimo.timeline(job.runId));}
@@ -306,7 +306,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
   async function image({auth,data}) {
     const {job}=await owned(auth,data?.jobId);
     if (!job.runId || job.state!=="completed") fail("JOB_NOT_READY");
-    const bytes=await client(projectKey,fetchImpl).png(job.runId);
+    const bytes=await createExtractionTransport(projectKey,fetchImpl).png(job.runId);
     if (bytes.length<8 || !bytes.subarray(0,8).equals(MIME["image/png"].head))
       fail("MIMO_INVALID_RESPONSE");
     return {contentType:"image/png",base64:bytes.toString("base64")};
