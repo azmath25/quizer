@@ -412,14 +412,18 @@ export function createBatchService({
             ...safeMimoRunDiagnostic(run.output)});
       }
       if(["running","queued"].includes(run.status)){
-        // Persist safe stage identifiers, never private prompts, outputs,
-        // provider responses or transcript contents.
+        // A previously uncertain run with an already-known ID can be
+        // reattached to normal polling: no additional /runs POST is needed.
+        const reattached=fromState==="attention";
+        const patch=reattached?{state:"submitted",error:null}:{};
         try{
           const {id,status}=publicBatchStage(await mimo.timeline(p.runId));
-          if(id!==p.stage||status!==p.stageStatus)
-            await mark(job.jobId,p.number,{state:fromState,runId:p.runId},
-              {stage:id,stageStatus:status});
-        }catch{ /* Timeline is supplemental. Do not hide a valid running job. */ }
+          if(id!==p.stage||status!==p.stageStatus){
+            patch.stage=id;patch.stageStatus=status;
+          }
+        }catch{ /* Timeline is supplemental; run status is authoritative. */ }
+        if(reattached||Object.keys(patch).length)
+          await mark(job.jobId,p.number,{state:fromState,runId:p.runId},patch);
       }
       // A running Mimo job is simply polled at the next scheduled tick.
     }catch(error){
