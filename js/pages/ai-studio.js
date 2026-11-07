@@ -206,7 +206,7 @@ function field(parent,label,initial,tag="textarea"){
   if(tag==="textarea"){el.rows=3;el.spellcheck=false;}
   wrap.append(el);parent.append(wrap);return el;
 }
-function reviewUI(container,result,sourceVerified){
+function reviewUI(container,result,sourceVerified,{batchJobId=null,reviewVersion=0}={}){
   if(!review||!result.page)return;
   const head=node("section","","ai-review");
   head.append(node("h2","Teacher review · "+review.items.length+" questions"));
@@ -219,7 +219,8 @@ function reviewUI(container,result,sourceVerified){
       if(!file)return;
       if(await verifySource(file,result.page)){
         originalSources.set(result.jobId,file);status("Original source verified.");
-        await selectJob(result.jobId);
+        if(batchJobId)await openBatchPage(batchJobId,result.page.source.page_number);
+        else await selectJob(result.jobId);
       }else status("File checksum does not match this extraction job.",true);
     };
     head.append(source);
@@ -270,6 +271,38 @@ function reviewUI(container,result,sourceVerified){
   }
   const importButtons=node("div","","ai-buttons");
   const title=field(head,"Private draft / import name","Reviewed mathematics page "+result.page.source.page_number,"input");
+  if(batchJobId){
+    const persist=node("button","Save this page's reviewed decisions","ai-primary");
+    persist.type="button";persist.disabled=!sourceVerified;
+    persist.onclick=async()=>{
+      persist.disabled=true;
+      try{
+        if(review.items.some(item=>item.decision==="pending"))
+          throw Error("Approve or reject every question before saving this page.");
+        const decisions=review.items.map(item=>({
+          itemId:item.id,action:item.decision,
+          edits:{
+            statement_latex:item.review.edited.statement_latex,
+            options:item.review.edited.options,
+            answer:item.review.edited.answer,
+            figure_description:item.review.edited.figure_description,
+          },
+          figure_assets:item.review.figure_assets,
+          verified_against_source:item.review.verified_against_source,
+          manual_marking_confirmed:item.review.manual_marking_confirmed,
+          reason:item.review.reason,
+        }));
+        const saved=await saveMimoBatchReview(batchJobId,
+          result.page.source.page_number,result.page.source.sha256,
+          reviewVersion,decisions);
+        status("Saved "+saved.approvedCount+" approved questions for page "+
+          saved.pageNumber+". Continue with other pages, then import the document.");
+        await selectJob(batchJobId);
+      }catch(e){status(safeError(e),true);persist.disabled=false;}
+    };
+    importButtons.append(persist);
+    head.append(importButtons);container.append(head);return;
+  }
   for(const target of ["quiz","bank"]){
     const button=node("button",target==="quiz"?"Import approved to private quiz":"Import approved to Problem Bank","ai-primary");
     button.type="button";button.disabled=!sourceVerified;
