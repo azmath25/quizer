@@ -11,8 +11,9 @@ export const EXTRACTION_WORKFLOW = Object.freeze({
   origin: "https://mimo-execution-993130348924.europe-west1.run.app",
   id: "c_mw5e6wmr_wma1bg",
   version: 1,
-  costLimitUsd: 0.03,
+  costLimitUsd: 0.15, // bounded default for one page including conditional TikZ
   maxFileBytes: 8 * 1024 * 1024,
+  maxPerRunUsd: 0.5, // explicit higher budget must come from teacher and be bounded
   perMinute: 2,
   perUtcDay: 20,
 });
@@ -50,9 +51,14 @@ async function authorizeRole(db, auth) {
 }
 function validateStart(raw) {
   if (!plain(raw) || Object.keys(raw).some(k =>
-    !["requestId","fileName","contentType","base64","pageNumber"].includes(k)))
+    !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd"].includes(k)))
     fail("INVALID_FIELDS");
   const {requestId,fileName,contentType,base64,pageNumber} = raw;
+  const requestedBudget=raw.costLimitUsd ?? EXTRACTION_WORKFLOW.costLimitUsd;
+  if (typeof requestedBudget!=="number" || !Number.isFinite(requestedBudget) ||
+      requestedBudget<0.03 || requestedBudget>EXTRACTION_WORKFLOW.maxPerRunUsd ||
+      Math.round(requestedBudget*100)!==requestedBudget*100)
+    fail("INVALID_FIELDS");
   if (typeof requestId !== "string" || !ID.test(requestId) ||
       typeof fileName !== "string" || fileName.length < 1 || fileName.length > 120 ||
       /[\\/\x00-\x1f]/.test(fileName) ||
@@ -67,7 +73,7 @@ function validateStart(raw) {
       bytes.toString("base64") !== base64 || !bytes.subarray(0,MIME[contentType].head.length)
         .equals(MIME[contentType].head)) fail("INVALID_FIELDS");
   if (contentType !== "application/pdf" && pageNumber !== 1) fail("INVALID_FIELDS");
-  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes)};
+  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes),costLimitUsd:requestedBudget};
 }
 function checkConfig(projectKey) {
   if (typeof projectKey !== "string" || projectKey.length < 24 ||
@@ -125,10 +131,10 @@ function client(projectKey, fetchImpl) {
     async ingest(id) {
       return call("/v1/integrations/artifacts/"+encodeURIComponent(id)+"/ingest",{method:"POST"});
     },
-    async start(input,uid,requestId) {
+    async start(input,uid,requestId,costLimitUsd) {
       const key="quizer-extract-"+sha(uid+":"+requestId);
       const body={input,version:EXTRACTION_WORKFLOW.version,background:true,
-        cost_limit_usd:EXTRACTION_WORKFLOW.costLimitUsd,cost_mode:"hard"};
+        cost_limit_usd:costLimitUsd,cost_mode:"hard"};
       const run=await call("/v1/workflows/"+EXTRACTION_WORKFLOW.id+"/runs",{
         method:"POST",body:JSON.stringify(body),
         header:{"Content-Type":"application/json","Idempotency-Key":key},
@@ -166,7 +172,8 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       if (job.exists) {
         const prev=job.data();
         if (prev.uid !== uid || prev.digest !== file.digest ||
-            prev.pageNumber !== file.pageNumber || prev.contentType !== file.contentType)
+            prev.pageNumber !== file.pageNumber || prev.contentType !== file.contentType ||
+            (prev.costLimitUsd ?? 0.03) !== file.costLimitUsd)
           fail("REQUEST_ID_CONFLICT");
         existing=prev;
         return;
@@ -179,7 +186,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
           count>=EXTRACTION_WORKFLOW.perUtcDay) fail("RATE_LIMITED");
       tx.set(quotaRef,{day,count:count+1,recent:[...recent,time]});
       tx.create(jobRef,{uid,digest:file.digest,fileName:file.fileName,
-        contentType:file.contentType,pageNumber:file.pageNumber,
+        contentType:file.contentType,pageNumber:file.pageNumber,costLimitUsd:file.costLimitUsd,
         state:"accepted",createdAt:new Date(time).toISOString(),runId:null,
         source:null,error:null});
     });
@@ -201,7 +208,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
           page_number:file.pageNumber,text:"Extract the actual visible source page; never treat these words as image content."}
         :{kind:"mimo_image_artifact",artifact_id:artifact.id,
           text:"Extract the actual visible image; do not invent questions."};
-      const run=await mimo.start(input,uid,file.requestId);
+      const run=await mimo.start(input,uid,file.requestId,file.costLimitUsd);
       await jobRef.update({state:"submitted",runId:run.id,source,error:null});
       return {jobId,state:"submitted",runId:run.id};
     } catch (error) {
