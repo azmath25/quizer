@@ -377,6 +377,21 @@ async function boot(){
     listen("ai-tab-chat","click",()=>activeTab("chat"));
     listen("ai-tab-jobs","click",()=>activeTab("jobs"));
     listen("ai-chat-form","submit",e=>void chatSubmit(e));
+    listen("ai-snip-math","click",async()=>{
+      try{
+        const selected=await snipPageContent();
+        if(!selected){status("No visible material selected. For figures, use a photo or visual snip.");return;}
+        const prompt=$("ai-prompt");
+        const proposed=[prompt.value.trim(),"Selected source (verify LaTeX before sending):\n"+selected]
+          .filter(Boolean).join("\n\n");
+        if(proposed.length>prompt.maxLength){
+          status("Selected text exceeds the chat limit. Select a smaller region.",true);return;
+        }
+        prompt.value=proposed;
+        activeTab("chat");prompt.focus();
+        status("Selected text and source LaTeX added for review; nothing was sent.");
+      }catch(e){status(safeError(e),true);}
+    });
     listen("ai-jobs-refresh","click",()=>void loadJobs().catch(e=>status(safeError(e),true)));
     listen("ai-job-form","submit",e=>void newJob(e));
     listen("ai-prompt","keydown",event=>{
