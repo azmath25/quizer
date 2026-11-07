@@ -25,7 +25,8 @@ function cleanThread(row) {
 }
 function cleanMessage(row) {
   return {id:row.id, role:row.role, content:row.body, requestId:row.request_id,
-    runId:row.mimo_run_id || null, createdAt:row.created_at};
+    runId:row.mimo_run_id || null, createdAt:row.created_at,
+    imageAssetId:row.image_asset_id||null,imageJobId:row.image_job_id||null};
 }
 function cleanDocument(row, includeText = false) {
   return {id:row.id, title:row.label, sourceType:row.source_type,
@@ -62,7 +63,7 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
       if(!meta.rowCount)throw new AiMemoryError("THREAD_NOT_FOUND");
       const data=await db.query(
         `SELECT * FROM (
-           SELECT id,role,body,request_id,mimo_run_id,created_at
+           SELECT id,role,body,request_id,mimo_run_id,image_asset_id,image_job_id,created_at
            FROM quizer_ai.messages WHERE owner_uid=$1 AND thread_id=$2
              AND ($3::uuid IS NULL OR (created_at,id) <
                (SELECT created_at,id FROM quizer_ai.messages
@@ -75,13 +76,16 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
         messages:(hasMore?data.rows.slice(1):data.rows).map(cleanMessage),
         hasMore};
     },
-    async saveTurn({uid,threadId,requestId,message,reply,runId}) {
+    async saveTurn({uid,threadId,requestId,message,reply,runId,
+      imageAssetId=null,imageJobId=null}) {
       owner(uid);
       const id = threadId ? identifier(threadId) : randomUUID();
       string(requestId,100);
       const input = string(message,3000);
       const output = string(reply,14000);
       if (runId != null) string(runId,128);
+      if(imageAssetId!==null&&!/^[A-Za-z0-9_-]{1,128}$/.test(imageAssetId))invalid();
+      if(imageJobId!==null&&!/^[a-f0-9]{64}$/.test(imageJobId))invalid();
       const client = await db.connect();
       try {
         await client.query("BEGIN");
@@ -99,8 +103,8 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
           throw new AiMemoryError("REQUEST_ID_CONFLICT");
         if (!prior.rowCount) {
           await client.query(
-            "INSERT INTO quizer_ai.messages(id,thread_id,owner_uid,request_id,role,body) VALUES($1,$2,$3,$4,'user',$5)",
-            [randomUUID(),id,uid,requestId,input]);
+            "INSERT INTO quizer_ai.messages(id,thread_id,owner_uid,request_id,role,body,image_asset_id,image_job_id) VALUES($1,$2,$3,$4,'user',$5,$6,$7)",
+            [randomUUID(),id,uid,requestId,input,imageAssetId,imageJobId]);
           await client.query(
             "INSERT INTO quizer_ai.messages(id,thread_id,owner_uid,request_id,role,body,mimo_run_id) VALUES($1,$2,$3,$4,'assistant',$5,$6)",
             [randomUUID(),id,uid,requestId,output,runId ?? null]);
