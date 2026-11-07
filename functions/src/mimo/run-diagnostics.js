@@ -10,6 +10,8 @@ export const SAFE_RUN_CODES=Object.freeze({
   provider_payload_too_large:"Provider rejected the request as too large.",
   provider_unprocessable_request:"Provider could not process the request.",
   provider_rate_limited:"Provider rate limit reached; do not resubmit this paid job blindly.",
+  model_rpm_exhausted:"Mimo request-per-minute cap reached; retry after capacity opens.",
+  model_tpm_exhausted:"Mimo token-per-minute cap is too low for this request; adjust the model policy.",
   provider_daily_quota_exhausted:"OpenRouter free daily request quota exhausted; retry after quota reset, not by re-uploading.",
   provider_request_rejected:"Provider rejected the extraction request.",
   provider_server_response_unknown:"Provider returned a server error; charges may be uncertain.",
