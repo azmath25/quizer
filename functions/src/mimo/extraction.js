@@ -51,9 +51,11 @@ async function authorizeRole(db, auth) {
 }
 function validateStart(raw) {
   if (!plain(raw) || Object.keys(raw).some(k =>
-    !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd"].includes(k)))
+    !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd","target"].includes(k)))
     fail("INVALID_FIELDS");
   const {requestId,fileName,contentType,base64,pageNumber} = raw;
+  const target=raw.target ?? "quiz";
+  if (!["quiz","bank","chat"].includes(target)) fail("INVALID_FIELDS");
   const requestedBudget=raw.costLimitUsd ?? EXTRACTION_WORKFLOW.costLimitUsd;
   if (typeof requestedBudget!=="number" || !Number.isFinite(requestedBudget) ||
       requestedBudget<0.03 || requestedBudget>EXTRACTION_WORKFLOW.maxPerRunUsd ||
@@ -73,7 +75,7 @@ function validateStart(raw) {
       bytes.toString("base64") !== base64 || !bytes.subarray(0,MIME[contentType].head.length)
         .equals(MIME[contentType].head)) fail("INVALID_FIELDS");
   if (contentType !== "application/pdf" && pageNumber !== 1) fail("INVALID_FIELDS");
-  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes),costLimitUsd:requestedBudget};
+  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes),costLimitUsd:requestedBudget,target};
 }
 function checkConfig(projectKey) {
   if (typeof projectKey !== "string" || projectKey.length < 24 ||
@@ -173,7 +175,8 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
         const prev=job.data();
         if (prev.uid !== uid || prev.digest !== file.digest ||
             prev.pageNumber !== file.pageNumber || prev.contentType !== file.contentType ||
-            (prev.costLimitUsd ?? 0.03) !== file.costLimitUsd)
+            (prev.costLimitUsd ?? 0.03) !== file.costLimitUsd ||
+            (prev.target ?? "quiz") !== file.target)
           fail("REQUEST_ID_CONFLICT");
         existing=prev;
         return;
@@ -186,7 +189,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
           count>=EXTRACTION_WORKFLOW.perUtcDay) fail("RATE_LIMITED");
       tx.set(quotaRef,{day,count:count+1,recent:[...recent,time]});
       tx.create(jobRef,{uid,digest:file.digest,fileName:file.fileName,
-        contentType:file.contentType,pageNumber:file.pageNumber,costLimitUsd:file.costLimitUsd,
+        contentType:file.contentType,pageNumber:file.pageNumber,costLimitUsd:file.costLimitUsd,target:file.target,
         state:"accepted",createdAt:new Date(time).toISOString(),runId:null,
         source:null,error:null});
     });
@@ -217,6 +220,26 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       if (error instanceof ExtractionError) throw error;
       fail("MIMO_UPSTREAM_UNAVAILABLE");
     }
+  }
+  async function list({auth,data}) {
+    const uid=await authorizeRole(db,auth);
+    if (data && (typeof data!=="object" || Array.isArray(data) ||
+        Object.keys(data).some(key=>key!=="limit"))) fail("INVALID_FIELDS");
+    const limit=data?.limit ?? 25;
+    if(!Number.isInteger(limit)||limit<1||limit>50)fail("INVALID_FIELDS");
+    // Ownership filter is executed server-side. Sorting in memory avoids an
+    // unnecessary Firestore composite index on the first deployment.
+    const docs=await db.collection("mimoExtractionJobs")
+      .where("uid","==",uid).limit(50).get();
+    const rows=docs.docs.map(item=>({id:item.id,...item.data()}))
+      .sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))
+      .slice(0,limit);
+    return {jobs:rows.map(item=>({
+      jobId:item.id,state:item.state,fileName:item.fileName,
+      pageNumber:item.pageNumber,createdAt:item.createdAt,
+      target:item.target??"quiz",costLimitUsd:item.costLimitUsd??0.03,
+      runId:item.runId??null,error:item.error??null,
+    }))};
   }
   async function owned(auth,jobId) {
     const uid=await authorizeRole(db,auth);
@@ -259,5 +282,5 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       fail("MIMO_INVALID_RESPONSE");
     return {contentType:"image/png",base64:bytes.toString("base64")};
   }
-  return Object.freeze({start,status,image});
+  return Object.freeze({start,status,image,list});
 }
