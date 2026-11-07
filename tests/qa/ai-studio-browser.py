@@ -152,6 +152,15 @@ try:
         page.locator("#ai-job-total-budget").fill("0.50")
         check("remaining pages will stop" in page.locator("#ai-job-estimate").inner_text(),
               "Hard document budget warning missing")
+        page.locator("#ai-job-file").set_input_files({
+          "name":"local-math.pdf","mimeType":"application/pdf",
+          "buffer":b"%PDF-1.7\n1 0 obj <<>>\nendobj\n%%EOF",
+        })
+        page.locator(".axiom-preview-pdf").wait_for(timeout=5000)
+        check(page.locator("#ai-upload-consent").is_checked()==False,
+              "Local preview must never consent to Mimo upload")
+        check(page.locator(".axiom-preview-feedback").count()==1,
+              "Private PDF preview feedback missing")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
         page.locator("#ai-tab-chat").click()
