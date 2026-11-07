@@ -5,7 +5,7 @@
  * An ambiguous dispatch is NEVER silently replayed.
  */
 import {createHash, randomUUID} from "node:crypto";
-import {validateExtractedPage} from "../../shared/mimo-extraction.js";
+import {validateExtractedPage,createExtractionReview,decideExtractionQuestion,prepareReviewedExtractionImport} from "../../shared/mimo-extraction.js";
 import {
   EXTRACTION_WORKFLOW,ExtractionError,authorizeExtractionRole,
   validateExtractionUpload,createExtractionTransport,
@@ -186,6 +186,7 @@ export function createBatchService({
     if(!snap.exists||snap.data().uid!==job.uid)fail("JOB_NOT_READY");
     return {jobId:job.jobId,pageNumber:n,
       page:snap.data().page,review:snap.data().review||null,
+      reviewVersion:snap.data().reviewVersion||0,
       hasReconstruction:job.pages.find(p=>p.number===n).hasReconstruction===true};
   }
   async function image({auth,data}){
@@ -199,6 +200,94 @@ export function createBatchService({
     if(bytes.length>4*1024*1024||!bytes.subarray(0,8)
       .equals(Buffer.from([137,80,78,71,13,10,26,10])))fail("MIMO_INVALID_RESPONSE");
     return {contentType:"image/png",base64:bytes.toString("base64")};
+  }
+
+
+  async function reviewPage({auth,data}){
+    if(!isObj(data)||Object.keys(data).some(k=>![
+      "jobId","pageNumber","sourceSha256","expectedVersion","decisions"
+    ].includes(k)))fail("INVALID_FIELDS");
+    const {job}=await owned(auth,data.jobId);
+    const n=data.pageNumber,decisions=data.decisions;
+    if(job.digest!==data.sourceSha256||!Number.isInteger(n)||
+        !Number.isInteger(data.expectedVersion)||data.expectedVersion<0||
+        !Array.isArray(decisions)||decisions.length>150||
+        !job.pages?.some(p=>p.number===n&&p.state==="completed"))
+      fail("INVALID_FIELDS");
+    const ref=recordRef(job.jobId,n),snapshot=await ref.get();
+    if(!snapshot.exists||snapshot.data().uid!==job.uid)fail("JOB_NOT_READY");
+    const extracted=snapshot.data().page;
+    let review=createExtractionReview(extracted,extracted.source);
+    if(decisions.length!==review.items.length)fail("INVALID_FIELDS");
+    const seen=new Set();
+    for(const d of decisions){
+      if(!isObj(d)||typeof d.itemId!=="string"||seen.has(d.itemId))
+        fail("INVALID_FIELDS");
+      seen.add(d.itemId);
+      // A generated diagram becomes importable only after explicit teacher
+      // review AND an owner-scoped, ready Quizer image asset reference.
+      if(d.action==="approve"){
+        for(const assetId of Object.values(d.figure_assets||{})){
+          if(typeof assetId!=="string"||!/^[a-zA-Z0-9_-]{1,128}$/.test(assetId))
+            fail("INVALID_FIELDS");
+          const image=await db.doc("assets/"+assetId).get();
+          if(!image.exists||image.data()?.ownerId!==job.uid||
+            image.data()?.status!=="ready"||image.data()?.kind!=="image")
+            fail("INVALID_FIGURE_ASSET");
+        }
+      }
+      review=decideExtractionQuestion(review,d.itemId,{
+        action:d.action,edits:d.edits||{},
+        figure_assets:d.figure_assets||{},
+        verified_against_source:d.verified_against_source===true,
+        manual_marking_confirmed:d.manual_marking_confirmed===true,
+        reason:d.reason??null,
+      },job.uid);
+    }
+    if(review.items.some(item=>item.decision==="pending"))fail("INVALID_FIELDS");
+    const approved=review.items.filter(item=>item.decision==="approve").length;
+    if(approved){
+      // Source/answer/figure/Quizer schema and TeX parser round trip.
+      prepareReviewedExtractionImport(review,{title:"Reviewed page "+n});
+    }
+    await db.runTransaction(async tx=>{
+      const current=await tx.get(ref);
+      if(!current.exists||current.data().uid!==job.uid)
+        fail("JOB_NOT_READY");
+      if((current.data().reviewVersion||0)!==data.expectedVersion)
+        fail("REVIEW_VERSION_CONFLICT");
+      tx.update(ref,{review,reviewVersion:data.expectedVersion+1,
+        reviewedAt:time(),approvedCount:approved});
+    });
+    return {jobId:job.jobId,pageNumber:n,
+      approvedCount:approved,reviewVersion:data.expectedVersion+1};
+  }
+  async function prepared({auth,data}){
+    if(!isObj(data)||Object.keys(data).some(k=>k!=="jobId"))fail("INVALID_FIELDS");
+    const {job}=await owned(auth,data.jobId);
+    if(job.state!=="ready_review"||!Array.isArray(job.pages)||
+      job.pages.some(p=>p.state!=="completed"))fail("JOB_NOT_READY");
+    const all=[];
+    for(const p of job.pages){
+      const snap=await recordRef(job.jobId,p.number).get();
+      if(!snap.exists||snap.data().uid!==job.uid)fail("JOB_NOT_READY");
+      const review=snap.data().review;
+      if(!review||review.items?.some(item=>!["approve","reject"].includes(item.decision)))
+        fail("REVIEW_INCOMPLETE");
+      if(!review.items.some(item=>item.decision==="approve"))continue;
+      const verified=prepareReviewedExtractionImport(review,{title:"Reviewed page "+p.number});
+      all.push(...verified.items);
+      if(all.length>500)fail("MIMO_INVALID_EXTRACTION");
+    }
+    if(!all.length)fail("REVIEW_INCOMPLETE");
+    const title="Reviewed mathematics extraction";
+    const latex="\\quiztitle{"+title+"}\n"+
+      all.map(item=>item.tex).join("\n\n")+"\n";
+    if(Buffer.byteLength(latex,"utf8")>750000)fail("MIMO_INVALID_EXTRACTION");
+    return {schema:"quizer.reviewed_import.v1",sourceJobId:job.jobId,
+      title,items:all,latex,required_assets:[...new Set(all.flatMap(item=>
+        Object.keys(item.content.questionAssetBindings||{})))].sort(),
+      automatically_saved:false,published:false};
   }
 
   // Worker-only: not callable by the browser. Claims are transactionally fenced.
@@ -315,5 +404,5 @@ export function createBatchService({
     }
     return {visited};
   }
-  return Object.freeze({start,list,status,getPage,image,sweep});
+  return Object.freeze({start,list,status,getPage,image,reviewPage,prepared,sweep});
 }
