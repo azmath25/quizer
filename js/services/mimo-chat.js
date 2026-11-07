@@ -47,6 +47,7 @@ export function mimoChatErrorMessage(error) {
 
 export async function sendTeacherChatMessage({
   message, context = "", history = [], requestId = crypto.randomUUID(), threadId = null,
+  imageJobId = null, imageAssetId = null,
 } = {}) {
   const before = getSession();
   if (!canUseMimoTeacherChat(before)) {
@@ -67,6 +68,8 @@ export async function sendTeacherChatMessage({
   const payload = {
     action: "chat.send",
     ...(threadId ? {threadId} : {}),
+    ...(imageJobId ? {imageJobId} : {}),
+    ...(imageAssetId ? {imageAssetId} : {}),
     message: text,
     context: String(context || "").slice(0, 4000),
     history: boundedHistory,
