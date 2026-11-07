@@ -27,7 +27,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install static test dependencies
-        run: npm ci --no-audit --no-fund
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
       - name: JavaScript and browser-smoke syntax
         run: |
           node --check js/pages/ai-studio.js
