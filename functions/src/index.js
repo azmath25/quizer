@@ -206,6 +206,10 @@ export const mimoExtractImage=onCall({
   region:REGION,memory:"256MiB",timeoutSeconds:120,maxInstances:2,
   enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
 },request=>extractionAction("image",request));
+export const mimoExtractList=onCall({
+  region:REGION,memory:"256MiB",timeoutSeconds:60,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>extractionAction("list",request));
 
 /**
  * Shared teacher AI hub: existing popup and AI Studio conversations use the
