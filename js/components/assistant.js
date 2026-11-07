@@ -5,7 +5,7 @@ import {
 import {
   prepareFloatingAssistantRequest, isUncertainAssistantError,
 } from "../services/floating-assistant-chat.js";
-import { renderChatMarkdown } from "./ai-chat-markdown.js";
+import { renderChatMarkdown, typesetChatMarkdown } from "./ai-chat-markdown.js";
 import { e, dialog, confirmDialog, toast } from "./ui.js";
 import { snipPageContent } from "./page-snip.js";
 import { snip } from "./snip.js";
@@ -248,7 +248,7 @@ async function send({ prompt, files = [] }) {
   busy = true;
   const submit = form.querySelector('button[type="submit"]');
   submit.disabled = true;
-  input.readOnly = true;
+  input.value = ""; // submitted message is already visible in chat
   form.setAttribute("aria-busy","true");
   save();
   render(true);
@@ -266,10 +266,11 @@ async function send({ prompt, files = [] }) {
       role:"assistant", text:response.reply, confirmed:true,
       runId:response.runId || null,
     });
-    if (input.value === oldDraft) input.value = "";
+    // Preserve the next draft written while Mimo is working.
   } catch (error) {
     if (generation !== myGeneration || mountedUid !== myOwner || !root) return;
     const uncertain = isUncertainAssistantError(error);
+    if (!input.value) input.value = oldDraft;
     state.messages.push({
       role:"assistant", error:true, confirmed:false,
       text:mimoChatErrorMessage(error) +
@@ -294,8 +295,8 @@ function render(thinking = false) {
     (state.messages.length ? "" : welcome) +
     state.messages.map((m, i) => {
       if (m.role === "user")
-        return `<div class="ai-msg user"><p>${e(m.text)}</p></div>`;
-      return `<div class="ai-msg assistant ${m.error ? "error" : ""}"><div class="ai-rich" data-ai-rich="${i}"></div></div>`;
+        return `<div class="ai-msg user"><p>${e(m.text)}</p><button type="button" class="ai-copy-msg" data-ai="copy-msg" data-i="${i}" aria-label="Copy your message">Copy</button></div>`;
+      return `<div class="ai-msg assistant ${m.error ? "error" : ""}"><div class="ai-rich" data-ai-rich="${i}"></div><button type="button" class="ai-copy-msg" data-ai="copy-msg" data-i="${i}" aria-label="Copy assistant message">Copy</button></div>`;
     }).join("") +
     (thinking
       ? `<div class="ai-msg assistant" role="status"><p class="ai-typing" aria-label="Mimo is thinking"><i></i><i></i><i></i></p></div>`
@@ -304,11 +305,24 @@ function render(thinking = false) {
     const message = state.messages[Number(node.dataset.aiRich)];
     if (message) renderChatMarkdown(node, message.text);
   }
-  if (typeof typeset === "function") void typeset(log);
+  if (typeof typeset === "function") void typesetChatMarkdown(log,typeset);
   log.scrollTop = log.scrollHeight;
 }
 
-function onLogClick(event) {
+async function onLogClick(event) {
+  const copy = event.target.closest("[data-ai=copy-msg]");
+  if (copy) {
+    const index=Number(copy.dataset.i);
+    const message=Number.isInteger(index)?state.messages[index]:null;
+    if (!message) return;
+    try {
+      await navigator.clipboard.writeText(message.text);
+      copy.textContent="Copied";
+    } catch {
+      toast("Copy unavailable. Select the message text to copy it.",{tone:"info"});
+    }
+    return;
+  }
   if (event.target.closest("[data-ai=how]")) {
     state.messages.push({
       role:"assistant", confirmed:false,
