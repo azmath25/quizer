@@ -12,7 +12,7 @@ import {uploadAsset} from "../services/assets.js";
 
 const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access");
-let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null;
+let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null,hasOlder=false;
 let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="";
 const originalSources=new Map();
 let transientUrls=[];
