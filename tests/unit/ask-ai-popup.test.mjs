@@ -117,7 +117,7 @@ function setup() {
     newChat: find(".qa-action"), log: find(".qa-log")};
 }
 
-test("verified teacher can send once, clears composer immediately and sends completed history", async () => {
+test("verified teacher can send once, clears submitted draft immediately and sends completed history", async () => {
   const h = setup();
   let resolve;
   responder = () => new Promise(r => {resolve = r;});
@@ -157,7 +157,6 @@ test("verified teacher can send once, clears composer immediately and sends comp
   assert.deepEqual(calls[2].history, []);
   h.popup.close();
 });
-
 
 test("every message has a working copy button and a new draft survives a pending reply",async()=>{
   const h=setup(),original=globalThis.navigator;

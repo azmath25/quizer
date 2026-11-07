@@ -236,7 +236,6 @@
 .ai-msg .ai-typing { margin: 0; }
 .ai-composer[aria-busy="true"] { opacity: .85; }
 
-
 /* Copyable math chat; preserve original TeX alongside any compilation error. */
 .ai-copy-msg{display:block;margin-top:7px;margin-left:auto;border:1px solid var(--border);border-radius:7px;padding:3px 8px;background:transparent;color:inherit;opacity:.85;font-size:.72rem;cursor:pointer}
 .ai-copy-msg:hover,.ai-copy-msg:focus-visible{opacity:1;border-color:var(--accent)}

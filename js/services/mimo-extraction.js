@@ -33,7 +33,7 @@ function encode(bytes) {
     text+=String.fromCharCode(...bytes.subarray(i,i+32768));
   return btoa(text);
 }
-export async function submitMimoExtraction(file, pageNumber=1) {
+export async function submitMimoExtraction(file, pageNumber=1, {costLimitUsd=0.15,target="quiz",imageAssetId=null}={}) {
   if (!(file instanceof File)||!file.size||file.size>MAX_MIMO_FILE_BYTES)
     throw Error("Choose a nonempty PDF, PNG or JPEG up to 8 MiB.");
   const type=/\.pdf$/i.test(file.name)?"application/pdf":
@@ -51,7 +51,8 @@ export async function submitMimoExtraction(file, pageNumber=1) {
   try {
     const result=await invoke("mimoExtractStart",{
       requestId,fileName:file.name.slice(0,120),contentType:type,base64,
-      pageNumber:type==="application/pdf"?pageNumber:1,
+      pageNumber:type==="application/pdf"?pageNumber:1,costLimitUsd,target,
+      ...(imageAssetId?{imageAssetId}:{}) ,
     });
     return {...result,requestId};
   } catch(e) {
@@ -59,7 +60,43 @@ export async function submitMimoExtraction(file, pageNumber=1) {
     throw e;
   }
 }
+
+/** Whole-document extraction uses one uploaded source and durable page tasks. */
+export async function submitMimoBatch(file,{
+  target="quiz",pageStart=1,pageEnd=0,perPageUsd=0.15,totalUsd=15,
+}={}){
+  if(!(file instanceof File)||!file.size||file.size>MAX_MIMO_FILE_BYTES)
+    throw Error("Choose a nonempty PDF, PNG or JPEG up to 8 MiB.");
+  const type=/\.pdf$/i.test(file.name)?"application/pdf":
+    /\.png$/i.test(file.name)?"image/png":
+      /\.jpe?g$/i.test(file.name)?"image/jpeg":null;
+  if(!type)throw Error("Mimo supports PDF, PNG and JPEG only.");
+  const before=getSession();ensureTeacher(before);
+  const base64=encode(new Uint8Array(await file.arrayBuffer()));
+  if(!sameUser(before))throw Error("Session changed before upload.");
+  const requestId=crypto.randomUUID();
+  try{
+    return {...await invoke("mimoBatchStart",{
+      requestId,fileName:file.name.slice(0,120),contentType:type,base64,
+      target,pageStart,pageEnd,perPageUsd,totalUsd,
+    }),requestId};
+  }catch(error){error.requestId=requestId;throw error;}
+}
+export const listMimoBatches=()=>invoke("mimoBatchList",{limit:30},30000);
+export const readMimoBatch=jobId=>invoke("mimoBatchStatus",{jobId},30000);
+export const readMimoBatchPage=(jobId,pageNumber)=>
+  invoke("mimoBatchGetPage",{jobId,pageNumber},30000);
+export const readMimoBatchImage=(jobId,pageNumber)=>
+  invoke("mimoBatchImage",{jobId,pageNumber});
+export const saveMimoBatchReview=(jobId,pageNumber,sourceSha256,expectedVersion,decisions)=>
+  invoke("mimoBatchReviewPage",{
+    jobId,pageNumber,sourceSha256,expectedVersion,decisions,
+  });
+export const readMimoBatchPrepared=jobId=>
+  invoke("mimoBatchPrepared",{jobId},60000);
+
 export const readMimoExtraction=jobId=>invoke("mimoExtractStatus",{jobId});
+export const listMimoExtractions=()=>invoke("mimoExtractList",{limit:30},30000);
 export const readMimoPng=jobId=>invoke("mimoExtractImage",{jobId});
 export function buildTeacherReview(page) {
   return createExtractionReview({

@@ -15,6 +15,10 @@ import { sweep } from "./jobs/sweeper.js";
 import { REGION, ENFORCE_APP_CHECK } from "./config.js";
 import { createTeacherChat, TeacherChatError } from "./mimo/teacher-chat.js";
 import { createExtractionService, ExtractionError } from "./mimo/extraction.js";
+import {createBatchService} from "./mimo/batch.js";
+import {createAiHub,aiHubErrorCode} from "./mimo/ai-hub.js";
+import {sharedAiMemoryStore} from "./mimo/memory-store.js";
+import {createMemoryCompactor} from "./mimo/compact-memory.js";
 initializeApp();
 const db = getFirestore();
 
@@ -177,6 +181,8 @@ const extractionErrors={
   MIMO_REQUEST_REJECTED:"failed-precondition",
   MIMO_INVALID_EXTRACTION:"failed-precondition",
   MIMO_INVALID_RESPONSE:"unavailable",
+  INVALID_FIGURE_ASSET:"failed-precondition",
+  REVIEW_VERSION_CONFLICT:"aborted",REVIEW_INCOMPLETE:"failed-precondition",
 };
 async function extractionAction(action,request) {
   try {
@@ -203,3 +209,110 @@ export const mimoExtractImage=onCall({
   region:REGION,memory:"256MiB",timeoutSeconds:120,maxInstances:2,
   enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
 },request=>extractionAction("image",request));
+export const mimoExtractList=onCall({
+  region:REGION,memory:"256MiB",timeoutSeconds:60,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>extractionAction("list",request));
+
+
+/** Whole-document background jobs; all interactive actions enforce owner role. */
+async function batchAction(action,request) {
+  try {
+    const service=createBatchService({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value()});
+    return await service[action]({auth:request.auth,data:request.data});
+  }catch(error) {
+    if(error instanceof ExtractionError)
+      throw new HttpsError(extractionErrors[error.code]||"failed-precondition",
+        error.code,{reason:error.code});
+    console.error("mimo_batch_internal_failure");
+    throw new HttpsError("internal","Background extraction is temporarily unavailable.");
+  }
+}
+for (const [name,method,memory] of [
+  ["mimoBatchStart","start","512MiB"],
+  ["mimoBatchList","list","256MiB"],
+  ["mimoBatchStatus","status","256MiB"],
+  ["mimoBatchGetPage","getPage","256MiB"],
+  ["mimoBatchImage","image","256MiB"],
+]) {
+  // See the statically exported functions below; this table documents the
+  // corresponding action, but never dynamically constructs Firebase triggers.
+  void name;void method;void memory;
+}
+const batchCallable=(action,memory="256MiB")=>onCall({
+  region:REGION,memory,timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>batchAction(action,request));
+export const mimoBatchStart=batchCallable("start","512MiB");
+export const mimoBatchList=batchCallable("list");
+export const mimoBatchStatus=batchCallable("status");
+export const mimoBatchGetPage=batchCallable("getPage");
+export const mimoBatchImage=batchCallable("image");
+export const mimoBatchReviewPage=batchCallable("reviewPage");
+export const mimoBatchPrepared=batchCallable("prepared","512MiB");
+export const mimoBatchSweep=onSchedule({
+  schedule:"every 1 minutes",region:REGION,memory:"512MiB",
+  timeoutSeconds:120,maxInstances:1,secrets:extractionSecrets,
+},async()=>{
+  try {
+    await createBatchService({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value()})
+      .sweep(6);
+  }catch {
+    console.error("mimo_batch_sweep_unavailable");
+  }
+});
+
+/**
+ * Shared teacher AI hub: existing popup and AI Studio conversations use the
+ * same owner-scoped Neon threads. No browser receives Neon or Mimo keys.
+ * Keep old mimoTeacherChat available for previously deployed clients.
+ */
+const aiHubErrors={
+  AUTH_REQUIRED:"unauthenticated",EMAIL_UNVERIFIED:"permission-denied",
+  ROLE_REQUIRED:"permission-denied",INVALID_FIELDS:"invalid-argument",
+  THREAD_NOT_FOUND:"not-found",DOCUMENT_NOT_FOUND:"not-found",
+  DOCUMENT_NOT_READY:"failed-precondition",REQUEST_ID_CONFLICT:"already-exists",
+  RATE_LIMITED:"resource-exhausted",MIMO_RATE_LIMITED:"resource-exhausted",
+  MIMO_OUTCOME_UNKNOWN:"unavailable",MIMO_NOT_COMPLETED:"unavailable",
+  MIMO_UNAVAILABLE:"unavailable",MIMO_INVALID_RESPONSE:"unavailable",
+  MIMO_UPSTREAM_UNAVAILABLE:"unavailable",MIMO_PROJECT_NOT_AUTHORIZED:"failed-precondition",
+  MEMORY_NOT_CONFIGURED:"failed-precondition",
+};
+export const mimoAiHub=onCall({
+  region:REGION,memory:"512MiB",timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,
+  secrets:[QUIZER_MIMO_PROJECT_KEY,NEON_URL],
+},async request=>{
+  try {
+    return await createAiHub({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value(),
+      databaseUrl:NEON_URL.value()})({auth:request.auth,data:request.data});
+  }catch(error) {
+    const reason=aiHubErrorCode(error) ||
+      (error instanceof TeacherChatError?error.code:null);
+    if(reason)throw new HttpsError(aiHubErrors[reason]||"failed-precondition",
+      reason,{reason});
+    console.error("mimo_ai_hub_internal_failure");
+    throw new HttpsError("internal","AI Studio is temporarily unavailable.");
+  }
+});
+
+/**
+ * Bound-cost asynchronous memory updater. One claimed conversation segment
+ * per scheduled execution; no automatic retry after ambiguous provider calls.
+ */
+export const mimoAiMemorySweep=onSchedule({
+  schedule:"every 5 minutes",region:REGION,memory:"256MiB",
+  timeoutSeconds:120,maxInstances:1,
+  secrets:[QUIZER_MIMO_PROJECT_KEY,NEON_URL],
+},async()=>{
+  try {
+    const compact=createMemoryCompactor({
+      store:sharedAiMemoryStore(NEON_URL.value()),
+      projectKey:QUIZER_MIMO_PROJECT_KEY.value(),
+    });
+    const result=await compact();
+    if(result.attention)console.warn("ai_memory_sweep_attention");
+  }catch {
+    console.error("ai_memory_sweep_unavailable");
+  }
+});

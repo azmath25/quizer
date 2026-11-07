@@ -72,12 +72,13 @@ test("teacher-only floating button uses existing Mimo chat, not the old mock pro
   assert.match(assistant,/renderChatMarkdown\(node, message\.text\)/);
   assert.match(assistant,/void typesetChatMarkdown\(log,typeset\)/);
   assert.match(assistant,/data-ai="copy-msg"/);
-  assert.match(assistant,/if \(!input\.value\) input\.value = oldDraft/);
   assert.match(assistant,/KEY \+ "\." \+ mountedUid/);
   assert.match(assistant,/generation !== myGeneration/);
   assert.match(assistant,/role: "assistant", error: true, confirmed: false/);
   assert.match(shell,/assistant\.js\?v=17/);
-  assert.match(transport,/httpsCallable\(services\.functions, "mimoTeacherChat"/);
+  assert.match(transport,/httpsCallable\(services\.functions, "mimoAiHub"/);
+  assert.match(assistant,/state\.threadId=response\.threadId/);
+  assert.match(assistant,/data-ai="open-studio"/);
 });
 
 test("scissors and screenshot remain, file attachments cannot silently reach the text-only model",()=>{

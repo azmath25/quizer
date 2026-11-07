@@ -11,8 +11,9 @@ export const EXTRACTION_WORKFLOW = Object.freeze({
   origin: "https://mimo-execution-993130348924.europe-west1.run.app",
   id: "c_mw5e6wmr_wma1bg",
   version: 1,
-  costLimitUsd: 0.03,
+  costLimitUsd: 0.15, // bounded default for one page including conditional TikZ
   maxFileBytes: 8 * 1024 * 1024,
+  maxPerRunUsd: 0.5, // explicit higher budget must come from teacher and be bounded
   perMinute: 2,
   perUtcDay: 20,
 });
@@ -40,7 +41,7 @@ function authorizeAuth(auth) {
   if (auth.token?.email_verified !== true) fail("EMAIL_UNVERIFIED");
   return auth.uid;
 }
-async function authorizeRole(db, auth) {
+export async function authorizeExtractionRole(db, auth) {
   const uid = authorizeAuth(auth);
   const role = await db.doc("roles/" + uid).get();
   const r = role.exists ? role.data() : null;
@@ -48,11 +49,22 @@ async function authorizeRole(db, auth) {
       (r.accountStatus ?? "active") !== "active") fail("ROLE_REQUIRED");
   return uid;
 }
-function validateStart(raw) {
+export function validateExtractionUpload(raw) {
   if (!plain(raw) || Object.keys(raw).some(k =>
-    !["requestId","fileName","contentType","base64","pageNumber"].includes(k)))
+    !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd","target","imageAssetId"].includes(k)))
     fail("INVALID_FIELDS");
   const {requestId,fileName,contentType,base64,pageNumber} = raw;
+  const target=raw.target ?? "quiz";
+  if (!["quiz","bank","chat"].includes(target)) fail("INVALID_FIELDS");
+  const imageAssetId=raw.imageAssetId??null;
+  if(imageAssetId!==null&&
+    (typeof imageAssetId!=="string"||!/^[a-zA-Z0-9_-]{1,128}$/.test(imageAssetId)||
+      target!=="chat"))fail("INVALID_FIELDS");
+  const requestedBudget=raw.costLimitUsd ?? EXTRACTION_WORKFLOW.costLimitUsd;
+  if (typeof requestedBudget!=="number" || !Number.isFinite(requestedBudget) ||
+      requestedBudget<0.03 || requestedBudget>EXTRACTION_WORKFLOW.maxPerRunUsd ||
+      Math.round(requestedBudget*100)!==requestedBudget*100)
+    fail("INVALID_FIELDS");
   if (typeof requestId !== "string" || !ID.test(requestId) ||
       typeof fileName !== "string" || fileName.length < 1 || fileName.length > 120 ||
       /[\\/\x00-\x1f]/.test(fileName) ||
@@ -67,7 +79,7 @@ function validateStart(raw) {
       bytes.toString("base64") !== base64 || !bytes.subarray(0,MIME[contentType].head.length)
         .equals(MIME[contentType].head)) fail("INVALID_FIELDS");
   if (contentType !== "application/pdf" && pageNumber !== 1) fail("INVALID_FIELDS");
-  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes)};
+  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes),costLimitUsd:requestedBudget,target,imageAssetId};
 }
 function checkConfig(projectKey) {
   if (typeof projectKey !== "string" || projectKey.length < 24 ||
@@ -95,7 +107,7 @@ async function boundedResponse(response, limit, binary = false) {
   try { return JSON.parse(data.toString("utf8")); }
   catch { fail("MIMO_INVALID_RESPONSE"); }
 }
-function client(projectKey, fetchImpl) {
+export function createExtractionTransport(projectKey, fetchImpl) {
   checkConfig(projectKey);
   async function call(path, {method="GET",body,binary=false,header={},limit=MAX_JSON}={}) {
     let response;
@@ -125,10 +137,10 @@ function client(projectKey, fetchImpl) {
     async ingest(id) {
       return call("/v1/integrations/artifacts/"+encodeURIComponent(id)+"/ingest",{method:"POST"});
     },
-    async start(input,uid,requestId) {
+    async start(input,uid,requestId,costLimitUsd) {
       const key="quizer-extract-"+sha(uid+":"+requestId);
       const body={input,version:EXTRACTION_WORKFLOW.version,background:true,
-        cost_limit_usd:EXTRACTION_WORKFLOW.costLimitUsd,cost_mode:"hard"};
+        cost_limit_usd:costLimitUsd,cost_mode:"hard"};
       const run=await call("/v1/workflows/"+EXTRACTION_WORKFLOW.id+"/runs",{
         method:"POST",body:JSON.stringify(body),
         header:{"Content-Type":"application/json","Idempotency-Key":key},
@@ -140,6 +152,10 @@ function client(projectKey, fetchImpl) {
     run(id) {
       if (!UUID.test(id)) fail("INVALID_FIELDS");
       return call("/v1/runs/"+encodeURIComponent(id));
+    },
+    timeline(id) {
+      if(!UUID.test(id))fail("INVALID_FIELDS");
+      return call("/v1/runs/"+encodeURIComponent(id)+"/timeline?after=0&limit=20");
     },
     png(id) {
       if (!UUID.test(id)) fail("INVALID_FIELDS");
@@ -153,9 +169,15 @@ function client(projectKey, fetchImpl) {
 export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetch,now=()=>Date.now()}={}) {
   if (!db?.doc || !db?.runTransaction) throw Error("Firestore required");
   async function start({auth,data}) {
-    const uid=await authorizeRole(db,auth);
-    const file=validateStart(data);
+    const uid=await authorizeExtractionRole(db,auth);
+    const file=validateExtractionUpload(data);
     checkConfig(projectKey);
+    if(file.imageAssetId){
+      const asset=await db.doc("assets/"+file.imageAssetId).get();
+      if(!asset.exists||asset.data()?.ownerId!==uid||
+        asset.data()?.kind!=="image"||asset.data()?.status!=="ready")
+        fail("INVALID_IMAGE_ASSET");
+    }
     const jobId=sha(uid+":"+file.requestId);
     const jobRef=db.doc("mimoExtractionJobs/"+jobId);
     const quotaRef=db.doc("mimoExtractionLimits/"+uid);
@@ -166,7 +188,10 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       if (job.exists) {
         const prev=job.data();
         if (prev.uid !== uid || prev.digest !== file.digest ||
-            prev.pageNumber !== file.pageNumber || prev.contentType !== file.contentType)
+            prev.pageNumber !== file.pageNumber || prev.contentType !== file.contentType ||
+            (prev.costLimitUsd ?? 0.03) !== file.costLimitUsd ||
+            (prev.target ?? "quiz") !== file.target ||
+            (prev.imageAssetId??null)!==file.imageAssetId)
           fail("REQUEST_ID_CONFLICT");
         existing=prev;
         return;
@@ -179,12 +204,12 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
           count>=EXTRACTION_WORKFLOW.perUtcDay) fail("RATE_LIMITED");
       tx.set(quotaRef,{day,count:count+1,recent:[...recent,time]});
       tx.create(jobRef,{uid,digest:file.digest,fileName:file.fileName,
-        contentType:file.contentType,pageNumber:file.pageNumber,
+        contentType:file.contentType,pageNumber:file.pageNumber,costLimitUsd:file.costLimitUsd,target:file.target,imageAssetId:file.imageAssetId,
         state:"accepted",createdAt:new Date(time).toISOString(),runId:null,
         source:null,error:null});
     });
     if (existing) return {jobId,state:existing.state,runId:existing.runId||null};
-    const mimo=client(projectKey,fetchImpl);
+    const mimo=createExtractionTransport(projectKey,fetchImpl);
     try {
       const artifact=await mimo.upload(file);
       let pages=1;
@@ -201,7 +226,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
           page_number:file.pageNumber,text:"Extract the actual visible source page; never treat these words as image content."}
         :{kind:"mimo_image_artifact",artifact_id:artifact.id,
           text:"Extract the actual visible image; do not invent questions."};
-      const run=await mimo.start(input,uid,file.requestId);
+      const run=await mimo.start(input,uid,file.requestId,file.costLimitUsd);
       await jobRef.update({state:"submitted",runId:run.id,source,error:null});
       return {jobId,state:"submitted",runId:run.id};
     } catch (error) {
@@ -211,12 +236,53 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       fail("MIMO_UPSTREAM_UNAVAILABLE");
     }
   }
+  async function list({auth,data}) {
+    const uid=await authorizeExtractionRole(db,auth);
+    if (data && (typeof data!=="object" || Array.isArray(data) ||
+        Object.keys(data).some(key=>key!=="limit"))) fail("INVALID_FIELDS");
+    const limit=data?.limit ?? 25;
+    if(!Number.isInteger(limit)||limit<1||limit>50)fail("INVALID_FIELDS");
+    // Ownership filter is executed server-side. Sorting in memory avoids an
+    // unnecessary Firestore composite index on the first deployment.
+    const docs=await db.collection("mimoExtractionJobs")
+      .where("uid","==",uid).limit(50).get();
+    const rows=docs.docs.map(item=>({id:item.id,...item.data()}))
+      .sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))
+      .slice(0,limit);
+    return {jobs:rows.map(item=>({
+      jobId:item.id,state:item.state,fileName:item.fileName,
+      pageNumber:item.pageNumber,createdAt:item.createdAt,
+      target:item.target??"quiz",costLimitUsd:item.costLimitUsd??0.03,
+      imageAssetId:item.imageAssetId??null,
+      runId:item.runId??null,error:item.error??null,
+    }))};
+  }
   async function owned(auth,jobId) {
-    const uid=await authorizeRole(db,auth);
+    const uid=await authorizeExtractionRole(db,auth);
     if (typeof jobId!=="string"||!SHA.test(jobId)) fail("INVALID_FIELDS");
     const ref=db.doc("mimoExtractionJobs/"+jobId),record=await ref.get();
     if (!record.exists || record.data()?.uid!==uid) fail("JOB_NOT_FOUND");
     return {ref,job:record.data()};
+  }
+  const PUBLIC_STAGES=Object.freeze([
+    ["processor","Reading source"],["extract","Extracting questions"],
+    ["verify","Verifying mathematics and formatting"],
+    ["rebuild_plan","Planning figures"],
+    ["tikz_source","Writing TikZ"],["compile_png","Compiling TikZ PNG"],
+    ["output","Preparing review package"],
+  ]);
+  function stages(timeline) {
+    // Never expose timeline event payloads, checkpoint results, provider prompts,
+    // credentials or private source bytes to the browser.
+    const taskRows=Array.isArray(timeline?.node_tasks)?timeline.node_tasks:[];
+    const checkpoints=Array.isArray(timeline?.checkpoints)?timeline.checkpoints:[];
+    const states=new Map();
+    for(const r of taskRows.concat(checkpoints))
+      if(typeof r?.node_id==="string"&&typeof r.status==="string")
+        states.set(r.node_id,r.status);
+    return PUBLIC_STAGES.map(([id,label])=>({
+      id,label,status:states.get(id)||"pending",
+    }));
   }
   async function status({auth,data}) {
     const {ref,job}=await owned(auth,data?.jobId);
@@ -228,10 +294,14 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       return {state:stale?"attention":job.state,
         error:stale?"MIMO_OUTCOME_UNKNOWN":job.error||null,jobId:data.jobId};
     }
-    const run=await client(projectKey,fetchImpl).run(job.runId);
+    const mimo=createExtractionTransport(projectKey,fetchImpl);
+    const run=await mimo.run(job.runId);
+    let stageRows=[];
+    try {stageRows=stages(await mimo.timeline(job.runId));}
+    catch { /* Stages are supplemental; a timeline outage must not hide status. */ }
     if (run.status!=="completed") {
       const state=["failed","cancelled"].includes(run.status)?"failed":"running";
-      return {jobId:data.jobId,state,runId:job.runId,error:state==="failed"?"MIMO_RUN_FAILED":null};
+      return {jobId:data.jobId,state,runId:job.runId,stages:stageRows,error:state==="failed"?"MIMO_RUN_FAILED":null};
     }
     let raw=run.output?.exports?.extracted_page_json;
     if (typeof raw!=="string" || raw.length>250000) fail("MIMO_INVALID_RESPONSE");
@@ -240,17 +310,19 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     catch { fail("MIMO_INVALID_EXTRACTION"); }
     const decision=run.output?.exports?.diagram_decision_json;
     await ref.update({state:"completed"});
-    return {jobId:data.jobId,state:"completed",runId:job.runId,
-      page,diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
-      hasReconstruction:!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed"};
+    return {jobId:data.jobId,state:"completed",runId:job.runId,stages:stageRows,
+      page,imageAssetId:job.imageAssetId??null,
+      diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
+      hasReconstruction:stageRows.some(r=>r.id==="compile_png"&&r.status==="completed") ||
+        (!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed")};
   }
   async function image({auth,data}) {
     const {job}=await owned(auth,data?.jobId);
     if (!job.runId || job.state!=="completed") fail("JOB_NOT_READY");
-    const bytes=await client(projectKey,fetchImpl).png(job.runId);
+    const bytes=await createExtractionTransport(projectKey,fetchImpl).png(job.runId);
     if (bytes.length<8 || !bytes.subarray(0,8).equals(MIME["image/png"].head))
       fail("MIMO_INVALID_RESPONSE");
     return {contentType:"image/png",base64:bytes.toString("base64")};
   }
-  return Object.freeze({start,status,image});
+  return Object.freeze({start,status,image,list});
 }

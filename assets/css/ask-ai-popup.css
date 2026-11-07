@@ -26,7 +26,6 @@
 @media(max-width:360px){.qa-action{padding:0 8px}.qa-close{width:36px}.qa-subtitle{font-size:10px}.qa-compose{gap:6px}.qa-send{min-width:62px;padding:0 9px}}
 @media(prefers-reduced-motion:reduce){.qa-dots i{animation:none;opacity:.65}}
 
-
 /* Copy a whole message, including its original mathematical source. */
 .qa-copy{align-self:flex-start;border:1px solid var(--line,#dce3eb);background:transparent;color:var(--muted,#677889);border-radius:7px;padding:3px 8px;font-size:11px;cursor:pointer}
 .qa-message.user .qa-copy{align-self:flex-end}

@@ -1,0 +1,52 @@
+/* Production AI Studio: no simulated jobs or client-side auth authority. */
+.ai-studio{--ai-line:var(--border);display:grid;grid-template-columns:minmax(220px,265px) minmax(0,1fr) minmax(245px,305px);min-height:calc(100dvh - 74px);background:var(--bg);color:var(--text)}
+.ai-sidebar,.ai-jobs{background:var(--surface);padding:18px;border-right:1px solid var(--ai-line);min-width:0}
+.ai-jobs{border-left:1px solid var(--ai-line);border-right:0}
+.ai-sidebar h2,.ai-jobs h2{font-size:1rem;margin:.25rem 0 1rem}
+.ai-sidebar button,.ai-jobs button,.ai-main button,.ai-main select{font:inherit}
+.ai-sidebar button,.ai-jobs button{border:1px solid var(--ai-line);background:var(--surface);color:var(--text);border-radius:9px;padding:9px 11px;cursor:pointer}
+.ai-sidebar .ai-list{display:grid;gap:6px;max-height:65dvh;overflow:auto}
+.ai-list button{display:block;text-align:left;width:100%;overflow-wrap:anywhere}
+.ai-list button[aria-current="true"]{border-color:var(--brand);background:var(--brand-tint)}
+.ai-list button small{display:block;color:var(--muted);font-size:.75rem}
+.ai-main{display:flex;flex-direction:column;min-width:0;min-height:65dvh}
+.ai-main-header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--ai-line)}
+.ai-main-header h1{font-size:1.25rem;margin:0}
+.ai-main-header p{font-size:.8rem;color:var(--muted);margin:4px 0 0}
+.ai-tabs{display:flex;gap:8px}
+.ai-tabs button,.ai-primary,.ai-secondary{border-radius:9px;border:1px solid var(--ai-line);padding:10px 13px;cursor:pointer;color:var(--text);background:var(--surface)}
+.ai-primary,.ai-tabs [aria-selected="true"]{background:var(--brand);color:white;border-color:var(--brand)}
+.ai-main section[hidden]{display:none!important}
+.ai-message-area{display:flex;flex-direction:column;min-height:0;flex:1}
+.ai-transcript{padding:20px;overflow:auto;min-height:180px;max-height:calc(100dvh - 375px);display:flex;flex-direction:column;gap:14px;flex:1}
+.ai-msg{max-width:min(100%,780px);border:1px solid var(--ai-line);border-radius:14px;padding:14px;background:var(--surface)}
+.ai-msg[data-role="user"]{align-self:flex-end;background:var(--brand-tint)}
+.ai-msg strong{display:block;font-size:.75rem;color:var(--muted);margin-bottom:8px}
+.ai-msg img{max-width:100%;max-height:260px;border-radius:9px}
+.ai-msg p{margin:.3rem 0 .6rem;overflow-wrap:anywhere}
+.ai-composer,.ai-job-form{padding:18px 20px;border-top:1px solid var(--ai-line);display:grid;gap:9px}
+.ai-composer textarea,.ai-job-form input,.ai-job-form select,.ai-review textarea,.ai-review input{width:100%;border:1px solid var(--ai-line);background:var(--surface);color:var(--text);border-radius:8px;padding:10px;box-sizing:border-box}
+.ai-composer textarea{resize:vertical;min-height:80px}
+.ai-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ai-buttons button{border:1px solid var(--ai-line);border-radius:9px;padding:9px 13px;cursor:pointer}
+.ai-buttons .ai-primary{border-color:var(--brand)}
+.ai-muted{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}
+.ai-error{padding:10px;border:1px solid var(--danger);border-radius:8px;color:var(--danger);white-space:pre-wrap}
+.ai-jobs-view{padding:18px;overflow:auto;max-height:calc(100dvh - 165px)}
+.ai-status{padding:12px;border:1px solid var(--ai-line);border-radius:10px;margin:10px 0}
+.ai-status ol{margin:9px 0;padding-left:18px}
+.ai-review{display:grid;gap:12px}
+.ai-review-card{padding:16px;border:1px solid var(--ai-line);border-radius:10px;background:var(--surface)}
+.ai-review-card h3{font-size:1rem;margin:0 0 8px}
+.ai-review-card label{display:block;font-size:.85rem;margin:9px 0}
+.ai-review-card .ai-buttons{margin-top:8px}
+.ai-review-card pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.ai-review-card .ai-note{font-size:.8rem}
+.ai-alert{border:1px solid var(--warning);padding:12px;border-radius:9px}
+.ai-job-view{margin-top:12px}
+.ai-progress{display:flex;gap:8px;align-items:center}
+.ai-progress meter{flex:1}
+.ai-message-area[hidden]{display:none}
+#ai-access{padding:40px;max-width:680px;margin:auto}
+@media(max-width:1020px){.ai-studio{grid-template-columns:220px minmax(0,1fr)}.ai-jobs{grid-column:1/-1;border-top:1px solid var(--ai-line);border-left:0}}
+@media(max-width:680px){.ai-studio{display:flex;flex-direction:column}.ai-sidebar{border-right:0;border-bottom:1px solid var(--ai-line)}.ai-sidebar .ai-list{display:flex;max-height:110px;overflow:auto}.ai-list button{min-width:160px}.ai-main-header{display:block}.ai-tabs{margin-top:12px}.ai-transcript{max-height:48dvh}.ai-jobs-view{max-height:unset}}
