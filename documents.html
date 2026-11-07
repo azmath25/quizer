@@ -1,100 +1,16 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0281af"><meta name="referrer" content="no-referrer">
-  <meta name="description" content="Quizer Document & Image Desk: teacher-only Mimo PDF/image extraction, review, and source-text chat.">
-  <title>Document & Image Desk · Math Quiz</title>
-  <link rel="icon" href="assets/favicon.svg">
-  <link rel="stylesheet" href="assets/css/tokens.css?v=13">
-  <link rel="stylesheet" href="assets/css/base.css?v=13">
-  <link rel="stylesheet" href="assets/css/layout.css?v=14">
-  <link rel="stylesheet" href="assets/css/components.css?v=13">
-  <link rel="stylesheet" href="assets/css/documents.css?v=2">
-  <script src="js/appearance-init.js"></script>
-  <script type="module" src="js/pages/documents.js?v=2"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="0;url=ai.html?mode=job">
+  <title>Document Lab moved to AI Studio · Quizer</title>
+  <link rel="canonical" href="ai.html?mode=job">
 </head>
-<body data-page="documents">
-  <a class="skip-link" href="#main">Skip to Document Desk</a>
-  <header id="site-header"></header>
-  <main id="main" tabindex="-1"><p class="doc-access" role="status">Checking your teacher access…</p></main>
-  <nav id="mobile-nav" aria-label="Mobile navigation"></nav>
-  <footer id="site-footer"></footer>
-  <template id="doc-desk-template">
-    <div class="doc-desk">
-      <div class="doc-page-head">
-        <div><p class="doc-eyebrow">Teacher workspace · documents and figures</p>
-          <h1>Document &amp; Image Desk</h1>
-          <p>Open a PDF or image, extract mathematical questions with Mimo, review every answer, and export approved LaTeX for Quizer.</p></div>
-        <a class="doc-ai-link" href="ai.html">AI Studio preview</a>
-      </div>
-      <div class="doc-workspace">
-        <section class="doc-file-panel" aria-label="Document preview">
-          <div class="doc-toolbar">
-            <label class="doc-pick" for="doc-source">Choose PDF, image or TeX</label>
-            <input id="doc-source" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.tex,application/pdf,image/png,image/jpeg,image/webp,text/plain" hidden>
-            <button id="doc-clear" class="doc-secondary" type="button" disabled>Clear</button>
-            <span id="doc-file-name" class="doc-file-name">No file chosen</span>
-          </div>
-          <div id="doc-feedback" class="doc-feedback" role="status" aria-live="polite">Your original stays in this browser. Nothing is uploaded automatically.</div>
-          <div id="doc-preview" class="doc-preview"><div class="doc-placeholder"><strong>Open a source file</strong>
-            <span>PDF: view in your browser · Image: inspect and crop · TXT/TeX: review the text.</span></div></div>
-          <div id="doc-image-controls" class="doc-image-controls" hidden>
-            <span>Drag over the image to select a diagram or figure.</span>
-            <button id="doc-download-crop" class="doc-secondary" type="button" disabled>Download cropped PNG</button>
-            <button id="doc-save-image" class="doc-secondary" type="button">Save image privately to Quizer</button>
-          </div>
-          <p class="doc-privacy">Files remain local until you explicitly submit an extraction. The original PDF/image is sent securely to Mimo only with your consent; text chat never sends image bytes.</p>
-        </section>
-        <aside class="doc-ai-panel" aria-label="Ask about selected text">
-          <div class="doc-assistant-head">
-            <p class="doc-eyebrow">Existing authenticated Mimo chat</p>
-            <h2>Review source text</h2>
-            <p>This separate teacher chat sends selected text only. To read PDF pages or images, use Mimo document extraction below.</p>
-          </div>
-          <form id="doc-ai-form">
-            <label for="doc-excerpt">Text to share with AI</label>
-            <textarea id="doc-excerpt" rows="7" maxlength="3800" placeholder="Paste selected PDF text, a problem statement, or your transcription of an image…" aria-describedby="doc-excerpt-limit"></textarea>
-            <p id="doc-excerpt-limit" class="doc-field-note">Maximum 3,800 characters; only this selected text is used as source context.</p>
-            <label for="doc-question">Your request</label>
-            <textarea id="doc-question" rows="3" maxlength="3000" placeholder="Extract numbered problems and flag anything uncertain…" required></textarea>
-            <label class="doc-consent"><input type="checkbox" id="doc-consent"> Send this excerpt and request to Mimo. No PDF/image binary will be sent.</label>
-            <button id="doc-ask" class="doc-primary" type="submit">Ask Mimo about this text</button>
-            <p class="doc-field-note">Teacher quota applies: 4 requests/minute, 250/day. There are no automatic retries.</p>
-          </form>
-          <div id="doc-ai-log" class="doc-ai-log" role="log" aria-live="polite" aria-label="Document AI response"></div>
-        </aside>
-      </div>
-
-      <section class="doc-extract-panel" aria-label="Extract questions using Mimo">
-        <div class="doc-assistant-head">
-          <p class="doc-eyebrow">Published Mimo workflow · teacher only</p>
-          <h2>Extract questions from this file</h2>
-          <p>Runs mathematical vision extraction, independent verification and conditional TikZ reconstruction. Review every question before using it in Quizer. This may incur provider charges.</p>
-        </div>
-        <div class="doc-extract-controls">
-          <label for="doc-extract-page">PDF page (one page per run)</label>
-          <input id="doc-extract-page" type="number" min="1" max="100" value="1">
-          <label class="doc-consent"><input id="doc-extract-consent" type="checkbox"> I approve securely uploading this PDF/image to Mimo and running the AI workflow (up to $0.03 provider cost per run).</label>
-          <button id="doc-extract-start" class="doc-primary" type="button" disabled>Extract selected page with Mimo</button>
-          <button id="doc-extract-refresh" class="doc-secondary" type="button" hidden>Refresh job status</button>
-        </div>
-        <p id="doc-extract-status" class="doc-feedback" role="status" aria-live="polite">Choose a PDF, PNG or JPEG (up to 8 MiB). WebP and TeX remain available for local preview only.</p>
-        <div id="doc-extract-preview" class="doc-extract-result" hidden>
-          <div class="doc-result-head"><h3>Extraction and teacher review</h3><span id="doc-extract-summary"></span></div>
-          <div id="doc-extract-decision" class="doc-field-note"></div>
-          <div id="doc-extract-questions" class="doc-extract-questions"></div>
-          <div class="doc-extract-export">
-            <button id="doc-extract-png" class="doc-secondary" type="button" hidden>View reconstructed PNG</button>
-            <a class="doc-ai-link" href="quizzes.html" target="_blank" rel="noopener">Open Quizer</a>
-            <button id="doc-extract-export" class="doc-primary" type="button" disabled>Download reviewed .tex</button>
-          </div>
-          <p class="doc-field-note">Nothing is saved to the problem bank automatically. Approve or reject every question. Import the reviewed .tex file via Quizer's Create quiz → Import LaTeX / JSON. Figures require manually linked Quizer assets.</p>
-          <div id="doc-extract-image" class="doc-generated-figure" hidden></div>
-        </div>
-      </section>
-    </div>
-  </template>
+<body>
+  <p>Document extraction and review now live in the
+    <a href="ai.html?mode=job">single-page Quizer AI Studio Document Lab</a>.</p>
+  <script>window.location.replace("ai.html?mode=job");</script>
 </body>
 </html>
