@@ -1,0 +1,67 @@
+/* Production adapter for the ORIGINAL Quizer AI Studio layout.
+ * Original visual CSS remains in ai.html; this only positions live services. */
+.app .studio-chat-panel{display:flex;flex-direction:column;flex:1;min-height:0}
+.app #ai-chat-panel[hidden],.app #ai-jobs-panel[hidden],.app #ai-load-older[hidden]{display:none!important}
+.app #ai-access-gate[hidden]{display:none!important}
+#ai-access-gate{max-width:600px;margin:7vh auto;padding:28px;border-radius:17px;border:1px solid var(--border);background:var(--surface);text-align:center;line-height:1.8}
+#ai-access-gate button{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:10px 15px;border-radius:10px;cursor:pointer}
+.app .conversation-head{flex:none}
+.app .conversation{flex:1;min-height:0;overflow:auto}
+.app .message-list{min-height:0}
+.app #ai-messages:empty{min-height:0}
+.app #ai-load-older{display:block;margin:0 auto 18px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);cursor:pointer}
+.app .message .msg-body{white-space:normal;line-height:1.85}
+.app .message.user .msg-body{white-space:pre-wrap}
+.app .message .msg-body p{margin:0 0 12px}
+.app .message .msg-body pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-alt);font-size:11px;line-height:1.7}
+.app .message .msg-body code{overflow-wrap:anywhere}
+.app .message .msg-body mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden}
+.app .message .msg-body .qa-tex-source{color:var(--muted);font-size:10px;margin:6px 0}
+.app .message .msg-body .qa-tex-source summary{cursor:pointer;width:fit-content;max-width:100%;padding:2px 0}
+.app .message .msg-body .qa-tex-uncompiled{white-space:pre-wrap}
+.app .message .msg-actions{margin-top:5px}
+.app .message .msg-actions .ai-copy-msg{width:27px;height:27px;display:inline-grid;place-items:center;background:transparent;border:1px solid transparent;border-radius:8px;padding:0;color:var(--muted)}
+.app .message .msg-actions .ai-copy-msg svg{width:15px;height:15px}
+.app .message .msg-actions .ai-copy-msg:hover{background:var(--wash);border-color:var(--line);color:var(--cyan)}
+.app #ai-messages .welcome{margin:auto}
+.app .message .msg-body img{max-width:100%;max-height:280px;border-radius:9px}
+.app .history button[aria-current="true"]{background:var(--wash)}
+.app #ai-threads .history-row .history-open{cursor:pointer}
+.app #ai-threads .pin-btn{cursor:pointer}
+.app #ai-threads .empty-box{padding:18px 12px}
+.app #ai-chat-photo[hidden]{display:none}
+.app #ai-status{flex:none;max-width:none;min-height:0;padding:3px 20px;text-align:center;font-size:10px;color:var(--muted);line-height:1.4;background:var(--bg)}
+.app #ai-status:empty{display:none}
+.app #ai-status.ai-error{color:var(--danger);background:var(--danger-bg);padding:8px 20px}
+.app .inspector-actions{display:flex;align-items:center;justify-content:flex-end;padding:10px 16px 0}
+.app .inspector-actions .mini-btn{display:flex;align-items:center;gap:7px}
+.app .inspector-body .job-select{cursor:pointer}
+.app .inspector-body .job-select[aria-current="true"]{border-color:var(--cyan);background:var(--wash)}
+.app .inspector-body .job-select span{min-width:0;flex:1}
+.app .inspector-body .job-select small{line-height:1.4}
+.app .studio-jobs-panel{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0}
+.app .studio-jobs-content{padding:22px clamp(17px,3vw,40px);overflow-y:auto;flex:1;min-height:0}
+.app .studio-jobs-content>h2{font-size:16px;font-weight:800;margin:0 0 17px}
+.app .ai-job-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;padding:18px;border:1px solid var(--line);background:var(--surface);border-radius:15px}
+.app .ai-job-form>label{display:flex;flex-direction:column;gap:8px;font-size:11px;font-weight:750;line-height:1.5;min-width:0}
+.app .ai-job-form input,.app .ai-job-form select,.app .ai-review input,.app .ai-review textarea{display:block;width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--bg);color:var(--ink);font-size:12px}
+.app .ai-job-form>p,.app .ai-job-form>button,.app .ai-job-form>label:has([type=checkbox]){grid-column:1/-1}
+.app .ai-job-form>label:has([type=checkbox]){display:flex;flex-direction:row;align-items:center}
+.app .ai-job-form input[type=checkbox]{width:auto}
+.app .ai-primary,.app .ai-secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;padding:10px 13px;border:1px solid var(--line);cursor:pointer;font-size:12px;font-weight:750;background:var(--surface);color:var(--text)}
+.app .ai-primary{background:var(--brand);border-color:var(--brand);color:white}
+.app .ai-buttons{display:flex;gap:9px;flex-wrap:wrap}
+.app .ai-muted{color:var(--muted);line-height:1.65;font-size:11px}
+.app .ai-error{color:var(--danger);font-size:11px;white-space:pre-wrap}
+.app .ai-list{display:grid;gap:7px}
+.app .ai-list button{width:100%;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);padding:10px;text-align:left;font-size:12px}
+.app .ai-status,.app .ai-review-card{padding:16px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:var(--surface);line-height:1.7}
+.app .ai-status ol{padding-left:20px}
+.app .ai-review{display:grid;gap:13px}
+.app .ai-review-card h3{font-size:13px;margin:0 0 8px}
+.app .ai-review-card label{display:grid;gap:6px;font-size:11px;margin:10px 0}
+.app .ai-review-card pre{max-width:100%;overflow:auto;white-space:pre-wrap}
+.app .ai-job-view img{max-width:100%;height:auto}
+.app .inspector-body .ai-muted{font-size:11px}
+@media(max-width:1060px){.app .inspector{display:flex}}
+@media(max-width:760px){.app .ai-job-form{grid-template-columns:1fr}.app .ai-job-form>label{grid-column:1/-1}.app .studio-jobs-content{padding:15px}.app .message .msg-body{font-size:12px}.app #ai-status{padding:4px 10px}}
