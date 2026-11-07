@@ -217,7 +217,9 @@ export function createBatchService({
     const ref=recordRef(job.jobId,n),snapshot=await ref.get();
     if(!snapshot.exists||snapshot.data().uid!==job.uid)fail("JOB_NOT_READY");
     const extracted=snapshot.data().page;
-    let review=createExtractionReview(extracted,extracted.source);
+    let review=createExtractionReview({schema:extracted.schema,
+      quality_status:extracted.quality_status,questions:extracted.questions},
+      extracted.source);
     if(decisions.length!==review.items.length)fail("INVALID_FIELDS");
     const seen=new Set();
     for(const d of decisions){
