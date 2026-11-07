@@ -108,6 +108,8 @@ async function sendText(message,context=""){
   try {
     const answer=await sendTeacherChatMessage({
       message,context,threadId,requestId:crypto.randomUUID(),
+      history:snapshot.filter(m=>["user","assistant"].includes(m.role))
+        .slice(-8).map(m=>({role:m.role,content:String(m.content||"").slice(0,1200)})),
     });
     messages.push({role:"assistant",content:answer.reply});
     threadId=answer.threadId||threadId;
@@ -117,7 +119,9 @@ async function sendText(message,context=""){
       await loadThreads();
     } else status("Reply received, but history could not be saved. Copy the answer before closing.",true);
     $("ai-prompt").value="";
-  }catch(error){messages=snapshot;drawMessages();status(safeError(error),true);}
+    return true;
+  }catch(error){messages=snapshot;drawMessages();status(safeError(error),true);
+    return false;}
   finally{busyChat=false;$("ai-send").disabled=false;}
 }
 async function chatSubmit(event){
@@ -138,8 +142,8 @@ async function chatSubmit(event){
     }catch(error){status(extractionError(error),true);}
     return;
   }
-  await sendText(prompt,imageContext);
-  imageContext="";
+  const confirmed=await sendText(prompt,imageContext);
+  if(confirmed)imageContext="";
 }
 function drawJobs(){
   const target=$("ai-job-list");target.replaceChildren();
