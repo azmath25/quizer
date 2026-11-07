@@ -5,7 +5,6 @@ const links = [
   ["quiz", "quizzes.html", "Quizzes"],
   ["activity", "activity.html", "My activity"],
   ["teach", "teaching.html", "Teaching"],
-  ["documents", "documents.html", "Documents"],
   ["ai", "ai.html", "AI Studio"],
   ["admin", "admin.html", "Admin"],
 ];
