@@ -4,6 +4,7 @@
  * Jobs are recorded in Firestore BEFORE a paid provider request; uncertain requests
  * are never automatically replayed.
  */
+import {safeMimoRunDiagnostic} from "./run-diagnostics.js";
 import { createHash } from "node:crypto";
 import { validateExtractedPage } from "../../shared/mimo-extraction.js";
 
@@ -301,7 +302,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     catch { /* Stages are supplemental; a timeline outage must not hide status. */ }
     if (run.status!=="completed") {
       const state=["failed","cancelled"].includes(run.status)?"failed":"running";
-      return {jobId:data.jobId,state,runId:job.runId,stages:stageRows,error:state==="failed"?"MIMO_RUN_FAILED":null};
+      return {jobId:data.jobId,state,runId:job.runId,stages:stageRows,error:state==="failed"?"MIMO_RUN_FAILED":null,...(state==="failed"?safeMimoRunDiagnostic(run.output):{})};
     }
     let raw=run.output?.exports?.extracted_page_json;
     if (typeof raw!=="string" || raw.length>250000) fail("MIMO_INVALID_RESPONSE");
