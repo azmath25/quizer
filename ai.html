@@ -252,14 +252,16 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
         </label>
         <label>Hard provider budget per page, including conditional TikZ
           <select id="ai-job-budget">
-            <option value="0.15">$0.15</option><option value="0.30">$0.30</option>
-            <option value="0.50">$0.50</option>
+            <option value="0.15">Economy · $0.15 (may stop multi-stage extraction)</option>
+            <option value="0.30" selected>Standard · $0.30 per page</option>
+            <option value="0.50">Complex diagrams · $0.50 per page</option>
           </select>
         </label>
         <label>Maximum reserved AI budget for this document (USD)
           <input id="ai-job-total-budget" type="number" min="0.15" max="50" step="0.01" value="15">
         </label>
-        <p class="ai-muted">Pages run separately in the background. The total cap reserves each page's maximum before execution; it is not a price estimate or actual bill. If exhausted, the job stops before another paid run. Review every question and diagram before private import.</p>
+        <p class="ai-muted">Pages run separately in the background. The total cap reserves each page's maximum before execution; it is not a price estimate or actual bill. If exhausted, the job stops before another paid run. Review every question and diagram before private import. The provider may still reject individual jobs even within budget.</p>
+        <p class="ai-muted" id="ai-job-estimate" role="status" aria-live="polite"></p>
         <label><input id="ai-upload-consent" type="checkbox" required> I authorize uploading this source to Mimo for processing.</label>
         <button id="ai-start-job" class="ai-primary" type="submit">Create extraction job</button>
       </form></section>
