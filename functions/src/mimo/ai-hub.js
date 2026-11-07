@@ -68,8 +68,9 @@ export function createAiHub({
       return {threads:await store().listThreads(uid,data.limit??25)};
     }
     if (data.action === "chat.get") {
-      object(data,["action","threadId"]);
-      return await store().getThread(uid,uuid(data.threadId));
+      object(data,["action","threadId","before"]);
+      return await store().getThread(uid,uuid(data.threadId),
+        data.before ? uuid(data.before) : null);
     }
     if (data.action === "document.list") {
       object(data,["action","limit"]);
