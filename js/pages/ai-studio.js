@@ -45,29 +45,50 @@ const PIN_STORAGE="quizer.ai.studio.local-pins.v1";
 let pins=new Set();
 try{pins=new Set(JSON.parse(localStorage.getItem(PIN_STORAGE)||"[]"));}catch{}
 const persistPins=()=>{try{localStorage.setItem(PIN_STORAGE,JSON.stringify([...pins]));}catch{}};
+const ALIAS_STORAGE="quizer.ai.studio.local-aliases.v1";
+let aliases={};
+try{aliases=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||"{}")||{};}catch{}
+const displayTitle=t=>t?(String(aliases[t.id]||t.title||"New conversation").slice(0,100)):"New conversation";
+const persistAliases=()=>{try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(aliases));}catch{}};
+
 function studioHead(){
   const current=threads.find(t=>t.id===threadId),mode=MODES[studioMode]||MODES.chat;
   const head=$("conversation-head");head.replaceChildren();
   const title=node("div","","current-title");
   const symbol=node("span","","title-symbol");symbol.append(icon(mode.icon));
   const copy=node("span","","title-copy");
-  copy.append(node("h1",current?.title||"New conversation"),node("p",mode.desc));
+  copy.append(node("h1",displayTitle(current)),node("p",mode.desc));
   title.append(symbol,copy);head.append(title);
   const actions=node("div","","head-tools");
-  if(messages.length){
-    const exportButton=node("button","","icon-btn");
-    exportButton.type="button";exportButton.title="Export this conversation as JSON";
-    exportButton.setAttribute("aria-label","Export conversation");
-    exportButton.append(icon("download"));
-    exportButton.onclick=()=>{
-      const payload={threadId,messages:messages.map(m=>({role:m.role,content:m.content||""}))};
-      const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
-      const link=node("a");link.href=url;link.download="ai-studio-conversation.json";
-      link.click();setTimeout(()=>URL.revokeObjectURL(url),0);
-    };
-    actions.append(exportButton);
-  }
-  head.append(actions);
+  const more=node("details","","chat-options");
+  const summary=node("summary","More ⋯");
+  summary.setAttribute("aria-label","Conversation actions");
+  more.append(summary);
+  const menu=node("div","","chat-actions");
+  const pin=node("button","","");pin.type="button";pin.disabled=!threadId;
+  pin.append(icon("pin",true),document.createTextNode(" "+(pins.has(threadId)?"Unpin":"Pin")));
+  pin.title="Pin this conversation on this device";
+  pin.onclick=()=>{if(!threadId)return;
+    if(pins.has(threadId))pins.delete(threadId);else pins.add(threadId);
+    persistPins();drawThreads();more.open=false;
+  };
+  const rename=node("button","","");rename.type="button";rename.disabled=!threadId;
+  rename.append(icon("edit",true),document.createTextNode(" Rename"));
+  rename.title="Rename on this device";
+  rename.onclick=()=>{if(!threadId)return;
+    $("rename-input").value=displayTitle(current);
+    $("rename-dialog").showModal();more.open=false;
+  };
+  const exportButton=node("button","","");
+  exportButton.type="button";exportButton.disabled=!messages.length;
+  exportButton.append(icon("download",true),document.createTextNode(" Export JSON"));
+  exportButton.onclick=()=>{
+    const payload={threadId,messages:messages.map(m=>({role:m.role,content:m.content||""}))};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+    const link=node("a");link.href=url;link.download="ai-studio-conversation.json";
+    link.click();setTimeout(()=>URL.revokeObjectURL(url),0);more.open=false;
+  };
+  menu.append(pin,rename,exportButton);more.append(menu);actions.append(more);head.append(actions);
   const modeText=$("compose-mode");modeText.replaceChildren(icon(mode.icon,true),
     document.createTextNode(" "+mode.name));
   $("ai-prompt").placeholder=mode.placeholder;
@@ -144,7 +165,7 @@ function drawThreads(){
   const target=$("ai-threads"),needle=$("ai-chat-search").value.toLowerCase();
   target.replaceChildren();
   const visible=threads.filter(t=>(!pinnedOnly||pins.has(t.id))&&
-    String(t.title||"").toLowerCase().includes(needle))
+    displayTitle(t).toLowerCase().includes(needle))
     .sort((a,b)=>Number(pins.has(b.id))-Number(pins.has(a.id))||
       String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
   $("chat-count").textContent=String(threads.length);
@@ -157,12 +178,12 @@ function drawThreads(){
     b.setAttribute("aria-current",String(entry.id===threadId));
     const symbol=node("span","","history-icon");symbol.append(icon("chat"));
     const label=node("span","","history-text");
-    label.append(node("strong",entry.title||"New conversation"),
+    label.append(node("strong",displayTitle(entry)),
       node("small","General chat · "+humanTime(entry.updatedAt||entry.createdAt)));
     b.append(symbol,label);b.onclick=()=>void openThread(entry.id).catch(e=>status(safeError(e),true));
     const pin=node("button","","pin-btn");
     pin.type="button";pin.title="Pin on this device";
-    pin.setAttribute("aria-label",(pins.has(entry.id)?"Unpin ":"Pin ")+(entry.title||"conversation"));
+    pin.setAttribute("aria-label",(pins.has(entry.id)?"Unpin ":"Pin ")+displayTitle(entry));
     if(pins.has(entry.id))pin.classList.add("pinned");
     pin.append(icon("pin",true));
     pin.onclick=()=>{if(pins.has(entry.id))pins.delete(entry.id);else pins.add(entry.id);
@@ -706,6 +727,13 @@ function wireOriginalChrome(){
   }
   listen("ai-pin-filter","click",()=>{pinnedOnly=!pinnedOnly;activeTab("chat");drawThreads();});
   listen("ai-return-chat","click",()=>activeTab("chat"));
+  listen("rename-form","submit",event=>{
+    event.preventDefault();
+    if(!threadId)return;
+    const name=$("rename-input").value.trim();
+    if(name){aliases[threadId]=name.slice(0,100);persistAliases();drawThreads();studioHead();}
+    $("rename-dialog").close();
+  });
   listen("ai-chat-photo","change",()=>{
     const file=$("ai-chat-photo").files?.[0];
     const pending=$("pending");pending.replaceChildren();
