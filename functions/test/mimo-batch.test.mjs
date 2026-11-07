@@ -40,7 +40,7 @@ function firestore(){
         limit:n=>({
           get:async()=>({docs:[...records.entries()]
             .filter(([k,v])=>k.startsWith(name+"/")&&k.split("/").length===2&&
-              (op!=="=="?false:v[key]===val))
+              (op==="in"?Array.isArray(val)&&val.includes(v[key]):op==="=="&&v[key]===val))
             .slice(0,n).map(([k,v])=>({id:k.split("/").at(-1),data:()=>v}))}),
         }),
       }),
