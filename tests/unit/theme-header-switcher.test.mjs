@@ -6,6 +6,7 @@ const shell=read("js/components/shell.js");
 const profile=read("js/pages/profile.js");
 const css=read("assets/css/layout.css");
 const ai=read("ai.html");
+const studio=read("js/pages/ai-studio.js");
 test("header controls offer accessible Light Dark System modes outside profile",()=>{
   for (const theme of ["light","dark","system"]) {
     assert.match(shell,new RegExp('data-theme-choice="'+theme+'"'));
@@ -36,7 +37,7 @@ test("profile retains text size but no longer duplicates theme chooser",()=>{
 test("AI Studio uses the real shared appearance menu and does not duplicate it",()=>{
   assert.match(ai, /<header id="site-header"/);
   assert.match(ai, /<nav id="mobile-nav"/);
-  assert.match(ai, /siteShell\.mountShell\(\{ showAssistant: false, showBackdrop: false \}\)/);
+  assert.match(studio, /mountShell\(\{showAssistant:false,showBackdrop:false\}\)/);
   assert.doesNotMatch(ai, /data-act="theme"/);
   assert.match(shell, /data-theme-choice="system"/);
   assert.match(shell, /localStorage\.setItem\(THEME_KEY, theme\)/);
