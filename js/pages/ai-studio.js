@@ -40,7 +40,7 @@ const MODES={
   review:{name:"Review & audit",icon:"review",desc:"Check grammar, logic, precision and ambiguity.",placeholder:"Paste material and describe what to audit...",
     prompts:[["Find ambiguity","Flag ambiguity and missing assumptions"],["Improve grammar","Polish wording without changing the math"],["Check consistency","Check numbering, formulas and notation"],["Proof referee","Identify unproved steps and possible counterexamples"]]},
 };
-let studioMode="chat",pinnedOnly=false,inspectorVisible=innerWidth>1060;
+let studioMode="chat",pinnedOnly=false,inspectorVisible=false;
 const PIN_STORAGE="quizer.ai.studio.local-pins.v1";
 let pins=new Set();
 try{pins=new Set(JSON.parse(localStorage.getItem(PIN_STORAGE)||"[]"));}catch{}
@@ -78,7 +78,7 @@ function studioWelcome(){
   const symbol=node("span","","welcome-symbol");symbol.append(icon("spark"));
   wrap.append(symbol,node("h2","What would you like to do?"),node("p",mode.desc));
   const grid=node("div","","prompt-grid");
-  for(const [title,prompt] of mode.prompts){
+  for(const [title,prompt] of mode.prompts.slice(0,2)){
     const b=node("button","","prompt-card");b.type="button";
     const mark=node("span");mark.append(icon("spark",true));
     b.append(mark,node("strong",title));b.onclick=()=>{
@@ -86,7 +86,21 @@ function studioWelcome(){
     };
     grid.append(b);
   }
-  wrap.append(grid);return wrap;
+  wrap.append(grid);
+  if(mode.prompts.length>2){
+    const details=node("details","","more-prompts");
+    details.append(node("summary","More ideas"));
+    const more=node("div","","prompt-grid");
+    for(const [title,prompt] of mode.prompts.slice(2)){
+      const b=node("button","","prompt-card");b.type="button";
+      const mark=node("span");mark.append(icon("spark",true));
+      b.append(mark,node("strong",title));
+      b.onclick=()=>{$("ai-prompt").value=prompt;$("ai-prompt").focus();};
+      more.append(b);
+    }
+    details.append(more);wrap.append(details);
+  }
+  return wrap;
 }
 function applyStudioLayout(){
   const wide=innerWidth>1060;
