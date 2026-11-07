@@ -277,6 +277,10 @@ const aiHubErrors={
   MIMO_UNAVAILABLE:"unavailable",MIMO_INVALID_RESPONSE:"unavailable",
   MIMO_UPSTREAM_UNAVAILABLE:"unavailable",MIMO_PROJECT_NOT_AUTHORIZED:"failed-precondition",
   MEMORY_NOT_CONFIGURED:"failed-precondition",
+  MEMORY_DB_PERMISSION_DENIED:"failed-precondition",
+  MEMORY_DB_AUTH_FAILED:"unavailable",
+  MEMORY_DB_SCHEMA_MISMATCH:"failed-precondition",
+  MEMORY_DB_UNAVAILABLE:"unavailable",
 };
 export const mimoAiHub=onCall({
   region:REGION,memory:"512MiB",timeoutSeconds:120,maxInstances:2,
