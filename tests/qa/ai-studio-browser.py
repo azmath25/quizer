@@ -113,7 +113,10 @@ try:
                 "Inspector did not reopen")
         else:
           check("show-inspector" in page.locator("#app").get_attribute("class"),"Mobile inspector did not open")
-        page.locator(".tools [data-act='inspector']").click()
+        if width<=1180:
+          page.locator(".inspector [data-act='inspector']").click()
+        else:
+          page.locator(".tools [data-act='inspector']").click()
         page.locator(".topbar [data-act='commands']").click()
         check(page.locator("#ai-command-dialog").evaluate("(d)=>d.open"),
               "Real command palette did not open")
