@@ -375,7 +375,7 @@ function drawJobs(){
     const text=node("span");
     text.append(node("strong",job.fileName||job.jobId),
       node("small",(job.kind==="batch"?"Document · ":"Page · ")+
-        (job.state||"queued")+" · "+humanTime(job.createdAt)));
+        (job.state==="attention"?"Needs action"+(job.attention?" ("+job.attention+" pages)":""):job.state||"queued")+" · "+humanTime(job.createdAt)));
     b.append(text,icon("chevron",true));
     b.onclick=()=>void selectJob(job.jobId);
     target.append(b);
