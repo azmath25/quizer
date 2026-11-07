@@ -10,6 +10,7 @@ export const SAFE_RUN_CODES=Object.freeze({
   provider_payload_too_large:"Provider rejected the request as too large.",
   provider_unprocessable_request:"Provider could not process the request.",
   provider_rate_limited:"Provider rate limit reached; do not resubmit this paid job blindly.",
+  provider_daily_quota_exhausted:"OpenRouter free daily request quota exhausted; retry after quota reset, not by re-uploading.",
   provider_request_rejected:"Provider rejected the extraction request.",
   provider_server_response_unknown:"Provider returned a server error; charges may be uncertain.",
   provider_unexpected_status:"Provider returned an unexpected response status.",
@@ -21,7 +22,12 @@ export const SAFE_RUN_CODES=Object.freeze({
 
 /** Compatible with Mimo prior to P0 diagnostic rollout (empty result). */
 export function safeMimoRunDiagnostic(output) {
-  const code=output?.error_code;
+  // Historical Mimo runs had a stable reason but no machine-readable code.
+  // Match ONLY this exact server-defined string; never show raw provider text.
+  const code=output?.error_code||
+    (output?.status==="waiting_for_review"&&
+      output?.reason==="RPM deferral requires operator review"
+      ?"provider_rate_limited":null);
   if(typeof code!=="string"||!Object.hasOwn(SAFE_RUN_CODES,code))return {};
   const status=output?.upstream_http_status;
   const result={diagnosticCode:code};
