@@ -151,9 +151,13 @@ function drawStages(result){
   const state=result.state;
   addStage(ol,"Source file accepted",true);
   addStage(ol,"Mimo workflow dispatched",!!result.runId);
-  addStage(ol,"Page extraction and verification",state==="completed");
-  addStage(ol,"Conditional TikZ reconstruction",state==="completed");
-  addStage(ol,"Teacher review and import",false);
+  for(const task of (Array.isArray(result.stages)?result.stages:[])){
+    const item=node("li",task.label+" — "+task.status);
+    if(task.status==="completed"||task.status==="skipped")item.prepend(node("span","✓ "));
+    ol.append(item);
+  }
+  if(state==="completed")addStage(ol,"Ready for teacher review",true);
+  else addStage(ol,"Teacher review and import",false);
   card.append(ol);
   if(state==="running"||state==="submitted")
     card.append(node("p","The Mimo workflow is processing. Detailed step progress is not exposed by this bridge; no percentage or ETA is fabricated.","ai-muted"));
