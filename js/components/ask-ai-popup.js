@@ -1,6 +1,6 @@
 import { getSession } from "../firebase-client.js";
 import { canUseMimoTeacherChat, mimoChatErrorMessage, sendTeacherChatMessage } from "../services/mimo-chat.js";
-import { renderChatMarkdown } from "./ai-chat-markdown.js";
+import { renderChatMarkdown, typesetChatMarkdown } from "./ai-chat-markdown.js";
 import { typeset } from "./math-content.js";
 
 // One in-page assistant at a time. The browser talks only to the Firebase callable.
@@ -110,11 +110,22 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
     if (role === "assistant") {
       renderChatMarkdown(bubble, text);
       // Existing site MathJax is local and configured with restricted TeX packages.
-      void typeset(bubble);
+      void typesetChatMarkdown(bubble,typeset);
     } else {
       bubble.textContent = text;
     }
-    row.append(label, bubble);
+    const copy = element("button", "qa-copy", "Copy message");
+    copy.type = "button";
+    copy.setAttribute("aria-label", "Copy " + (role === "user" ? "your" : "assistant") + " message");
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(String(text));
+        copy.textContent = "Copied";
+      } catch {
+        copy.textContent = "Copy unavailable — select message text";
+      }
+    });
+    row.append(label, bubble, copy);
     log.append(row);
     scroll();
     return row;
@@ -194,7 +205,7 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
     pending = true;
     send.disabled = true;
     newChat.disabled = true;
-    input.readOnly = true; // keep the draft visible and unchanged until resolved
+    input.value = ""; // submitted text is already shown in the conversation
     form.setAttribute("aria-busy", "true");
     const loading = element("div", "qa-pending", "Mimo is thinking");
     loading.setAttribute("role", "status");
@@ -224,7 +235,7 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
       history = [...history,
         {role: "user", content: question.slice(0, 1200)},
         {role: "assistant", content: response.reply.slice(0, 1200)}].slice(-8);
-      if (input.value === submittedDraft) input.value = "";
+      // Preserve anything typed while waiting for Mimo.
     } catch (error) {
       if (closed) return;
       loading.remove();
@@ -234,7 +245,8 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
         ["deadline-exceeded", "unavailable", "unknown"].includes(
           String(error?.code || "").replace(/^functions\//, ""));
       addError(mimoChatErrorMessage(error), requestId, uncertain);
-      // Keep the composed question, and do not add failed requests to history.
+      if (!input.value) input.value = submittedDraft;
+      // Never automatically retry a failed or uncertain request.
     } finally {
       pending = false;
       if (!closed) {
