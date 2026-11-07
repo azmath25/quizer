@@ -4,6 +4,7 @@
  * reached from this server, after checking Firebase role and identity.
  */
 import {createTeacherChat} from "./teacher-chat.js";
+import {createExtractionService} from "./extraction.js";
 import {AiMemoryError,sharedAiMemoryStore} from "./memory-store.js";
 
 export class AiHubError extends Error {
@@ -60,7 +61,8 @@ export function createAiHub({
     if (data && typeof data === "object" && data.action === undefined)
       return sendMimo({auth,data});
     object(data,["action","message","context","history","requestId",
-      "threadId","documentId","mode","limit","title","text","before"]);
+      "threadId","documentId","mode","limit","title","text","before",
+      "imageAssetId","imageJobId"]);
     if (!ACTIONS.has(data.action)) fail("INVALID_FIELDS");
     const uid=await authorize(db,auth);
     if (data.action === "chat.list") {
@@ -90,7 +92,7 @@ export function createAiHub({
     // All model features share one approved Mimo workflow; no direct provider,
     // browser-selected model, binary upload, or new API gateway is introduced.
     object(data,["action","message","context","history","requestId",
-      "threadId","documentId","mode"]);
+      "threadId","documentId","mode","imageAssetId","imageJobId"]);
     const input=string(data.message,3000);
     const mode=data.mode??"explain";
     if (!Object.hasOwn(MODES,mode)) fail("INVALID_FIELDS");
@@ -102,6 +104,35 @@ export function createAiHub({
     if (context.length>4000) fail("INVALID_FIELDS");
     const threadId=data.threadId ? uuid(data.threadId) : null;
     const documentId=data.documentId ? uuid(data.documentId) : null;
+    const imageJobId=data.imageJobId??null;
+    const imageAssetId=data.imageAssetId??null;
+    if(imageJobId!==null&&
+      (typeof imageJobId!=="string"||!/^[a-f0-9]{64}$/.test(imageJobId)))
+      fail("INVALID_FIELDS");
+    if(imageAssetId!==null&&
+      (typeof imageAssetId!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(imageAssetId)))
+      fail("INVALID_FIELDS");
+    if(imageAssetId&&!imageJobId)fail("INVALID_FIELDS");
+    if(imageAssetId){
+      const img=await db.doc("assets/"+imageAssetId).get();
+      if(!img.exists||img.data()?.ownerId!==uid||
+        img.data()?.kind!=="image"||img.data()?.status!=="ready")
+        fail("INVALID_IMAGE_ASSET");
+    }
+    if(imageJobId){
+      // The text-only chat model is given a bounded summary of a real,
+      // owner-authorized vision extraction, never a fake claim that it saw
+      // raw image pixels. The original photo stays in a private asset.
+      const extraction=createExtractionService({db,projectKey,fetchImpl,now});
+      const job=await extraction.status({auth,data:{jobId:imageJobId}});
+      if(job.state!=="completed"||!job.page)fail("DOCUMENT_NOT_READY");
+      const description=JSON.stringify(job.page.questions.map(q=>({
+        statement:q.statement_latex,options:q.options,
+        figure:q.figure_description,answer:q.answer,
+      }))).slice(0,3200);
+      context=(context+"\nVisible mathematics extracted from the user-attached image:\n"+
+        description).slice(0,4000);
+    }
 
     if (threadId) {
       const thread=await store().getThread(uid,threadId);
@@ -132,6 +163,7 @@ export function createAiHub({
     try {
       const saved=await store().saveTurn({
         uid,threadId,requestId,message:input,reply:answer.reply,runId:answer.runId,
+        imageAssetId,imageJobId,
       });
       return {...answer,...saved};
     } catch {
