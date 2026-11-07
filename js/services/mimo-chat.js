@@ -19,8 +19,7 @@ export function canUseMimoTeacherChat(session = getSession()) {
 // The Firebase callable ALWAYS authorizes the authenticated user against
 // server-side roles/uid; this is only a fast authentication/session check.
 export function canAttemptMimoCall(session = getSession()) {
-  return !!(session?.authResolved && session?.user?.uid &&
-    session.user.emailVerified === true);
+  return !!(session?.user?.uid && session.user.emailVerified === true);
 }
 
 export function mimoChatErrorMessage(error) {
