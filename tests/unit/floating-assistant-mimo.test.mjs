@@ -70,7 +70,8 @@ test("teacher-only floating button uses existing Mimo chat, not the old mock pro
   assert.match(assistant,/requestId = crypto\.randomUUID\(\)/);
   assert.doesNotMatch(assistant,/askAssistant\(|AI_CONNECTED|directProvider|QUIZER_MIMO_PROJECT_KEY/);
   assert.match(assistant,/renderChatMarkdown\(node, message\.text\)/);
-  assert.match(assistant,/void typeset\(log\)/);
+  assert.match(assistant,/void typesetChatMarkdown\(log,typeset\)/);
+  assert.match(assistant,/data-ai="copy-msg"/);
   assert.match(assistant,/KEY \+ "\." \+ mountedUid/);
   assert.match(assistant,/generation !== myGeneration/);
   assert.match(assistant,/role: "assistant", error: true, confirmed: false/);
