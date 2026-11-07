@@ -222,6 +222,9 @@ const aiHubErrors={
   THREAD_NOT_FOUND:"not-found",DOCUMENT_NOT_FOUND:"not-found",
   DOCUMENT_NOT_READY:"failed-precondition",REQUEST_ID_CONFLICT:"already-exists",
   RATE_LIMITED:"resource-exhausted",MIMO_RATE_LIMITED:"resource-exhausted",
+  MIMO_OUTCOME_UNKNOWN:"unavailable",MIMO_NOT_COMPLETED:"unavailable",
+  MIMO_UNAVAILABLE:"unavailable",MIMO_INVALID_RESPONSE:"unavailable",
+  MIMO_UPSTREAM_UNAVAILABLE:"unavailable",MIMO_PROJECT_NOT_AUTHORIZED:"failed-precondition",
   MEMORY_NOT_CONFIGURED:"failed-precondition",
 };
 export const mimoAiHub=onCall({
