@@ -16,7 +16,7 @@ let root, log, form, input, fileList, state, pendingFiles, busy;
 let mountedUid = null, generation = 0;
 let disposeDock = () => {};
 
-const fresh = () => ({ open: false, messages: [] });
+const fresh = () => ({ open: false, messages: [], threadId: null });
 const load = () => {
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY + "." + mountedUid));
@@ -41,7 +41,9 @@ const load = () => {
           "Request reference: " + last.requestId,
       });
     }
-    return {open: saved.open === true, messages: messages.slice(-60)};
+    return {open: saved.open === true, messages: messages.slice(-60),
+      threadId: typeof saved.threadId === "string" && /^[a-f0-9-]{36}$/i.test(saved.threadId)
+        ? saved.threadId : null};
   } catch { return fresh(); }
 };
 const save = () => {
@@ -85,7 +87,7 @@ export function mountAssistant(session) {
   busy = false;
   root = document.createElement("div");
   root.id = "ai-assistant";
-  root.innerHTML = `<div class="ai-dock" aria-label="Floating assistant toolbar"><button class="ai-dock-handle" type="button" aria-label="Move assistant toolbar; arrow keys also work" title="Drag to move · arrow keys to reposition">⠿</button><button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><button class="ai-fab ai-snip-fab" type="button" aria-label="Snip visible page text or mathematics" title="Select page text and LaTeX · no screen sharing">✂</button><button class="ai-fab ai-pixel-fab" type="button" aria-label="Crop browser-tab screenshot" title="Visual snip · browser tab permission required">▣</button></div><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Teacher AI assistant</strong><span class="ai-tag">Mimo · Live</span></div><div class="ai-head-actions"><button class="icon-button" type="button" data-ai="snip-page" aria-label="Snip visible page text or mathematics" title="Snip page content · no permission">✂</button><button class="icon-button" type="button" data-ai="snip" aria-label="Crop browser-tab screenshot" title="Visual snip · browser tab permission">▣</button><button class="icon-button" type="button" data-ai="reset" aria-label="Clear conversation" title="Clear conversation">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Stage a local file (not supported by text chat yet)"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask a mathematical question…" maxlength="3000" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div><p class="ai-footnote">Connected to Mimo for text chat. Images, PDFs and screenshots stay local and cannot be sent yet.</p></form></aside>`;
+  root.innerHTML = `<div class="ai-dock" aria-label="Floating assistant toolbar"><button class="ai-dock-handle" type="button" aria-label="Move assistant toolbar; arrow keys also work" title="Drag to move · arrow keys to reposition">⠿</button><button class="ai-fab" type="button" aria-label="Open AI assistant" aria-expanded="false"><span aria-hidden="true">✦</span><span class="ai-fab-text">Assistant</span></button><button class="ai-fab ai-snip-fab" type="button" aria-label="Snip visible page text or mathematics" title="Select page text and LaTeX · no screen sharing">✂</button><button class="ai-fab ai-pixel-fab" type="button" aria-label="Crop browser-tab screenshot" title="Visual snip · browser tab permission required">▣</button></div><aside class="ai-panel" role="dialog" aria-label="AI assistant" hidden><header class="ai-head"><div><strong>Teacher AI assistant</strong><span class="ai-tag">Mimo · Live</span></div><div class="ai-head-actions"><button class="icon-button" type="button" data-ai="snip-page" aria-label="Snip visible page text or mathematics" title="Snip page content · no permission">✂</button><button class="icon-button" type="button" data-ai="snip" aria-label="Crop browser-tab screenshot" title="Visual snip · browser tab permission">▣</button><a class="icon-button" data-ai="open-studio" href="ai.html" aria-label="Open saved chat in AI Studio" title="View saved conversation">↗</a><button class="icon-button" type="button" data-ai="reset" aria-label="Clear conversation" title="Clear conversation">↺</button><button class="icon-button" type="button" data-ai="close" aria-label="Close assistant">✕</button></div></header><span class="ai-grip ai-grip--w" data-grip="w" role="separator" aria-orientation="vertical" aria-label="Resize width (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--n" data-grip="n" role="separator" aria-orientation="horizontal" aria-label="Resize height (drag or use arrow keys, double-click to reset)" tabindex="0"></span><span class="ai-grip ai-grip--nw" data-grip="nw" aria-hidden="true"></span><div class="ai-log" aria-live="polite"></div><form class="ai-composer"><div class="ai-files"></div><div class="ai-row"><label class="ai-attach" title="Stage a local file (not supported by text chat yet)"><span aria-hidden="true">📎</span><span class="sr-only">Attach files</span><input type="file" multiple accept=".pdf,.tex,image/png,image/jpeg,image/webp" hidden></label><textarea rows="1" placeholder="Ask a mathematical question…" maxlength="3000" aria-label="Message"></textarea><button class="button primary small" type="submit">Send</button></div><p class="ai-footnote">Connected to Mimo for text chat. Images, PDFs and screenshots stay local and cannot be sent yet.</p></form></aside>`;
   document.body.append(root);
   log = root.querySelector(".ai-log");
   form = root.querySelector("form");
@@ -151,6 +153,10 @@ export function mountAssistant(session) {
   root.querySelector('[data-ai="snip"]').onclick = appendPixel;
   fab.onclick = () => setOpen(!state.open);
   root.querySelector("[data-ai=close]").onclick = () => setOpen(false);
+  const studioLink=root.querySelector("[data-ai=open-studio]");
+  const updateStudioLink=()=>{studioLink.href=state.threadId
+    ?"ai.html?thread="+encodeURIComponent(state.threadId):"ai.html";};
+  updateStudioLink();
   root.querySelector("[data-ai=reset]").onclick = async () => {
     if (busy) return;
     if (
@@ -163,6 +169,8 @@ export function mountAssistant(session) {
     )
       return;
     state.messages = [];
+    state.threadId = null;
+    updateStudioLink();
     save();
     render();
   };
@@ -228,6 +236,7 @@ async function send({ prompt, files = [] }) {
     payload = prepareFloatingAssistantRequest({
       message, messages: state.messages, requestId,
     });
+    if(state.threadId)payload.threadId=state.threadId;
   } catch (error) {
     toast(error.message, {tone:"error"});
     return;
@@ -250,6 +259,9 @@ async function send({ prompt, files = [] }) {
     if (generation !== myGeneration || mountedUid !== myOwner || !root ||
         !canUseMimoTeacherChat(getSession())) return;
     row.confirmed = true;
+    if(response.threadId){state.threadId=response.threadId;
+      const link=root.querySelector("[data-ai=open-studio]");
+      if(link)link.href="ai.html?thread="+encodeURIComponent(state.threadId);}
     state.messages.push({
       role:"assistant", text:response.reply, confirmed:true,
       runId:response.runId || null,
