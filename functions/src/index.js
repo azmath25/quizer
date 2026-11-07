@@ -15,6 +15,7 @@ import { sweep } from "./jobs/sweeper.js";
 import { REGION, ENFORCE_APP_CHECK } from "./config.js";
 import { createTeacherChat, TeacherChatError } from "./mimo/teacher-chat.js";
 import { createExtractionService, ExtractionError } from "./mimo/extraction.js";
+import {createBatchService} from "./mimo/batch.js";
 import {createAiHub,aiHubErrorCode} from "./mimo/ai-hub.js";
 import {sharedAiMemoryStore} from "./mimo/memory-store.js";
 import {createMemoryCompactor} from "./mimo/compact-memory.js";
@@ -210,6 +211,52 @@ export const mimoExtractList=onCall({
   region:REGION,memory:"256MiB",timeoutSeconds:60,maxInstances:2,
   enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
 },request=>extractionAction("list",request));
+
+
+/** Whole-document background jobs; all interactive actions enforce owner role. */
+async function batchAction(action,request) {
+  try {
+    const service=createBatchService({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value()});
+    return await service[action]({auth:request.auth,data:request.data});
+  }catch(error) {
+    if(error instanceof ExtractionError)
+      throw new HttpsError(extractionErrors[error.code]||"failed-precondition",
+        error.code,{reason:error.code});
+    console.error("mimo_batch_internal_failure");
+    throw new HttpsError("internal","Background extraction is temporarily unavailable.");
+  }
+}
+for (const [name,method,memory] of [
+  ["mimoBatchStart","start","512MiB"],
+  ["mimoBatchList","list","256MiB"],
+  ["mimoBatchStatus","status","256MiB"],
+  ["mimoBatchGetPage","getPage","256MiB"],
+  ["mimoBatchImage","image","256MiB"],
+]) {
+  // See the statically exported functions below; this table documents the
+  // corresponding action, but never dynamically constructs Firebase triggers.
+  void name;void method;void memory;
+}
+const batchCallable=(action,memory="256MiB")=>onCall({
+  region:REGION,memory,timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
+},request=>batchAction(action,request));
+export const mimoBatchStart=batchCallable("start","512MiB");
+export const mimoBatchList=batchCallable("list");
+export const mimoBatchStatus=batchCallable("status");
+export const mimoBatchGetPage=batchCallable("getPage");
+export const mimoBatchImage=batchCallable("image");
+export const mimoBatchSweep=onSchedule({
+  schedule:"every 1 minutes",region:REGION,memory:"512MiB",
+  timeoutSeconds:120,maxInstances:1,secrets:extractionSecrets,
+},async()=>{
+  try {
+    await createBatchService({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value()})
+      .sweep(6);
+  }catch {
+    console.error("mimo_batch_sweep_unavailable");
+  }
+});
 
 /**
  * Shared teacher AI hub: existing popup and AI Studio conversations use the
