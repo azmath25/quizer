@@ -63,16 +63,22 @@
         <label>PDF or photographed problems (up to 8 MiB)
           <input id="ai-job-file" type="file" required accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
         </label>
-        <label>PDF page number
+        <label>First PDF page
           <input id="ai-job-page" type="number" min="1" max="100" value="1">
         </label>
-        <label>Hard provider budget for this page
+        <label>Last PDF page (leave empty for whole document)
+          <input id="ai-job-last-page" type="number" min="1" max="100" placeholder="Entire PDF">
+        </label>
+        <label>Hard provider budget per page, including conditional TikZ
           <select id="ai-job-budget">
             <option value="0.15">$0.15</option><option value="0.30">$0.30</option>
             <option value="0.50">$0.50</option>
           </select>
         </label>
-        <p class="ai-muted">The budget applies to one Mimo workflow run, including conditional TikZ. A completed document must be reviewed before import. Other processing costs may be separate.</p>
+        <label>Maximum reserved AI budget for this document (USD)
+          <input id="ai-job-total-budget" type="number" min="0.15" max="50" step="0.01" value="15">
+        </label>
+        <p class="ai-muted">Pages run separately in the background. The total cap reserves each page's maximum before execution; it is not a price estimate or actual bill. If exhausted, the job stops before another paid run. Review every question and diagram before private import.</p>
         <label><input id="ai-upload-consent" type="checkbox" required> I authorize uploading this source to Mimo for processing.</label>
         <button id="ai-start-job" class="ai-primary" type="submit">Create extraction job</button>
       </form>
