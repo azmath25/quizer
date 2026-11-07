@@ -611,6 +611,7 @@ function documentTaskLabel(page,jobState){
   if(page.state==="queued"&&["attention","budget_exhausted"].includes(jobState))
     return "Paused — not yet dispatched";
   if(page.state==="queued")return "Queued";
+  if(page.state==="submitted"&&page.retryAt)return "Rate-limited — retry scheduled";
   if(page.state==="submitted")return "Running";
   if(page.state==="claiming")return "Dispatching";
   return String(page.state||"Unknown");
@@ -686,6 +687,8 @@ async function selectBatch(id){
       const phase=labels[page.stage]||"Processing";
       const detail=page.state==="completed"
         ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"
+        :page.state==="submitted"&&page.retryAt&&Number.isFinite(Date.parse(page.retryAt))
+          ?" · OpenRouter quota wait · next attempt "+new Date(page.retryAt).toLocaleString()
         :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")"
         :page.state==="attention"&&describeMimoRunFailure(page)?" · "+describeMimoRunFailure(page):"";
       const taskLabel=documentTaskLabel(page,job.state);
