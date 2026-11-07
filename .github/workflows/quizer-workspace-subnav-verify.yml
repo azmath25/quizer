@@ -1,8 +1,7 @@
 name: Quizer consistent workspace subnavigation QA
 on:
-  push:
-    branches: [fix/consistent-workspace-subnav-2026-11-05]
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

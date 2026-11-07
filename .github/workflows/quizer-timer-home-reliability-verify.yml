@@ -1,23 +1,6 @@
 name: Quizer timer home and reliability verification
 
 on:
-  push:
-    branches:
-      - fix/quizer-timer-home-reliability-2026-11-05
-    paths:
-      - ".github/workflows/quizer-timer-home-reliability-verify.yml"
-      - "functions/**"
-      - "js/**"
-      - "assets/**"
-      - "quiz.html"
-      - "ai.html"
-      - "shared/**"
-      - "db/**"
-      - "scripts/**"
-      - "tests/**"
-      - "package.json"
-      - "package-lock.json"
-      - "firebase.json"
   workflow_dispatch:
 
 permissions:

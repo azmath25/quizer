@@ -1,22 +1,6 @@
 name: Quizer quiz-loading performance verification
 
 on:
-  push:
-    branches:
-      - perf/on-demand-quiz-loading-2026-11-05
-    paths:
-      - ".github/workflows/quizer-quiz-perf-verify.yml"
-      - "functions/**"
-      - "js/**"
-      - "assets/**"
-      - "quiz.html"
-      - "shared/**"
-      - "db/**"
-      - "scripts/**"
-      - "tests/**"
-      - "package.json"
-      - "package-lock.json"
-      - "firebase.json"
   workflow_dispatch:
 
 permissions:
