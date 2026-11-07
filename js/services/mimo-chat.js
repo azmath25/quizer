@@ -46,7 +46,7 @@ export function mimoChatErrorMessage(error) {
 }
 
 export async function sendTeacherChatMessage({
-  message, context = "", history = [], requestId = crypto.randomUUID(),
+  message, context = "", history = [], requestId = crypto.randomUUID(), threadId = null,
 } = {}) {
   const before = getSession();
   if (!canUseMimoTeacherChat(before)) {
@@ -65,6 +65,8 @@ export async function sendTeacherChatMessage({
     .slice(-8)
     .map((item) => ({role: item.role, content: String(item.content || "").slice(0, 1200)}));
   const payload = {
+    action: "chat.send",
+    ...(threadId ? {threadId} : {}),
     message: text,
     context: String(context || "").slice(0, 4000),
     history: boundedHistory,
@@ -76,7 +78,7 @@ export async function sendTeacherChatMessage({
       current.user.uid !== before.user.uid) {
     throw Object.assign(new Error("Session changed."), {code: "functions/unauthenticated"});
   }
-  const callable = services.functionsSDK.httpsCallable(services.functions, "mimoTeacherChat", {
+  const callable = services.functionsSDK.httpsCallable(services.functions, "mimoAiHub", {
     timeout: 115000,
   });
   const response = await callable(payload); // exactly one call; deliberately no retry
@@ -89,5 +91,21 @@ export async function sendTeacherChatMessage({
   if (typeof data?.reply !== "string" || !data.reply.trim()) {
     throw Object.assign(new Error("No response."), {code: "functions/unavailable"});
   }
-  return {reply: data.reply, runId: data.runId};
+  return {reply: data.reply, runId: data.runId,
+    threadId: data.threadId || null, saved: data.saved === true,
+    warningCode: data.warningCode || null};
+}
+
+/** Owner-scoped, server-authenticated history shared by AI Studio and Ask AI popups. */
+export async function teacherChatHistory(action, options = {}) {
+  if (!["chat.list", "chat.get"].includes(action)) throw new Error("Unknown history operation");
+  const before = getSession();
+  if (!canUseMimoTeacherChat(before)) throw new Error("Verified teacher access is required.");
+  const services = await getFirebaseServices();
+  const fn = services.functionsSDK.httpsCallable(services.functions, "mimoAiHub", {timeout:30000});
+  const result = await fn({action,...options});
+  const after = getSession();
+  if (before.epoch !== after.epoch || before.user.uid !== after.user?.uid ||
+      !canUseMimoTeacherChat(after)) throw new Error("Your session changed.");
+  return result.data;
 }
