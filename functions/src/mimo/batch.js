@@ -331,7 +331,10 @@ export function createBatchService({
       const changed=pages.slice();changed[at]={...pages[at],...patch};
       const hasAttention=changed.some(p=>p.state==="attention");
       const complete=changed.every(p=>p.state==="completed");
-      const nextState=complete?"ready_review":hasAttention?"attention":"running";
+      // Budget exhaustion/attention stops NEW paid calls, but must not
+      // conceal in-flight submissions or their independently saved results.
+      const nextState=job.state==="budget_exhausted"?"budget_exhausted":
+        hasAttention?"attention":complete?"ready_review":"running";
       tx.update(ref,{pages:changed,state:nextState,updatedAt:time(),...jobPatch});
       updated=true;
     });
@@ -386,7 +389,7 @@ export function createBatchService({
   async function sweep(max=6){
     if(!Number.isInteger(max)||max<1||max>10)throw Error("Invalid sweep size");
     const found=await db.collection("mimoBatchJobs")
-      .where("state","==","running").limit(max).get();
+      .where("state","in",["running","budget_exhausted","attention"]).limit(max).get();
     let visited=0;
     for(const doc of found.docs){
       const job=doc.data();visited++;
