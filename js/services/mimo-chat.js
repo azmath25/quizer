@@ -15,6 +15,7 @@ export function canUseMimoTeacherChat(session = getSession()) {
   );
 }
 
+
 export function mimoChatErrorMessage(error) {
   const reason = String(error?.details?.reason || error?.details?.code || "");
   const code = String(error?.code || "").replace(/^functions\//, "");
@@ -97,6 +98,25 @@ export async function sendTeacherChatMessage({
   return {reply: data.reply, runId: data.runId,
     threadId: data.threadId || null, saved: data.saved === true,
     warningCode: data.warningCode || null};
+}
+
+/** Safe, actionable history diagnostics. Never expose backend URLs, credentials or SQL. */
+export function mimoHistoryErrorMessage(error) {
+  const code=String(error?.code||"").replace(/^functions\//,"");
+  const reason=String(error?.details?.reason||"");
+  if(code==="not-found")return "Saved-chat service is not available. The Firebase mimoAiHub function may not be deployed.";
+  if(reason==="MEMORY_NOT_CONFIGURED")return "Saved-chat database is not connected to the AI Studio Cloud Function.";
+  if(reason==="THREAD_NOT_FOUND")return "This conversation is no longer available to this account.";
+  if(reason==="EMAIL_UNVERIFIED")return "Verify your email address to use saved conversations.";
+  if(reason==="ROLE_REQUIRED"||code==="permission-denied")
+    return "Your account does not have permission to read teacher AI conversations.";
+  if(reason==="AUTH_REQUIRED"||code==="unauthenticated")
+    return "Sign in again to load your saved conversations.";
+  if(code==="deadline-exceeded"||code==="unavailable")
+    return "The saved-chat service is temporarily unreachable. No messages were deleted.";
+  if(code==="internal")
+    return "The saved-chat service returned an internal error. Please check the mimoAiHub Firebase function logs.";
+  return "Saved chats could not be loaded. No existing conversations were deleted.";
 }
 
 /** Owner-scoped, server-authenticated history shared by AI Studio and Ask AI popups. */

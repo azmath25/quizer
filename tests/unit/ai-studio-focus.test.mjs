@@ -24,7 +24,9 @@ test("teacher-only shell, shared navigation and appearance remain intact",()=>{
   assert.match(page,/<header id="site-header"/);
   assert.match(page,/<nav id="mobile-nav"/);
   assert.match(client,/mountShell\(\{showAssistant:false,showBackdrop:false\}\)/);
-  assert.match(client,/canUseMimoTeacherChat\(session\)/);
+  assert.match(client,/mountShell\(\{showAssistant:false,showBackdrop:false\}\)/);
+  assert.match(client,/mimoHistoryErrorMessage\(error\)/);
+  assert.match(page,/id="ai-access-gate" role="status" hidden/);
   assert.doesNotMatch(page,/class="quizer-site-menu"|data-act="theme"/);
   assert.match(shell,/showAssistant = true, showBackdrop = true/);
 });

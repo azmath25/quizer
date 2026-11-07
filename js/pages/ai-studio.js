@@ -3,7 +3,7 @@ import {mountShell} from "../components/shell.js";
 import {renderChatMarkdown,typesetChatMarkdown} from "../components/ai-chat-markdown.js";
 import {typeset} from "../components/math-content.js";
 import {sendTeacherChatMessage,teacherChatHistory,canUseMimoTeacherChat,
-  mimoChatErrorMessage} from "../services/mimo-chat.js";
+  mimoChatErrorMessage,mimoHistoryErrorMessage} from "../services/mimo-chat.js";
 import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
   submitMimoBatch,listMimoBatches,readMimoBatch,readMimoBatchPage,
   readMimoBatchImage,saveMimoBatchReview,readMimoBatchPrepared,
@@ -234,9 +234,25 @@ function drawMessages(){
   studioHead();
 }
 async function loadThreads(){
-  const result=await teacherChatHistory("chat.list",{limit:100});
-  threads=Array.isArray(result?.threads)?result.threads:[];
-  drawThreads();
+  try {
+    const result=await teacherChatHistory("chat.list",{limit:100});
+    threads=Array.isArray(result?.threads)?result.threads:[];
+    drawThreads();
+    return true;
+  } catch(error) {
+    const detail=mimoHistoryErrorMessage(error);
+    const target=$("ai-threads");target.replaceChildren();
+    const message=node("p",detail,"ai-error");
+    message.setAttribute("role","alert");
+    const retry=node("button","Retry saved chats","ai-secondary");
+    retry.type="button";
+    retry.onclick=()=>void loadThreads().then(ok=>{
+      if(ok)status("");else status(detail,true);
+    });
+    target.append(message,retry);
+    status(detail,true);
+    return false;
+  }
 }
 async function openThread(id){
   const data=await teacherChatHistory("chat.get",{threadId:id});
@@ -782,40 +798,8 @@ function wireOriginalChrome(){
 }
 async function boot(){
   try {
-    // Firebase may wait on a slow getSessionInfo callable. Never leave the
-    // access gate spinning indefinitely, and use an already resolved session.
-    const session=await new Promise(resolve=>{
-      let settled=false,unsub=()=>{};
-      const finish=s=>{
-        if(settled)return;
-        settled=true;clearTimeout(timeout);
-        queueMicrotask(()=>unsub());
-        resolve(s);
-      };
-      const timeout=setTimeout(()=>finish({...getSession(),accessTimedOut:true}),12000);
-      unsub=watchSession(s=>{
-        if(s.status==="error"||s.status==="unconfigured"||
-            (s.authResolved&&(!s.user||s.roleResolved)))finish(s);
-      });
-      void initFirebase().catch(error=>finish({
-        ...getSession(),status:"error",error:String(error?.message||error),
-      }));
-    });
-    if(session.accessTimedOut||session.status==="error"||session.status==="unconfigured"){
-      gate.replaceChildren();
-      gate.append(node("p",session.accessTimedOut
-        ?"Account verification is taking too long. Check your connection and try again."
-        :session.error||"Account verification is unavailable."));
-      const retry=node("button","Retry access check","ai-secondary");
-      retry.type="button";retry.onclick=()=>location.reload();
-      gate.append(retry);
-      return;
-    }
-    if(!session?.user){location.replace("login.html?next=ai.html");return;}
-    if(!canUseMimoTeacherChat(session)){
-      gate.textContent="AI Studio requires an active verified teacher or administrator account.";
-      return;
-    }
+    // Show the one-page workspace immediately; never gate the design behind
+    // an extra teacher-role request. Server callables enforce all real access.
     mountShell({showAssistant:false,showBackdrop:false});
     app.hidden=false;gate.hidden=true;
     wireOriginalChrome();
@@ -847,28 +831,59 @@ async function boot(){
         event.preventDefault();if(!busyChat)$("ai-chat-form").requestSubmit();
       }
     });
-    watchSession(s=>{
-      if(!canUseMimoTeacherChat(s)){
-        app.hidden=true;gate.hidden=false;
-        gate.textContent="Session changed. Reload and sign in to continue.";
+    // Authentication (not a second role-verification screen) is needed for
+    // private calls. Role authorization is enforced by Firebase on each call.
+    const session=await new Promise(resolve=>{
+      let settled=false,unsub=()=>{};
+      const finish=value=>{
+        if(settled)return;
+        settled=true;clearTimeout(timeout);
+        queueMicrotask(()=>unsub());
+        resolve(value);
+      };
+      const timeout=setTimeout(()=>finish({...getSession(),authTimedOut:true}),12000);
+      unsub=watchSession(value=>{
+        if(value.status==="error"||value.status==="unconfigured"||
+          (value.authResolved&&(!value.user||value.roleResolved)))finish(value);
+      });
+      void initFirebase().catch(error=>finish({
+        ...getSession(),status:"error",error:String(error?.message||error),
+      }));
+    });
+    if(session.authTimedOut||session.status==="error"||session.status==="unconfigured"){
+      status("Account services are still loading. Your workspace remains available; retry after connection is restored.",true);
+      return;
+    }
+    if(!session?.user){location.replace("login.html?next=ai.html");return;}
+    if(session.user.emailVerified!==true){
+      status("Verify your email to use the AI Studio services.",true);
+      return;
+    }
+    watchSession(value=>{
+      // A role refresh should not remove the workspace. Only sign-out clears
+      // the user-specific view. Server-side callables reject students.
+      if(value.authResolved&&!value.user){
+        messages=[];threads=[];jobs=[];
         for(const url of transientUrls)URL.revokeObjectURL(url);
-        transientUrls=[];messages=[];threads=[];jobs=[];
+        transientUrls=[];
+        location.replace("login.html?next=ai.html");
       }
     });
     const params=new URLSearchParams(location.search);
     if(params.get("target")==="bank")$("ai-job-target").value="bank";
     const initialThread=params.get("thread");
+    // Failure of history must never block the assistant or the job UI.
     const initialLoads=await Promise.allSettled([loadThreads(),loadJobs()]);
-    if(initialLoads[0].status==="rejected")status("Saved conversations could not be loaded. Retry after checking your connection.",true);
-    if(initialLoads[1].status==="rejected")status("Saved jobs could not be loaded. Refresh the job inspector.",true);
+    if(initialLoads[1].status==="rejected")
+      status("Saved jobs are temporarily unavailable. Refresh the job inspector.",true);
     if(initialThread&&/^[a-f0-9-]{36}$/i.test(initialThread)){
       try{await openThread(initialThread);}catch(e){status("Saved chat is unavailable for this account.",true);newThread();}
     }else{newThread();}
     if(params.get("mode")==="job")activeTab("jobs");
     drawJobs();
   }catch(error){
-    gate.hidden=false;app.hidden=true;
-    gate.textContent="AI Studio could not load. Verify your account and server connection.";
+    app.hidden=false;gate.hidden=true;
+    status("AI Studio could not initialize. Reload the page or check your connection.",true);
     console.error("AI Studio initialization failed",error);
   }
 }
