@@ -15,6 +15,9 @@ import { sweep } from "./jobs/sweeper.js";
 import { REGION, ENFORCE_APP_CHECK } from "./config.js";
 import { createTeacherChat, TeacherChatError } from "./mimo/teacher-chat.js";
 import { createExtractionService, ExtractionError } from "./mimo/extraction.js";
+import {createAiHub,aiHubErrorCode} from "./mimo/ai-hub.js";
+import {sharedAiMemoryStore} from "./mimo/memory-store.js";
+import {createMemoryCompactor} from "./mimo/compact-memory.js";
 initializeApp();
 const db = getFirestore();
 
@@ -203,3 +206,55 @@ export const mimoExtractImage=onCall({
   region:REGION,memory:"256MiB",timeoutSeconds:120,maxInstances:2,
   enforceAppCheck:ENFORCE_APP_CHECK,secrets:extractionSecrets,
 },request=>extractionAction("image",request));
+
+/**
+ * Shared teacher AI hub: existing popup and AI Studio conversations use the
+ * same owner-scoped Neon threads. No browser receives Neon or Mimo keys.
+ * Keep old mimoTeacherChat available for previously deployed clients.
+ */
+const aiHubErrors={
+  AUTH_REQUIRED:"unauthenticated",EMAIL_UNVERIFIED:"permission-denied",
+  ROLE_REQUIRED:"permission-denied",INVALID_FIELDS:"invalid-argument",
+  THREAD_NOT_FOUND:"not-found",DOCUMENT_NOT_FOUND:"not-found",
+  DOCUMENT_NOT_READY:"failed-precondition",REQUEST_ID_CONFLICT:"already-exists",
+  RATE_LIMITED:"resource-exhausted",MIMO_RATE_LIMITED:"resource-exhausted",
+  MEMORY_NOT_CONFIGURED:"failed-precondition",
+};
+export const mimoAiHub=onCall({
+  region:REGION,memory:"512MiB",timeoutSeconds:120,maxInstances:2,
+  enforceAppCheck:ENFORCE_APP_CHECK,
+  secrets:[QUIZER_MIMO_PROJECT_KEY,NEON_URL],
+},async request=>{
+  try {
+    return await createAiHub({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value(),
+      databaseUrl:NEON_URL.value()})({auth:request.auth,data:request.data});
+  }catch(error) {
+    const reason=aiHubErrorCode(error) ||
+      (error instanceof TeacherChatError?error.code:null);
+    if(reason)throw new HttpsError(aiHubErrors[reason]||"failed-precondition",
+      reason,{reason});
+    console.error("mimo_ai_hub_internal_failure");
+    throw new HttpsError("internal","AI Studio is temporarily unavailable.");
+  }
+});
+
+/**
+ * Bound-cost asynchronous memory updater. One claimed conversation segment
+ * per scheduled execution; no automatic retry after ambiguous provider calls.
+ */
+export const mimoAiMemorySweep=onSchedule({
+  schedule:"every 5 minutes",region:REGION,memory:"256MiB",
+  timeoutSeconds:120,maxInstances:1,
+  secrets:[QUIZER_MIMO_PROJECT_KEY,NEON_URL],
+},async()=>{
+  try {
+    const compact=createMemoryCompactor({
+      store:sharedAiMemoryStore(NEON_URL.value()),
+      projectKey:QUIZER_MIMO_PROJECT_KEY.value(),
+    });
+    const result=await compact();
+    if(result.attention)console.warn("ai_memory_sweep_attention");
+  }catch {
+    console.error("ai_memory_sweep_unavailable");
+  }
+});
