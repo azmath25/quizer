@@ -47,14 +47,21 @@ function firestore(){
     records,doc,
     runTransaction:atomic,
     collection:name=>({
-      where:(key,op,val)=>({
-        limit:n=>({
-          get:async()=>({docs:[...records.entries()]
-            .filter(([k,v])=>k.startsWith(name+"/")&&k.split("/").length===2&&
-              (op==="in"?Array.isArray(val)&&val.includes(v[key]):op==="=="&&v[key]===val))
-            .slice(0,n).map(([k,v])=>({id:k.split("/").at(-1),data:()=>v}))}),
-        }),
-      }),
+      where:(key,op,val)=>{
+        const query=(orderField=null,direction="asc")=>({
+          orderBy:(field,dir="asc")=>query(field,dir),
+          limit:n=>({
+            get:async()=>({docs:[...records.entries()]
+              .filter(([k,v])=>k.startsWith(name+"/")&&k.split("/").length===2&&
+                (op==="in"?Array.isArray(val)&&val.includes(v[key]):op==="=="&&v[key]===val))
+              .sort((a,b)=>orderField
+                ?(direction==="desc"?-1:1)*String(a[1][orderField]||"").localeCompare(
+                  String(b[1][orderField]||"")):0)
+              .slice(0,n).map(([k,v])=>({id:k.split("/").at(-1),data:()=>v}))}),
+          }),
+        });
+        return query();
+      },
     }),
   };
 }
@@ -415,4 +422,68 @@ test("reconciliation reattaches an existing still-running job without dispatchin
   assert.equal(checked.pages[0].state,"submitted");
   assert.equal(checked.state,"running");
   assert.equal(calls.filter(x=>x.options?.method==="POST"&&x.url.endsWith("/runs")).length,1);
+});
+
+
+test("attention backlog cannot starve a newly runnable document",async()=>{
+  const db=firestore(),calls=[],app=service(db,upstream(calls));
+  for(let i=0;i<7;i++){
+    const id=digest(Buffer.from("old-attention-"+i));
+    db.records.set("mimoBatchJobs/"+id,{
+      jobId:id,state:"attention",updatedAt:"2026-11-07T01:00:00Z",
+      pages:[{number:1,state:"attention"}],needsAttentionPolling:false,
+    });
+  }
+  const job=await app.start({auth:auth(uid),data:request("fairness_new_job_20261108")});
+  const swept=await app.sweep();
+  const state=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(swept.visited,1);
+  assert.equal(state.pages[0].state,"submitted");
+  assert.equal(calls.filter(c=>c.options?.method==="POST"&&c.url.endsWith("/runs")).length,1);
+});
+
+
+test("fair updatedAt rotation visits later runnable jobs without duplicate paid dispatch",async()=>{
+  let clock=Date.parse("2026-11-07T09:00:00Z");
+  const db=firestore(),calls=[],app=service(db,upstream(calls),()=>clock);
+  for(let i=0;i<8;i++){
+    const id=digest(Buffer.from("round-robin-"+i));
+    db.records.set("mimoBatchJobs/"+id,{
+      jobId:id,uid,artifactId:ART,documentPages:1,
+      contentType:"application/pdf",digest:digest(PDF),target:"quiz",
+      state:"running",perPageUsd:0.15,totalUsd:0.15,reservedUsd:0,
+      updatedAt:new Date(clock-8000+i*1000).toISOString(),
+      pages:[{number:1,state:"queued",runId:null}],
+      needsAttentionPolling:false,
+    });
+  }
+  clock+=20000;
+  assert.equal((await app.sweep(4)).visited,4);
+  clock+=60000;
+  assert.equal((await app.sweep(4)).visited,4);
+  const dispatched=[...db.records.entries()]
+    .filter(([name])=>name.startsWith("mimoBatchJobs/"))
+    .filter(([,job])=>job.pages[0].state==="submitted").length;
+  assert.equal(dispatched,8);
+  assert.equal(calls.filter(c=>c.options?.method==="POST"&&c.url.endsWith("/runs")).length,8);
+});
+
+
+test("rate-limited known run shows scheduled retry and never resubmits",async()=>{
+  const db=firestore(),calls=[],base=upstream(calls),app=service(db,async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1)))return json({
+      id:runId(1),status:"queued",next_attempt_at:"2026-11-07T10:00:00Z",
+      rate_limit_deferrals:2,
+    });
+    return base(url,options);
+  });
+  const job=await app.start({auth:auth(uid),data:request("quota_wait_20261108_test")});
+  await app.sweep();
+  await app.sweep();
+  const state=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(state.pages[0].state,"submitted");
+  assert.equal(state.pages[0].retryAt,"2026-11-07T10:00:00Z");
+  assert.equal(state.pages[0].retryCount,2);
+  assert.equal(calls.filter(c=>c.url.endsWith("/runs")&&c.options?.method==="POST").length,1);
+  assert.equal(calls.filter(c=>c.url.includes("/timeline")).length,0);
 });
