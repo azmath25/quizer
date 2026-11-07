@@ -300,8 +300,7 @@ export function createBatchService({
       const snap=await tx.get(ref);
       if(!snap.exists||snap.data().state!=="running")return;
       const job=snap.data(),pages=job.pages||[];
-      if(pages.some(p=>p.state==="claiming"))return;
-      const active=pages.filter(p=>p.state==="submitted").length;
+      const active=pages.filter(p=>["submitted","claiming"].includes(p.state)).length;
       if(active>=3)return;
       const next=pages.findIndex(p=>p.state==="queued");
       if(next<0)return;
@@ -401,8 +400,16 @@ export function createBatchService({
       // Poll at most three active runs, without holding a database lock.
       for(const page of (job.pages||[]).filter(p=>p.state==="submitted").slice(0,3))
         await poll(job,page);
-      const selection=await claim(job.jobId);
-      if(selection)await dispatch(job.jobId,selection);
+      // Admit up to three independent page runs in one tick instead of
+      // artificially waiting one full minute between every page.
+      const claims=[];
+      for(let n=0;n<3;n++){
+        const selection=await claim(job.jobId);
+        if(!selection)break;
+        claims.push(selection);
+      }
+      // Every claim reserves budget transactionally before any provider call.
+      await Promise.all(claims.map(selection=>dispatch(job.jobId,selection)));
     }
     return {visited};
   }
