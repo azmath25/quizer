@@ -14,13 +14,126 @@ import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
 
 const $=id=>document.getElementById(id);
-const app=$("app"),gate=$("ai-access");
+const app=$("app"),gate=$("ai-access-gate");
 let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null,hasOlder=false;
 let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="",selectedImage=null;
 const originalSources=new Map();
 const batchReviews=new Map();
 let transientUrls=[];
 const listen=(id,kind,fn)=>$(id).addEventListener(kind,fn);
+const icon=(name,small=false)=>{
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.classList.add("ico");if(small)svg.classList.add("sm");
+  svg.setAttribute("aria-hidden","true");
+  const use=document.createElementNS("http://www.w3.org/2000/svg","use");
+  use.setAttribute("href","#ic-"+name);svg.append(use);return svg;
+};
+const MODES={
+  chat:{name:"General chat",icon:"chat",desc:"Think, explain, brainstorm and plan.",placeholder:"Ask a question or brainstorm an idea...",
+    prompts:[["Understand a concept","Explain a difficult mathematical concept with examples"],["Plan a lesson","Outline a lesson on modular arithmetic"],["Explore an idea","Brainstorm an original olympiad problem"],["Compare methods","Compare two different solution methods"]]},
+  solver:{name:"Problem solver",icon:"math",desc:"Reason through mathematics, notation and proofs.",placeholder:"Enter a problem or a LaTeX expression...",
+    prompts:[["Solve step by step","Solve $x^2-5x+6=0$ step by step"],["Audit a proof","Identify gaps in the following mathematical proof"],["Find alternatives","Find two approaches to this problem"],["Get a hint","Give me a hint rather than the full solution"]]},
+  document:{name:"Document lab",icon:"doc",desc:"PDF extraction, figures, OCR review and LaTeX.",placeholder:"Describe what to extract or review in your files...",
+    prompts:[]},
+  quiz:{name:"Quiz creator",icon:"quiz",desc:"Prepare, adapt and check quiz content.",placeholder:"Describe a quiz topic, age group or difficulty...",
+    prompts:[["Draft exercises","Draft five algebra problems at varied levels"],["Build a test","Outline a 40-minute mathematics mock test"],["Balance difficulty","Organize these problems from easy to hard"],["Audit distractors","Review multiple-choice options for ambiguity"]]},
+  review:{name:"Review & audit",icon:"review",desc:"Check grammar, logic, precision and ambiguity.",placeholder:"Paste material and describe what to audit...",
+    prompts:[["Find ambiguity","Flag ambiguity and missing assumptions"],["Improve grammar","Polish wording without changing the math"],["Check consistency","Check numbering, formulas and notation"],["Proof referee","Identify unproved steps and possible counterexamples"]]},
+};
+let studioMode="chat",pinnedOnly=false,inspectorVisible=false;
+const PIN_STORAGE="quizer.ai.studio.local-pins.v1";
+let pins=new Set();
+try{pins=new Set(JSON.parse(localStorage.getItem(PIN_STORAGE)||"[]"));}catch{}
+const persistPins=()=>{try{localStorage.setItem(PIN_STORAGE,JSON.stringify([...pins]));}catch{}};
+const ALIAS_STORAGE="quizer.ai.studio.local-aliases.v1";
+let aliases={};
+try{aliases=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||"{}")||{};}catch{}
+const displayTitle=t=>t?(String(aliases[t.id]||t.title||"New conversation").slice(0,100)):"New conversation";
+const persistAliases=()=>{try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(aliases));}catch{}};
+
+function studioHead(){
+  const current=threads.find(t=>t.id===threadId),mode=MODES[studioMode]||MODES.chat;
+  const head=$("conversation-head");head.replaceChildren();
+  const title=node("div","","current-title");
+  const symbol=node("span","","title-symbol");symbol.append(icon(mode.icon));
+  const copy=node("span","","title-copy");
+  copy.append(node("h1",displayTitle(current)),node("p",mode.desc));
+  title.append(symbol,copy);head.append(title);
+  const actions=node("div","","head-tools");
+  const more=node("details","","chat-options");
+  const summary=node("summary","More ⋯");
+  summary.setAttribute("aria-label","Conversation actions");
+  more.append(summary);
+  const menu=node("div","","chat-actions");
+  const pin=node("button","","");pin.type="button";pin.disabled=!threadId;
+  pin.append(icon("pin",true),document.createTextNode(" "+(pins.has(threadId)?"Unpin":"Pin")));
+  pin.title="Pin this conversation on this device";
+  pin.onclick=()=>{if(!threadId)return;
+    if(pins.has(threadId))pins.delete(threadId);else pins.add(threadId);
+    persistPins();drawThreads();more.open=false;
+  };
+  const rename=node("button","","");rename.type="button";rename.disabled=!threadId;
+  rename.append(icon("edit",true),document.createTextNode(" Rename"));
+  rename.title="Rename on this device";
+  rename.onclick=()=>{if(!threadId)return;
+    $("rename-input").value=displayTitle(current);
+    $("rename-dialog").showModal();more.open=false;
+  };
+  const exportButton=node("button","","");
+  exportButton.type="button";exportButton.disabled=!messages.length;
+  exportButton.append(icon("download",true),document.createTextNode(" Export JSON"));
+  exportButton.onclick=()=>{
+    const payload={threadId,messages:messages.map(m=>({role:m.role,content:m.content||""}))};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+    const link=node("a");link.href=url;link.download="ai-studio-conversation.json";
+    link.click();setTimeout(()=>URL.revokeObjectURL(url),0);more.open=false;
+  };
+  menu.append(pin,rename,exportButton);more.append(menu);actions.append(more);head.append(actions);
+  const modeText=$("compose-mode");modeText.replaceChildren(icon(mode.icon,true),
+    document.createTextNode(" "+mode.name));
+  $("ai-prompt").placeholder=mode.placeholder;
+}
+function studioWelcome(){
+  const mode=MODES[studioMode]||MODES.chat;
+  const wrap=node("div","","welcome");
+  const symbol=node("span","","welcome-symbol");symbol.append(icon("spark"));
+  wrap.append(symbol,node("h2","What would you like to do?"),node("p",mode.desc));
+  const grid=node("div","","prompt-grid");
+  for(const [title,prompt] of mode.prompts.slice(0,2)){
+    const b=node("button","","prompt-card");b.type="button";
+    const mark=node("span");mark.append(icon("spark",true));
+    b.append(mark,node("strong",title));b.onclick=()=>{
+      $("ai-prompt").value=prompt;$("ai-prompt").focus();
+    };
+    grid.append(b);
+  }
+  wrap.append(grid);
+  if(mode.prompts.length>2){
+    const details=node("details","","more-prompts");
+    details.append(node("summary","More ideas"));
+    const more=node("div","","prompt-grid");
+    for(const [title,prompt] of mode.prompts.slice(2)){
+      const b=node("button","","prompt-card");b.type="button";
+      const mark=node("span");mark.append(icon("spark",true));
+      b.append(mark,node("strong",title));
+      b.onclick=()=>{$("ai-prompt").value=prompt;$("ai-prompt").focus();};
+      more.append(b);
+    }
+    details.append(more);wrap.append(details);
+  }
+  return wrap;
+}
+function applyStudioLayout(){
+  const wide=innerWidth>1060;
+  app.classList.toggle("show-inspector",!wide&&inspectorVisible);
+  const inspector=app.querySelector(".inspector");
+  if(wide){inspector.style.display=inspectorVisible?"":"none";
+    $("shell").style.gridTemplateColumns=inspectorVisible?"":"232px minmax(0,1fr)";
+  }else{inspector.style.display="";$("shell").style.gridTemplateColumns="";}
+  for(const button of app.querySelectorAll('[data-act="inspector"]'))
+    button.setAttribute("aria-expanded",String(inspectorVisible));
+}
+
 const node=(tag,text="",className="")=>{
   const el=document.createElement(tag);if(className)el.className=className;
   if(text!==undefined)el.textContent=String(text);return el;
@@ -41,54 +154,84 @@ function activeTab(tab){
   $("ai-chat-panel").hidden=!chat;$("ai-jobs-panel").hidden=chat;
   $("ai-tab-chat").setAttribute("aria-selected",String(chat));
   $("ai-tab-jobs").setAttribute("aria-selected",String(!chat));
+  $("ai-tab-chat").classList.toggle("active",chat&&!pinnedOnly);
+  $("ai-tab-jobs").classList.toggle("active",!chat);
+  $("ai-pin-filter").classList.toggle("active",chat&&pinnedOnly);
+  app.classList.remove("show-sidebar");
+  if(!chat&&innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}
+  studioHead();
 }
 function drawThreads(){
-  const container=$("ai-threads"),needle=$("ai-chat-search").value.toLowerCase();
-  container.replaceChildren();
-  for(const entry of threads.filter(x=>String(x.title||"").toLowerCase().includes(needle))){
-    const b=node("button",entry.title||"New chat");
-    b.type="button";b.setAttribute("aria-current",String(entry.id===threadId));
-    const small=node("small",humanTime(entry.updatedAt||entry.createdAt));
-    b.append(small);b.onclick=()=>void openThread(entry.id);container.append(b);
+  const target=$("ai-threads"),needle=$("ai-chat-search").value.toLowerCase();
+  target.replaceChildren();
+  const visible=threads.filter(t=>(!pinnedOnly||pins.has(t.id))&&
+    displayTitle(t).toLowerCase().includes(needle))
+    .sort((a,b)=>Number(pins.has(b.id))-Number(pins.has(a.id))||
+      String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
+  $("chat-count").textContent=String(threads.length);
+  $("history-count").textContent=String(visible.length);
+  $("history-label").textContent=pinnedOnly?"Pinned conversations":"Recent conversations";
+  for(const entry of visible){
+    const row=node("div","","history-row");
+    if(entry.id===threadId)row.classList.add("active");
+    const b=node("button","","history-open");b.type="button";
+    b.setAttribute("aria-current",String(entry.id===threadId));
+    const symbol=node("span","","history-icon");symbol.append(icon("chat"));
+    const label=node("span","","history-text");
+    label.append(node("strong",displayTitle(entry)),
+      node("small","General chat · "+humanTime(entry.updatedAt||entry.createdAt)));
+    b.append(symbol,label);b.onclick=()=>void openThread(entry.id).catch(e=>status(safeError(e),true));
+    const pin=node("button","","pin-btn");
+    pin.type="button";pin.title="Pin on this device";
+    pin.setAttribute("aria-label",(pins.has(entry.id)?"Unpin ":"Pin ")+displayTitle(entry));
+    if(pins.has(entry.id))pin.classList.add("pinned");
+    pin.append(icon("pin",true));
+    pin.onclick=()=>{if(pins.has(entry.id))pins.delete(entry.id);else pins.add(entry.id);
+      persistPins();drawThreads();};
+    row.append(b,pin);target.append(row);
   }
-  if(!container.childElementCount)container.append(node("p","No matching conversations.","ai-muted"));
+  if(!target.childElementCount)target.append(node("div","No saved conversations match this view.","empty-box"));
+  studioHead();
 }
 function drawMessages(){
   $("ai-load-older").hidden=!hasOlder;
   const target=$("ai-messages");target.replaceChildren();
-  if(!messages.length)target.append(node("p",
-    "Ask a question or open a saved conversation. Your replies are stored in your private chat history.",
-    "ai-muted"));
+  if(!messages.length)target.append(studioWelcome());
   for(const m of messages){
-    const box=node("article","","ai-msg");box.dataset.role=m.role;
-    box.append(node("strong",m.role==="assistant"?"Mimo assistant":"You"));
-    const body=node("div");
-    if(m.role==="assistant"){renderChatMarkdown(body,m.content||"");}
+    const role=m.role==="assistant"?"assistant":"user";
+    const article=node("article","","message "+role);
+    const avatar=node("span","","msg-icon");avatar.append(icon(role==="user"?"chat":"spark"));
+    const content=node("div","","msg-content");
+    const meta=node("div","","msg-meta");
+    meta.append(node("strong",role==="assistant"?"Mimo assistant":"You"));
+    if(m.createdAt||m.at)meta.append(node("time",humanTime(m.createdAt||m.at)));
+    const body=node("div","","msg-body");
+    if(role==="assistant")renderChatMarkdown(body,m.content||"");
     else body.textContent=m.content||"";
-    box.append(body);
+    const actions=node("div","","msg-actions");
     const copy=node("button","","ai-copy-msg");
-    copy.type="button";copy.className="ai-copy-msg";
-    copy.title="Copy message";
-    copy.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
-    copy.setAttribute("aria-label",m.role==="user"?"Copy your message":"Copy assistant message");
+    copy.type="button";copy.title="Copy message";
+    copy.setAttribute("aria-label",role==="user"?"Copy your message":"Copy assistant message");
+    copy.append(icon("copy",true));
     copy.onclick=async()=>{
-      try{await navigator.clipboard.writeText(String(m.content||""));copy.title="Copied";copy.setAttribute("aria-label","Copied message");}
-      catch{status("Copy unavailable — select the message text to copy.",true);}
+      try{await navigator.clipboard.writeText(String(m.content||""));
+        copy.title="Copied";copy.setAttribute("aria-label","Copied message");
+      }catch{status("Copy unavailable — select the message text to copy.",true);}
     };
-    box.append(copy);target.append(box);
+    actions.append(copy);content.append(meta,body,actions);
+    article.append(avatar,content);target.append(article);
     if(m.imageAssetId){
-      const img=node("img");img.alt="Private attached mathematics image";
-      img.loading="lazy";box.append(img);
-      const epoch=getSession().epoch;
+      const img=node("img");img.alt="Private attached mathematics image";img.loading="lazy";
+      body.append(img);const epoch=getSession().epoch;
       void resolveImages({attached:m.imageAssetId},
         {kind:"owned_upload",id:m.imageAssetId}).then(urls=>{
-        if(epoch===getSession().epoch&&img.isConnected&&urls.attached)
-          img.src=urls.attached;
+        if(epoch===getSession().epoch&&img.isConnected&&urls.attached)img.src=urls.attached;
       }).catch(()=>{img.alt="Attached image unavailable for this account";});
     }
-    if(m.role==="assistant")void typesetChatMarkdown(body,typeset);
+    if(role==="assistant")void typesetChatMarkdown(body,typeset);
   }
-  target.scrollTop=target.scrollHeight;
+  const scroller=$("conversation");scroller.scrollTop=scroller.scrollHeight;
+  studioHead();
 }
 async function loadThreads(){
   const result=await teacherChatHistory("chat.list",{limit:100});
@@ -120,7 +263,8 @@ async function loadOlder(){
 function newThread(){
   threadId=null;messages=[];hasOlder=false;imageContext="";selectedImage=null;
   history.replaceState(null,"","ai.html");
-  drawThreads();drawMessages();$("ai-prompt").value="";activeTab("chat");
+  drawThreads();drawMessages();$("ai-prompt").value="";
+  $("ai-chat-photo").value="";$("pending").replaceChildren();activeTab("chat");
   $("ai-prompt").focus();
 }
 async function sendText(message,context=""){
@@ -150,7 +294,8 @@ async function sendText(message,context=""){
     drawMessages();
     if(answer.saved&&threadId){
       history.replaceState(null,"","ai.html?thread="+encodeURIComponent(threadId));
-      await loadThreads();
+      try{await loadThreads();status("");}
+      catch{status("Reply saved, but the conversation list could not refresh.",true);}
     } else status("Reply received, but history could not be saved. Copy the answer before closing.",true);
     selectedImage=null;
     return true;
@@ -179,23 +324,30 @@ async function chatSubmit(event){
         target:"chat",costLimitUsd:0.15,imageAssetId,
       });
       originalSources.set(result.jobId,file);
-      $("ai-chat-photo").value="";
+      $("ai-chat-photo").value="";$("ai-prompt").value="";$("pending").replaceChildren();
       status("Photo accepted as background vision job. Select it after completion to discuss the extracted mathematics.");
       await loadJobs();await selectJob(result.jobId);
       activeTab("jobs");
     }catch(error){status(extractionError(error),true);}
     return;
   }
-  const confirmed=await sendText(prompt,imageContext);
+  const modeContext=studioMode==="chat"?"":("Workspace: "+MODES[studioMode].name+". "+MODES[studioMode].desc);
+  const confirmed=await sendText(prompt,[modeContext,imageContext].filter(Boolean).join("\n"));
   if(confirmed)imageContext="";
 }
 function drawJobs(){
   const target=$("ai-job-list");target.replaceChildren();
+  $("job-count").textContent=String(jobs.filter(j=>
+    ["running","submitted","accepted","queued"].includes(j.state)).length);
   for(const job of jobs){
-    const b=node("button",job.fileName||job.jobId);
+    const b=node("button","","job-select");
     b.type="button";b.setAttribute("aria-current",String(job.jobId===selectedJob));
-    b.append(node("small",(job.kind==="batch"?"Document · ":"Page · ")+
-      (job.state||"queued")+" · "+humanTime(job.createdAt)));
+    b.append(icon(job.kind==="batch"?"doc":"clock"));
+    const text=node("span");
+    text.append(node("strong",job.fileName||job.jobId),
+      node("small",(job.kind==="batch"?"Document · ":"Page · ")+
+        (job.state||"queued")+" · "+humanTime(job.createdAt)));
+    b.append(text,icon("chevron",true));
     b.onclick=()=>void selectJob(job.jobId);
     target.append(b);
   }
@@ -559,6 +711,75 @@ async function newJob(event){
   }catch(e){status(extractionError(e),true);}
   finally{busyJob=false;$("ai-start-job").disabled=false;}
 }
+function wireOriginalChrome(){
+  const modes=$("types");
+  for(const [key,mode] of Object.entries(MODES)){
+    const button=node("button","","type-card");button.type="button";
+    const symbol=node("span","","type-symbol");symbol.append(icon(mode.icon));
+    const label=node("span");label.append(node("strong",mode.name),node("small",mode.desc));
+    button.append(symbol,label);
+    button.onclick=()=>{
+      $("type-dialog").close();
+      if(key==="document"){activeTab("jobs");return;}
+      studioMode=key;pinnedOnly=false;newThread();
+    };
+    modes.append(button);
+  }
+  listen("ai-pin-filter","click",()=>{pinnedOnly=!pinnedOnly;activeTab("chat");drawThreads();});
+  listen("ai-return-chat","click",()=>activeTab("chat"));
+  listen("rename-form","submit",event=>{
+    event.preventDefault();
+    if(!threadId)return;
+    const name=$("rename-input").value.trim();
+    if(name){aliases[threadId]=name.slice(0,100);persistAliases();drawThreads();studioHead();}
+    $("rename-dialog").close();
+  });
+  listen("ai-chat-photo","change",()=>{
+    const file=$("ai-chat-photo").files?.[0];
+    const pending=$("pending");pending.replaceChildren();
+    if(file){
+      const item=node("span","","file");item.append(icon("paperclip",true));
+      item.append(node("strong",file.name));
+      const remove=node("button","","icon-btn");remove.type="button";remove.title="Remove attachment";
+      remove.setAttribute("aria-label","Remove photo");remove.append(icon("x",true));
+      remove.onclick=()=>{$("ai-chat-photo").value="";pending.replaceChildren();};
+      item.append(remove);pending.append(item);
+    }
+  });
+  const settings=(()=>{
+    try{return JSON.parse(localStorage.getItem("quizer.ai.visual.v1")||"{}");}catch{return {};}
+  })();
+  $("spot-toggle").checked=settings.spot!==false;
+  $("motion-toggle").checked=settings.motion!==false;
+  const applySettings=()=>{
+    const spotlight=$("spot-toggle").checked,motion=$("motion-toggle").checked;
+    $("workspace").style.setProperty("--spotlight",spotlight?"1":"0");
+    $("workspace").style.setProperty("--aurora",motion?"block":"none");
+    try{localStorage.setItem("quizer.ai.visual.v1",
+      JSON.stringify({spot:spotlight,motion}));}catch{}
+  };
+  listen("spot-toggle","change",applySettings);
+  listen("motion-toggle","change",applySettings);applySettings();
+  app.addEventListener("click",event=>{
+    const target=event.target.closest("[data-act]");if(!target)return;
+    const act=target.dataset.act;
+    if(act==="sidebar"){app.classList.add("show-sidebar");}
+    else if(act==="close-drawers"){app.classList.remove("show-sidebar","show-inspector");
+      if(innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}}
+    else if(act==="inspector"){
+      inspectorVisible=!inspectorVisible;applyStudioLayout();
+      if(inspectorVisible&&innerWidth<=760)app.classList.remove("show-sidebar");
+    }else if(act==="settings")$("settings-dialog").showModal();
+    else if(act==="search"){
+      if(innerWidth<=760)app.classList.add("show-sidebar");
+      $("ai-chat-search").focus();
+    }else if(act==="close-dialog"){
+      const dlg=target.closest("dialog");if(dlg?.open)dlg.close();
+    }else if(act==="attach")$("ai-chat-photo").click();
+  });
+  window.addEventListener("resize",applyStudioLayout,{passive:true});
+  applyStudioLayout();
+}
 async function boot(){
   try {
     // Firebase may wait on a slow getSessionInfo callable. Never leave the
@@ -597,10 +818,11 @@ async function boot(){
     }
     mountShell({showAssistant:false,showBackdrop:false});
     app.hidden=false;gate.hidden=true;
-    listen("ai-new-chat","click",newThread);
+    wireOriginalChrome();
+    listen("ai-new-chat","click",()=>$("type-dialog").showModal());
     listen("ai-load-older","click",()=>void loadOlder());
     listen("ai-chat-search","input",drawThreads);
-    listen("ai-tab-chat","click",()=>activeTab("chat"));
+    listen("ai-tab-chat","click",()=>{pinnedOnly=false;activeTab("chat");drawThreads();});
     listen("ai-tab-jobs","click",()=>activeTab("jobs"));
     listen("ai-chat-form","submit",e=>void chatSubmit(e));
     listen("ai-snip-math","click",async()=>{
@@ -636,7 +858,9 @@ async function boot(){
     const params=new URLSearchParams(location.search);
     if(params.get("target")==="bank")$("ai-job-target").value="bank";
     const initialThread=params.get("thread");
-    await Promise.allSettled([loadThreads(),loadJobs()]);
+    const initialLoads=await Promise.allSettled([loadThreads(),loadJobs()]);
+    if(initialLoads[0].status==="rejected")status("Saved conversations could not be loaded. Retry after checking your connection.",true);
+    if(initialLoads[1].status==="rejected")status("Saved jobs could not be loaded. Refresh the job inspector.",true);
     if(initialThread&&/^[a-f0-9-]{36}$/i.test(initialThread)){
       try{await openThread(initialThread);}catch(e){status("Saved chat is unavailable for this account.",true);newThread();}
     }else{newThread();}

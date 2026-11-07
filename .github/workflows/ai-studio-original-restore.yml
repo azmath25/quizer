@@ -1,0 +1,47 @@
+name: Restore original AI Studio UI verification
+on:
+  pull_request:
+    paths:
+      - ai.html
+      - js/pages/ai-studio.js
+      - assets/css/ai-studio-production.css
+      - tests/qa/ai-studio-browser.py
+      - tests/unit/ai-studio-focus.test.mjs
+      - .github/workflows/ai-studio-original-restore.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  restored-studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install static test dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix functions --no-audit --no-fund
+          npm run prepare:backend
+      - name: JavaScript and browser-smoke syntax
+        run: |
+          node --check js/pages/ai-studio.js
+          python -m py_compile tests/qa/ai-studio-browser.py
+      - name: Unit tests
+        run: npm test
+      - name: Verify frontend references
+        run: npm run verify:static
+      - name: Production frontend build
+        run: npm run build
+      - name: Install Chromium browser test binding
+        run: python -m pip install --disable-pip-version-check playwright==1.58.0
+      - name: Teacher/admin and student browser smoke
+        run: python tests/qa/ai-studio-browser.py
