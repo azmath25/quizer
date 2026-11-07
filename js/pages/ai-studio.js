@@ -5,6 +5,8 @@ import {typeset} from "../components/math-content.js";
 import {sendTeacherChatMessage,teacherChatHistory,canUseMimoTeacherChat,
   mimoChatErrorMessage} from "../services/mimo-chat.js";
 import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
+  submitMimoBatch,listMimoBatches,readMimoBatch,readMimoBatchPage,
+  readMimoBatchImage,saveMimoBatchReview,readMimoBatchPrepared,
   buildTeacherReview,decideTeacherReview,exportTeacherReview,
   extractionError,decodeMimoPng} from "../services/mimo-extraction.js";
 import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
@@ -16,6 +18,7 @@ const app=$("app"),gate=$("ai-access");
 let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null,hasOlder=false;
 let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="";
 const originalSources=new Map();
+const batchReviews=new Map();
 let transientUrls=[];
 const listen=(id,kind,fn)=>$(id).addEventListener(kind,fn);
 const node=(tag,text="",className="")=>{
@@ -151,15 +154,19 @@ function drawJobs(){
   for(const job of jobs){
     const b=node("button",job.fileName||job.jobId);
     b.type="button";b.setAttribute("aria-current",String(job.jobId===selectedJob));
-    b.append(node("small",(job.state||"queued")+" · "+humanTime(job.createdAt)));
+    b.append(node("small",(job.kind==="batch"?"Document · ":"Page · ")+
+      (job.state||"queued")+" · "+humanTime(job.createdAt)));
     b.onclick=()=>void selectJob(job.jobId);
     target.append(b);
   }
   if(!jobs.length)target.append(node("p","No saved extraction jobs yet.","ai-muted"));
 }
 async function loadJobs(){
-  const result=await listMimoExtractions();
-  jobs=Array.isArray(result?.jobs)?result.jobs:[];
+  const [single,batches]=await Promise.all([listMimoExtractions(),listMimoBatches()]);
+  jobs=[
+    ...(Array.isArray(single?.jobs)?single.jobs.map(x=>({...x,kind:"single"})):[]),
+    ...(Array.isArray(batches?.jobs)?batches.jobs.map(x=>({...x,kind:"batch"})):[]),
+  ].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
   drawJobs();
 }
 function addStage(container,title,complete){
@@ -340,11 +347,14 @@ async function selectJob(id){
 async function newJob(event){
   event.preventDefault();if(busyJob)return;
   const file=$("ai-job-file").files?.[0],page=Number($("ai-job-page").value);
+  const lastPage=$("ai-job-last-page").value?Number($("ai-job-last-page").value):0;
   if(!file){status("Select a PDF or image.",true);return;}
   busyJob=true;$("ai-start-job").disabled=true;
   try{
-    const job=await submitMimoExtraction(file,page,{
-      costLimitUsd:Number($("ai-job-budget").value),target:$("ai-job-target").value,
+    const job=await submitMimoBatch(file,{
+      perPageUsd:Number($("ai-job-budget").value),
+      totalUsd:Number($("ai-job-total-budget").value),
+      target:$("ai-job-target").value,pageStart:page,pageEnd:lastPage,
     });
     originalSources.set(job.jobId,file);
     status("Background extraction submitted. It will continue without this tab open.");
