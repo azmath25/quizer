@@ -93,7 +93,7 @@ for e in data:
                    "HTTPStatusError","ReadTimeout","ConnectTimeout",
                    "MEMORY_NOT_CONFIGURED","permission-denied"):
         if marker in msg: marks[marker]+=1
-    for match in re.finditer(r"(?:HTTPStatusError|status_code|HTTP/1\\.1|HTTP/2|Response)\\D{0,40}([45][0-9]{2})",msg):
+    for match in re.finditer(r"(?:HTTPStatusError|status_code|HTTP/1\.1|HTTP/2|Response)\D{0,40}([45][0-9]{2})",msg):
         codes[match.group(1)]+=1
 print("entries_examined:",len(data))
 print("severity_counts:",dict(sorted(severity.items())))
