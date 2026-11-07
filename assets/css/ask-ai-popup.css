@@ -25,3 +25,12 @@
 @media(max-width:600px){.qa-overlay{display:flex;align-items:flex-end;padding:0;backdrop-filter:none}.qa-window{width:100%;height:min(90dvh,850px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - 8px);border-radius:20px 20px 0 0}.qa-head{padding:13px 14px}.qa-title{font-size:14px}.qa-note{padding:9px 14px}.qa-log{padding:15px 12px;gap:12px}.qa-message{max-width:93%}.qa-form{padding:10px 12px max(12px,env(safe-area-inset-bottom,12px))}.qa-send{min-width:72px}.qa-footer span:first-child{display:none}}
 @media(max-width:360px){.qa-action{padding:0 8px}.qa-close{width:36px}.qa-subtitle{font-size:10px}.qa-compose{gap:6px}.qa-send{min-width:62px;padding:0 9px}}
 @media(prefers-reduced-motion:reduce){.qa-dots i{animation:none;opacity:.65}}
+
+/* Copy a whole message, including its original mathematical source. */
+.qa-copy{align-self:flex-start;border:1px solid var(--line,#dce3eb);background:transparent;color:var(--muted,#677889);border-radius:7px;padding:3px 8px;font-size:11px;cursor:pointer}
+.qa-message.user .qa-copy{align-self:flex-end}
+.qa-copy:hover,.qa-copy:focus-visible{color:var(--ink,#173047);border-color:var(--accent,#0281af)}
+.qa-tex-source{margin:5px 0;font-size:11px;color:var(--muted,#677889)}
+.qa-tex-source summary{cursor:pointer;user-select:none}
+.qa-tex-source pre,.qa-tex-uncompiled{white-space:pre-wrap;overflow-wrap:anywhere;border:1px dashed var(--line,#dce3eb);border-radius:8px;padding:10px;background:var(--soft,#f5f7fa);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.qa-tex-source code{white-space:pre-wrap;overflow-wrap:anywhere}
