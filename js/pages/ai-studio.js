@@ -89,6 +89,7 @@ function studioHead(){
     link.click();setTimeout(()=>URL.revokeObjectURL(url),0);more.open=false;
   };
   menu.append(pin,rename,exportButton);more.append(menu);actions.append(more);head.append(actions);
+  const route=$("ai-route-name");if(route)route.textContent=displayTitle(current);
   const modeText=$("compose-mode");modeText.replaceChildren(icon(mode.icon,true),
     document.createTextNode(" "+mode.name));
   $("ai-prompt").placeholder=mode.placeholder;
@@ -124,11 +125,13 @@ function studioWelcome(){
   return wrap;
 }
 function applyStudioLayout(){
-  const wide=innerWidth>1060;
+  const wide=innerWidth>1180;
   app.classList.toggle("show-inspector",!wide&&inspectorVisible);
   const inspector=app.querySelector(".inspector");
-  if(wide){inspector.style.display=inspectorVisible?"":"none";
-    $("shell").style.gridTemplateColumns=inspectorVisible?"":"232px minmax(0,1fr)";
+  if(wide){
+    inspector.style.display=inspectorVisible?"":"none";
+    $("shell").style.gridTemplateColumns=inspectorVisible
+      ?"270px minmax(0,1fr) 358px":"270px minmax(0,1fr)";
   }else{inspector.style.display="";$("shell").style.gridTemplateColumns="";}
   for(const button of app.querySelectorAll('[data-act="inspector"]'))
     button.setAttribute("aria-expanded",String(inspectorVisible));
@@ -158,8 +161,15 @@ function activeTab(tab){
   $("ai-tab-jobs").classList.toggle("active",!chat);
   $("ai-pin-filter").classList.toggle("active",chat&&pinnedOnly);
   app.classList.remove("show-sidebar");
-  if(!chat&&innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}
-  studioHead();
+  if(!chat&&innerWidth<=1180){inspectorVisible=false;applyStudioLayout();}
+  for(const [id,selected] of [["ai-workbench-jobs",chat],["ai-workbench-extract",!chat]]){
+    const button=$(id);
+    if(button){button.setAttribute("aria-selected",String(selected));
+      button.classList.toggle("active",selected);}
+  }
+  if(chat)studioHead();
+  else {const route=$("ai-route-name");if(route)route.textContent="Document lab";}
+
 }
 function drawThreads(){
   const target=$("ai-threads"),needle=$("ai-chat-search").value.toLowerCase();
@@ -727,6 +737,40 @@ async function newJob(event){
   }catch(e){status(extractionError(e),true);}
   finally{busyJob=false;$("ai-start-job").disabled=false;}
 }
+const STUDIO_COMMANDS=[
+  {name:"New exploration",hint:"Start a new AI conversation",icon:"plus",run:()=> $("type-dialog").showModal()},
+  {name:"Ask the assistant",hint:"Return to this conversation",icon:"chat",run:()=>{activeTab("chat");$("ai-prompt").focus();}},
+  {name:"Solve mathematics",hint:"Step-by-step mathematics",icon:"math",run:()=>{studioMode="solver";newThread();$("ai-prompt").focus();}},
+  {name:"Review and audit",hint:"Check mathematics and wording",icon:"review",run:()=>{studioMode="review";newThread();$("ai-prompt").focus();}},
+  {name:"Extract PDF or image",hint:"Start a private background job",icon:"doc",run:()=>{activeTab("jobs");$("ai-job-file").focus();}},
+  {name:"Saved Mimo jobs",hint:"Open the live workbench",icon:"clock",run:()=>{inspectorVisible=true;applyStudioLayout();void loadJobs().catch(e=>status(safeError(e),true));}},
+  {name:"Refresh saved chats",hint:"Read your Neon history",icon:"retry",run:()=>void loadThreads()},
+  {name:"Snip visible math",hint:"Extract text and original MathJax source",icon:"snip",run:()=>{activeTab("chat");$("ai-snip-math").click();}},
+  {name:"Studio preferences",hint:"Adjust your workspace",icon:"settings",run:()=> $("settings-dialog").showModal()},
+];
+function displayCommands(query=""){
+  const container=$("ai-command-results");container.replaceChildren();
+  const needle=String(query).toLowerCase().trim();
+  const actions=STUDIO_COMMANDS.filter(item=>
+    (item.name+" "+item.hint).toLowerCase().includes(needle));
+  for(const action of actions){
+    const button=node("button","","axiom-command-choice");button.type="button";
+    button.setAttribute("role","option");
+    const glyph=node("span");glyph.append(icon(action.icon,true));
+    button.append(glyph,node("span",action.name),node("small",action.hint));
+    button.onclick=()=>{
+      $("ai-command-dialog").close();action.run();
+      app.classList.remove("show-sidebar");
+    };
+    container.append(button);
+  }
+  if(!actions.length)container.append(node("p","No matching commands.","ai-muted"));
+}
+function openCommands(query=""){
+  const dialog=$("ai-command-dialog");if(dialog.open)return;
+  $("ai-command-query").value=query;displayCommands(query);
+  dialog.showModal();$("ai-command-query").focus();
+}
 function wireOriginalChrome(){
   const modes=$("types");
   for(const [key,mode] of Object.entries(MODES)){
@@ -743,6 +787,16 @@ function wireOriginalChrome(){
   }
   listen("ai-pin-filter","click",()=>{pinnedOnly=!pinnedOnly;activeTab("chat");drawThreads();});
   listen("ai-return-chat","click",()=>activeTab("chat"));
+  listen("ai-command-query","input",event=>displayCommands(event.target.value));
+  listen("ai-workbench-jobs","click",()=>{activeTab("chat");inspectorVisible=true;applyStudioLayout();});
+  listen("ai-workbench-extract","click",()=>{activeTab("jobs");if(innerWidth>1180){inspectorVisible=true;applyStudioLayout();}});
+  document.addEventListener("keydown",event=>{
+    if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
+      event.preventDefault();openCommands();
+    }else if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="j"){
+      event.preventDefault();$("type-dialog").showModal();
+    }
+  });
   listen("rename-form","submit",event=>{
     event.preventDefault();
     if(!threadId)return;
@@ -781,11 +835,12 @@ function wireOriginalChrome(){
     const act=target.dataset.act;
     if(act==="sidebar"){app.classList.add("show-sidebar");}
     else if(act==="close-drawers"){app.classList.remove("show-sidebar","show-inspector");
-      if(innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}}
+      if(innerWidth<=1180){inspectorVisible=false;applyStudioLayout();}}
     else if(act==="inspector"){
       inspectorVisible=!inspectorVisible;applyStudioLayout();
       if(inspectorVisible&&innerWidth<=760)app.classList.remove("show-sidebar");
     }else if(act==="settings")$("settings-dialog").showModal();
+    else if(act==="commands")openCommands();
     else if(act==="search"){
       if(innerWidth<=760)app.classList.add("show-sidebar");
       $("ai-chat-search").focus();
@@ -827,6 +882,10 @@ async function boot(){
     listen("ai-jobs-refresh","click",()=>void loadJobs().catch(e=>status(safeError(e),true)));
     listen("ai-job-form","submit",e=>void newJob(e));
     listen("ai-prompt","keydown",event=>{
+      if(event.key==="/"&&!event.shiftKey&&!event.ctrlKey&&!event.metaKey&&
+         !$("ai-prompt").value.trim()){
+        event.preventDefault();openCommands();return;
+      }
       if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){
         event.preventDefault();if(!busyChat)$("ai-chat-form").requestSubmit();
       }
