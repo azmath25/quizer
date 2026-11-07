@@ -18,6 +18,27 @@ const isObj=x=>x&&typeof x==="object"&&!Array.isArray(x);
 const money=x=>typeof x==="number"&&Number.isFinite(x)&&x>=0&&
   Math.abs(x*100-Math.round(x*100))<0.000001;
 const states=new Set(["queued","claiming","submitted","completed","attention"]);
+const PUBLIC_STAGE_IDS=Object.freeze([
+  "processor","extract","verify","rebuild_plan","tikz_source","compile_png","output"
+]);
+const STAGE_STATUSES=new Set(["queued","pending","running","completed","skipped","failed"]);
+export function publicBatchStage(timeline) {
+  const rows=[...(Array.isArray(timeline?.node_tasks)?timeline.node_tasks:[]),
+    ...(Array.isArray(timeline?.checkpoints)?timeline.checkpoints:[])];
+  const states=new Map();
+  for(const row of rows){
+    if(PUBLIC_STAGE_IDS.includes(row?.node_id)&&
+      STAGE_STATUSES.has(row?.status))states.set(row.node_id,row.status);
+  }
+  // The highest begun stage is more useful than the last arbitrary task row.
+  for(let i=PUBLIC_STAGE_IDS.length-1;i>=0;i--){
+    const id=PUBLIC_STAGE_IDS[i],status=states.get(id);
+    if(status&&status!=="pending"&&status!=="queued")
+      return {id,status};
+  }
+  return {id:"processor",status:"pending"};
+}
+
 const pageId=(jobId,n)=>hash(jobId+":"+n);
 
 function validateBatch(data){
@@ -113,7 +134,7 @@ export function createBatchService({
       if(upper>total)fail("INVALID_PAGE_NUMBER");
       const pages=Array.from({length:upper-file.start+1},(_,i)=>({
         number:file.start+i,state:"queued",runId:null,claimId:null,
-        claimedAt:null,questionCount:0,figureCount:0,hasReconstruction:false,
+        claimedAt:null,stage:"queued",stageStatus:"queued",questionCount:0,figureCount:0,hasReconstruction:false,
         error:null,
       }));
       if(pages.length>100)fail("INVALID_FIELDS");
@@ -153,6 +174,7 @@ export function createBatchService({
         number:p.number,state:p.state,runId:p.runId||null,
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,error:p.error||null,
+        stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
       })),
     };
   }
@@ -347,7 +369,7 @@ export function createBatchService({
       const run=await mimo.start(sourceInput(job,page.number),
         job.uid, "batch_"+hash(jobId+":"+page.number).slice(0,48),job.perPageUsd);
       await mark(jobId,page.number,{state:"claiming",claimId:page.claimId},
-        {state:"submitted",runId:run.id,error:null});
+        {state:"submitted",runId:run.id,stage:"processor",stageStatus:"queued",error:null});
     }catch(error){
       // Important: even a timeout could have submitted a paid run.
       await mark(jobId,page.number,{state:"claiming",claimId:page.claimId},
@@ -372,11 +394,22 @@ export function createBatchService({
         await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},{
           state:"completed",questionCount:page.questions.length,
           figureCount:page.questions.filter(q=>q.has_figure).length,
-          hasReconstruction,error:null,
+          hasReconstruction,stage:"output",stageStatus:"completed",error:null,
         });
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
         await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
-          {state:"attention",error:"MIMO_RUN_"+run.status.toUpperCase()});
+          {state:"attention",stageStatus:"failed",
+            error:"MIMO_RUN_"+run.status.toUpperCase()});
+      }
+      if(["running","queued"].includes(run.status)){
+        // Persist safe stage identifiers, never private prompts, outputs,
+        // provider responses or transcript contents.
+        try{
+          const {id,status}=publicBatchStage(await mimo.timeline(p.runId));
+          if(id!==p.stage||status!==p.stageStatus)
+            await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
+              {stage:id,stageStatus:status});
+        }catch{ /* Timeline is supplemental. Do not hide a valid running job. */ }
       }
       // A running Mimo job is simply polled at the next scheduled tick.
     }catch(error){
