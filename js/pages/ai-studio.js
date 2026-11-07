@@ -559,16 +559,35 @@ async function newJob(event){
 }
 async function boot(){
   try {
-    await initFirebase();
+    // Firebase may wait on a slow getSessionInfo callable. Never leave the
+    // access gate spinning indefinitely, and use an already resolved session.
     const session=await new Promise(resolve=>{
-      let unsub=()=>{};
+      let settled=false,unsub=()=>{};
+      const finish=s=>{
+        if(settled)return;
+        settled=true;clearTimeout(timeout);
+        queueMicrotask(()=>unsub());
+        resolve(s);
+      };
+      const timeout=setTimeout(()=>finish({...getSession(),accessTimedOut:true}),12000);
       unsub=watchSession(s=>{
         if(s.status==="error"||s.status==="unconfigured"||
-            (s.authResolved&&(!s.user||s.roleResolved))){
-          queueMicrotask(()=>unsub());resolve(s);
-        }
+            (s.authResolved&&(!s.user||s.roleResolved)))finish(s);
       });
+      void initFirebase().catch(error=>finish({
+        ...getSession(),status:"error",error:String(error?.message||error),
+      }));
     });
+    if(session.accessTimedOut||session.status==="error"||session.status==="unconfigured"){
+      gate.replaceChildren();
+      gate.append(node("p",session.accessTimedOut
+        ?"Account verification is taking too long. Check your connection and try again."
+        :session.error||"Account verification is unavailable."));
+      const retry=node("button","Retry access check","ai-secondary");
+      retry.type="button";retry.onclick=()=>location.reload();
+      gate.append(retry);
+      return;
+    }
     if(!session?.user){location.replace("login.html?next=ai.html");return;}
     if(!canUseMimoTeacherChat(session)){
       gate.textContent="AI Studio requires an active verified teacher or administrator account.";
