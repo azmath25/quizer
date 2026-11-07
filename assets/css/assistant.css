@@ -235,3 +235,11 @@
 .ai-msg.user p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-msg .ai-typing { margin: 0; }
 .ai-composer[aria-busy="true"] { opacity: .85; }
+
+
+/* Copyable math chat; preserve original TeX alongside any compilation error. */
+.ai-copy-msg{display:block;margin-top:7px;margin-left:auto;border:1px solid var(--border);border-radius:7px;padding:3px 8px;background:transparent;color:inherit;opacity:.85;font-size:.72rem;cursor:pointer}
+.ai-copy-msg:hover,.ai-copy-msg:focus-visible{opacity:1;border-color:var(--accent)}
+.ai-msg .qa-tex-source{font-size:.72rem;margin-top:6px;color:var(--muted);max-width:100%}
+.ai-msg .qa-tex-source summary{cursor:pointer}
+.ai-msg .qa-tex-source pre,.ai-msg .qa-tex-uncompiled{white-space:pre-wrap;overflow-wrap:anywhere;border:1px dashed var(--border);border-radius:8px;padding:8px;margin-top:6px;font: .78rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
