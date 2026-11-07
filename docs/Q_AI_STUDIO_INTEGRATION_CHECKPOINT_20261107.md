@@ -17,6 +17,15 @@ AI Studio (`ai.html`) is the single teacher-facing place for quick chat and back
 - Added image selection from chat; an explicit vision extraction job processes the photo, and the extracted mathematical content can then be used as contextual text in a chat response. General generated images remain unsupported.
 - Reconstructed TikZ PNG, where available, is privately saved and must be manually associated with the correct reviewed question.
 
+## Q-AI.SNIP — math-aware snipping (added to plan and implemented in branch)
+
+- Rebuild browser-page text snips **in DOM order**: the old code scanned text and appended all MathJax formulas at the end, scrambling mixed text/formulas.
+- Obtain original MathJax TeX at the typeset root, not unreadable rendered SVG glyphs or duplicate accessibility MathML; preserve inline versus display math delimiters.
+- Preserve separate paragraphs and repeated choice texts, enforce input limits, and keep math delimiters intact rather than clipping partial formulas.
+- Keep browser-tab pixel snip as a separate explicit-permission path for figures or formulas whose original LaTeX is unavailable; never pretend OCR or external-screen extraction has occurred.
+- Both the floating teacher assistant and `ai.html` consume the same DOM snip module. The user reviews the selected text in the composer before sending; no automatic model call or hidden answer-key extraction.
+- Tests: equation ordering, duplicate answer choices, display delimiters, bounded output, synthetic MathJax DOM integration, existing browser capture/privacy tests.
+
 ## Safety / outstanding release blockers
 
 1. **Not yet a full-document background scheduler**: existing Quizer extraction supports one PDF page per run, 2 requests/minute and 20 requests/day. A 100-question / 20-figure parent job with durable per-page/per-figure checkpoints, total job budget, resumability and worker-side scheduling is still required.
