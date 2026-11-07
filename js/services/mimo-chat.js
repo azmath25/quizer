@@ -15,12 +15,6 @@ export function canUseMimoTeacherChat(session = getSession()) {
   );
 }
 
-// Do not block AI Studio while the client fetches teacher role capabilities.
-// The Firebase callable ALWAYS authorizes the authenticated user against
-// server-side roles/uid; this is only a fast authentication/session check.
-export function canAttemptMimoCall(session = getSession()) {
-  return !!(session?.user?.uid && session.user.emailVerified === true);
-}
 
 export function mimoChatErrorMessage(error) {
   const reason = String(error?.details?.reason || error?.details?.code || "");
@@ -57,7 +51,7 @@ export async function sendTeacherChatMessage({
   imageJobId = null, imageAssetId = null,
 } = {}) {
   const before = getSession();
-  if (!canAttemptMimoCall(before)) {
+  if (!canUseMimoTeacherChat(before)) {
     throw Object.assign(new Error("Verified teacher access is required."), {
       code: before?.user?.uid ? "functions/permission-denied" : "functions/unauthenticated",
     });
@@ -84,7 +78,7 @@ export async function sendTeacherChatMessage({
   };
   const services = await getFirebaseServices();
   const current = getSession();
-  if (!canAttemptMimoCall(current) || current.epoch !== before.epoch ||
+  if (!canUseMimoTeacherChat(current) || current.epoch !== before.epoch ||
       current.user.uid !== before.user.uid) {
     throw Object.assign(new Error("Session changed."), {code: "functions/unauthenticated"});
   }
@@ -93,7 +87,7 @@ export async function sendTeacherChatMessage({
   });
   const response = await callable(payload); // exactly one call; deliberately no retry
   const after = getSession();
-  if (!canAttemptMimoCall(after) || after.epoch !== before.epoch ||
+  if (!canUseMimoTeacherChat(after) || after.epoch !== before.epoch ||
       after.user.uid !== before.user.uid) {
     throw Object.assign(new Error("Session changed."), {code: "functions/unauthenticated"});
   }
@@ -129,12 +123,12 @@ export function mimoHistoryErrorMessage(error) {
 export async function teacherChatHistory(action, options = {}) {
   if (!["chat.list", "chat.get"].includes(action)) throw new Error("Unknown history operation");
   const before = getSession();
-  if (!canAttemptMimoCall(before)) throw new Error("Verified teacher access is required.");
+  if (!canUseMimoTeacherChat(before)) throw new Error("Verified teacher access is required.");
   const services = await getFirebaseServices();
   const fn = services.functionsSDK.httpsCallable(services.functions, "mimoAiHub", {timeout:30000});
   const result = await fn({action,...options});
   const after = getSession();
   if (before.epoch !== after.epoch || before.user.uid !== after.user?.uid ||
-      !canAttemptMimoCall(after)) throw new Error("Your session changed.");
+      !canUseMimoTeacherChat(after)) throw new Error("Your session changed.");
   return result.data;
 }
