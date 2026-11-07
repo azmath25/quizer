@@ -33,7 +33,7 @@ function encode(bytes) {
     text+=String.fromCharCode(...bytes.subarray(i,i+32768));
   return btoa(text);
 }
-export async function submitMimoExtraction(file, pageNumber=1) {
+export async function submitMimoExtraction(file, pageNumber=1, {costLimitUsd=0.15,target="quiz"}={}) {
   if (!(file instanceof File)||!file.size||file.size>MAX_MIMO_FILE_BYTES)
     throw Error("Choose a nonempty PDF, PNG or JPEG up to 8 MiB.");
   const type=/\.pdf$/i.test(file.name)?"application/pdf":
@@ -51,7 +51,7 @@ export async function submitMimoExtraction(file, pageNumber=1) {
   try {
     const result=await invoke("mimoExtractStart",{
       requestId,fileName:file.name.slice(0,120),contentType:type,base64,
-      pageNumber:type==="application/pdf"?pageNumber:1,
+      pageNumber:type==="application/pdf"?pageNumber:1,costLimitUsd,target,
     });
     return {...result,requestId};
   } catch(e) {
@@ -60,6 +60,7 @@ export async function submitMimoExtraction(file, pageNumber=1) {
   }
 }
 export const readMimoExtraction=jobId=>invoke("mimoExtractStatus",{jobId});
+export const listMimoExtractions=()=>invoke("mimoExtractList",{limit:30},30000);
 export const readMimoPng=jobId=>invoke("mimoExtractImage",{jobId});
 export function buildTeacherReview(page) {
   return createExtractionReview({
