@@ -9,6 +9,7 @@ import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
   extractionError,decodeMimoPng} from "../services/mimo-extraction.js";
 import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset} from "../services/assets.js";
+import {snipPageContent} from "../components/page-snip.js";
 
 const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access");
