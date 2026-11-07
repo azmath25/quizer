@@ -10,6 +10,19 @@ from threading import Thread
 from functools import partial
 from shutil import which
 from playwright.sync_api import sync_playwright
+import struct
+import zlib
+
+def png_sample(width=64,height=64):
+    def chunk(tag,data):
+        return struct.pack(">I",len(data))+tag+data+struct.pack(
+            ">I",zlib.crc32(tag+data)&0xffffffff)
+    scanlines=b"".join(b"\\x00"+b"\\xff\\xff\\xff\\xff"*width for _ in range(height))
+    return (b"\\x89PNG\\r\\n\\x1a\\n"+
+            chunk(b"IHDR",struct.pack(">IIBBBBB",width,height,8,6,0,0,0))+
+            chunk(b"IDAT",zlib.compress(scanlines))+
+            chunk(b"IEND",b""))
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -168,6 +181,21 @@ try:
               "Local preview must never consent to Mimo upload")
         check(page.locator(".axiom-preview-feedback").count()==1,
               "Private PDF preview feedback missing")
+        if width==1440 and role=="teacher":
+          page.locator("#ai-job-file").set_input_files({
+            "name":"figure.png","mimeType":"image/png","buffer":png_sample(),
+          })
+          page.wait_for_function("document.querySelector('.axiom-preview-feedback')?.textContent.includes('Local image ready')")
+          page.locator("#ai-upload-consent").check()
+          frame=page.locator(".axiom-crop-layer").bounding_box()
+          check(frame is not None and frame["width"]>30,"Local image cropping canvas missing")
+          page.mouse.move(frame["x"]+8,frame["y"]+8)
+          page.mouse.down()
+          page.mouse.move(frame["x"]+52,frame["y"]+52,steps=6)
+          page.mouse.up()
+          page.wait_for_function("document.querySelector('.axiom-preview-feedback')?.textContent.includes('Prepared')",timeout=5000)
+          check(not page.locator("#ai-upload-consent").is_checked(),
+                "Cropping an image must invalidate prior upload consent")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
         page.locator("#ai-tab-chat").click()
