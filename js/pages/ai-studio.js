@@ -50,6 +50,7 @@ function drawThreads(){
   if(!container.childElementCount)container.append(node("p","No matching conversations.","ai-muted"));
 }
 function drawMessages(){
+  $("ai-load-older").hidden=!hasOlder;
   const target=$("ai-messages");target.replaceChildren();
   if(!messages.length)target.append(node("p",
     "Ask a question or open a saved conversation. Your replies are stored in your private chat history.",
@@ -73,11 +74,27 @@ async function loadThreads(){
 async function openThread(id){
   const data=await teacherChatHistory("chat.get",{threadId:id});
   threadId=id;messages=Array.isArray(data?.messages)?data.messages:[];
+  hasOlder=data?.hasMore===true;
   history.replaceState(null,"","ai.html?thread="+encodeURIComponent(id));
   activeTab("chat");drawThreads();drawMessages();
 }
+async function loadOlder(){
+  if(!threadId||!hasOlder||!messages[0]?.id)return;
+  $("ai-load-older").disabled=true;
+  const selected=threadId,earliest=messages[0].id;
+  try{
+    const result=await teacherChatHistory("chat.get",{threadId:selected,before:earliest});
+    if(threadId!==selected)return;
+    const older=Array.isArray(result?.messages)?result.messages:[];
+    const seen=new Set(messages.map(m=>m.id));
+    messages=[...older.filter(m=>!seen.has(m.id)),...messages];
+    hasOlder=result?.hasMore===true;
+    drawMessages();
+  }catch(e){status(safeError(e),true);}
+  finally{$("ai-load-older").disabled=false;}
+}
 function newThread(){
-  threadId=null;messages=[];imageContext="";
+  threadId=null;messages=[];hasOlder=false;imageContext="";
   history.replaceState(null,"","ai.html");
   drawThreads();drawMessages();$("ai-prompt").value="";activeTab("chat");
   $("ai-prompt").focus();
@@ -350,6 +367,7 @@ async function boot(){
     mountShell({showAssistant:false,showBackdrop:false});
     app.hidden=false;gate.hidden=true;
     listen("ai-new-chat","click",newThread);
+    listen("ai-load-older","click",()=>void loadOlder());
     listen("ai-chat-search","input",drawThreads);
     listen("ai-tab-chat","click",()=>activeTab("chat"));
     listen("ai-tab-jobs","click",()=>activeTab("jobs"));
