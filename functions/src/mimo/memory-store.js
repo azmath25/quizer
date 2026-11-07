@@ -21,7 +21,7 @@ function identifier(value) { if (typeof value !== "string" || !UUID.test(value))
 function cleanThread(row) {
   return {id:row.id, title:row.title, createdAt:row.created_at, updatedAt:row.updated_at,
     memorySummary:String(row.memory_summary||"").slice(0,1600),
-    memoryTurnCount:Number(row.memory_turn_count||0)};
+    memoryTurnCount:Number(row.memory_turn_count||0),turnCount:Number(row.turn_count||0)};
 }
 function cleanMessage(row) {
   return {id:row.id, role:row.role, content:row.body, requestId:row.request_id,
@@ -49,7 +49,7 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
       owner(uid);
       if (!Number.isInteger(limit) || limit < 1 || limit > 30) invalid();
       const result = await db.query(
-        "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count FROM quizer_ai.threads WHERE owner_uid=$1 ORDER BY updated_at DESC,id DESC LIMIT $2",
+        "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count,turn_count FROM quizer_ai.threads WHERE owner_uid=$1 ORDER BY updated_at DESC,id DESC LIMIT $2",
         [uid,limit]);
       return result.rows.map(cleanThread);
     },
