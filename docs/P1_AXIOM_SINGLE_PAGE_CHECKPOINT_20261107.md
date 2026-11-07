@@ -38,9 +38,9 @@ existing design tokens, authentication and live Firebase/Mimo services.
 6. **Entry points consolidated**: teacher shortcuts on Home,
    Teaching and Profile, plus the site navigation, route to
    `ai.html` or `ai.html?mode=job`.
-   Legacy `documents.html` is intentionally retained temporarily
-   for bookmarked URLs and as a rollback path, not linked as a
-   primary navigation destination.
+   The old `documents.html` interface has been replaced with a
+   small compatibility redirect to `ai.html?mode=job` for bookmarked
+   URLs. The original page source remains recoverable in Git history.
 
 ## Tests
 
@@ -72,7 +72,7 @@ production Groq provider or private compiler is currently functioning.
 - No protected main merge and no GitHub Pages/Cloud deploy were
   performed; the live site will keep its previous layout until a
   reviewed release.
-- Legacy `documents.html` removal requires confirming any remaining
-  backwards-compatible preview/crop use by bookmark users; deleting
-  the page early would create 404s. Core extraction is available in P1
-  `ai.html`, but old route remains a compatibility page.
+- The previous standalone Document Desk interface has been retired.
+  The old URL remains only as a 0-second compatibility redirect; no
+  duplicate AI/extraction runtime loads at that URL. Do not remove
+  the redirect until incoming bookmarks are no longer needed.
