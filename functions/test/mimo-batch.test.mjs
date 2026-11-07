@@ -372,3 +372,28 @@ test("unknown dispatch without a run ID is not replayed by reconciliation",async
   assert.equal(checked.state,"attention");
   assert.equal(calls.length,before);
 });
+
+test("reconciliation reattaches an existing still-running job without dispatching again",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  let actualStatus="failed";
+  const fn=async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1))){
+      calls.push({url,options});
+      return actualStatus==="failed"
+        ?json({id:runId(1),status:"failed"})
+        :json({id:runId(1),status:"running"});
+    }
+    return fallback(url,options);
+  };
+  const app=service(db,fn);
+  const job=await app.start({auth:auth(uid),
+    data:request("request_reattach_running_001")});
+  await app.sweep();await app.sweep();
+  const paused=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(paused.pages[0].state,"attention");
+  actualStatus="running";
+  const checked=await app.reconcile({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(checked.pages[0].state,"submitted");
+  assert.equal(checked.state,"running");
+  assert.equal(calls.filter(x=>x.options?.method==="POST"&&x.url.endsWith("/runs")).length,1);
+});
