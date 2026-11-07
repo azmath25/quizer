@@ -13,6 +13,7 @@ import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
 import {mountLocalSourcePreview} from "../components/ai-source-preview.js";
+import {inspectLocalDocument,makeTeacherContext} from "../services/local-document.js";
 
 const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access-gate");
@@ -773,6 +774,7 @@ const STUDIO_COMMANDS=[
   {name:"Extract PDF or image",hint:"Start a private background job",icon:"doc",run:()=>{activeTab("jobs");$("ai-job-file").focus();}},
   {name:"Saved Mimo jobs",hint:"Open the live workbench",icon:"clock",run:()=>{inspectorVisible=true;applyStudioLayout();void loadJobs().catch(e=>status(safeError(e),true));}},
   {name:"Refresh saved chats",hint:"Read your Neon history",icon:"retry",run:()=>void loadThreads()},
+  {name:"Import TXT / TeX",hint:"Add a local source to your draft without sending",icon:"doc",run:()=> $("ai-chat-text-file").click()},
   {name:"Snip visible math",hint:"Extract text and original MathJax source",icon:"snip",run:()=>{activeTab("chat");$("ai-snip-math").click();}},
   {name:"Studio preferences",hint:"Adjust your workspace",icon:"settings",run:()=> $("settings-dialog").showModal()},
 ];
@@ -831,6 +833,25 @@ function wireOriginalChrome(){
     const name=$("rename-input").value.trim();
     if(name){aliases[threadId]=name.slice(0,100);persistAliases();drawThreads();studioHead();}
     $("rename-dialog").close();
+  });
+  listen("ai-chat-text-file","change",async()=>{
+    const file=$("ai-chat-text-file").files?.[0];
+    if(!file)return;
+    try{
+      const meta=await inspectLocalDocument(file);
+      if(meta.kind!=="text")throw Error("Choose a TXT or TeX text source.");
+      const base=makeTeacherContext(meta.text,meta.name);
+      const input=$("ai-prompt");
+      const available=input.maxLength-input.value.length-(input.value?"\n\n":"");
+      if(available<200)throw Error("Clear some draft text to import the source.");
+      const truncated=base.length>available;
+      input.value+=(input.value?"\n\n":"")+base.slice(0,available);
+      activeTab("chat");input.focus();
+      status("Local "+meta.name+" added to the draft"+
+        (truncated?" (truncated to composer limit)":"")+
+        ". Review before sending; nothing has been uploaded.");
+    }catch(error){status(String(error?.message||"Could not import text.").slice(0,180),true);}
+    finally{$("ai-chat-text-file").value="";}
   });
   listen("ai-chat-photo","change",()=>{
     const file=$("ai-chat-photo").files?.[0];
