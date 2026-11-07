@@ -17,6 +17,7 @@ const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access-gate");
 let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null,hasOlder=false;
 let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="",selectedImage=null;
+let historyLoading=false,historyAttempts=0;
 const originalSources=new Map();
 const batchReviews=new Map();
 let transientUrls=[];
@@ -234,24 +235,39 @@ function drawMessages(){
   studioHead();
 }
 async function loadThreads(){
+  if(historyLoading)return false;
+  historyLoading=true;
+  const attempt=++historyAttempts;
+  const target=$("ai-threads");
+  if(attempt>1){
+    target.replaceChildren(node("p","Checking saved conversations…","ai-muted"));
+    status("Checking saved conversations…");
+  }
   try {
     const result=await teacherChatHistory("chat.list",{limit:100});
     threads=Array.isArray(result?.threads)?result.threads:[];
     drawThreads();
+    if(attempt>1)status("Saved conversations loaded.");
     return true;
   } catch(error) {
     const detail=mimoHistoryErrorMessage(error);
-    const target=$("ai-threads");target.replaceChildren();
-    const message=node("p",detail,"ai-error");
+    target.replaceChildren();
+    const message=node("p",(attempt>1?"Still unavailable: ":"")+detail,"ai-error");
     message.setAttribute("role","alert");
     const retry=node("button","Retry saved chats","ai-secondary");
     retry.type="button";
-    retry.onclick=()=>void loadThreads().then(ok=>{
-      if(ok)status("");else status(detail,true);
-    });
-    target.append(message,retry);
+    retry.onclick=()=>{
+      if(historyLoading)return;
+      retry.disabled=true;
+      retry.textContent="Retrying…";
+      void loadThreads();
+    };
+    const note=node("p","Attempt "+attempt+" failed. This is a server-side history problem; retrying does not delete conversations or start an AI model run.","ai-muted");
+    target.append(message,retry,note);
     status(detail,true);
     return false;
+  } finally {
+    historyLoading=false;
   }
 }
 async function openThread(id){
