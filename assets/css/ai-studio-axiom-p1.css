@@ -284,3 +284,28 @@
 @media(prefers-reduced-motion:reduce){
   .axiom-studio .sidebar,.axiom-studio .inspector,.axiom-studio .new{transition:none!important}
 }
+
+/* Local-first PDF and figure cropping: no third-party viewer or upload. */
+.axiom-studio .axiom-local-preview{
+  grid-column:1/-1;min-width:0;display:grid;gap:10px;
+  border:1px solid var(--ax-border);border-radius:12px;
+  background:var(--bg);padding:13px;overflow:hidden
+}
+.axiom-studio .axiom-local-preview[hidden]{display:none!important}
+.axiom-preview-title{display:flex;justify-content:space-between;gap:10px;
+  align-items:center;font-size:11px;overflow-wrap:anywhere}
+.axiom-preview-title small{font:10px var(--ax-mono);color:var(--ax-muted);white-space:nowrap}
+.axiom-preview-pdf{height:clamp(240px,36vh,480px);width:100%;border:1px solid var(--ax-border);
+  background:var(--ax-surface);border-radius:8px}
+.axiom-preview-frame{max-width:100%;width:max-content;max-height:400px;position:relative;
+  overflow:hidden;border-radius:9px;border:1px solid var(--ax-border)}
+.axiom-preview-image{display:block;max-width:100%;max-height:400px;width:auto;height:auto;
+  object-fit:contain;user-select:none}
+.axiom-crop-layer{position:absolute;inset:0;z-index:2;cursor:crosshair;
+  touch-action:none}
+.axiom-crop-outline{position:absolute;z-index:3;pointer-events:none;
+  border:2px solid var(--brand);background:color-mix(in srgb,var(--brand) 16%,transparent)}
+.axiom-crop-outline[hidden]{display:none}
+.axiom-preview-feedback{font:11px/1.7 var(--ax-mono);color:var(--ax-muted);margin:0}
+.axiom-crop-actions{display:flex;align-items:center;gap:9px}
+.axiom-crop-actions button[hidden]{display:none}
