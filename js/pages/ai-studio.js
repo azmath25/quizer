@@ -1,6 +1,6 @@
 import {initFirebase,getSession,watchSession} from "../firebase-client.js";
 import {mountShell} from "../components/shell.js";
-import {renderChatMarkdown} from "../components/ai-chat-markdown.js";
+import {renderChatMarkdown,typesetChatMarkdown} from "../components/ai-chat-markdown.js";
 import {typeset} from "../components/math-content.js";
 import {sendTeacherChatMessage,teacherChatHistory,canUseMimoTeacherChat,
   mimoChatErrorMessage} from "../services/mimo-chat.js";
@@ -65,7 +65,15 @@ function drawMessages(){
     const body=node("div");
     if(m.role==="assistant"){renderChatMarkdown(body,m.content||"");}
     else body.textContent=m.content||"";
-    box.append(body);target.append(box);
+    box.append(body);
+    const copy=node("button","Copy","ai-secondary");
+    copy.type="button";copy.className="ai-copy-msg";
+    copy.setAttribute("aria-label",m.role==="user"?"Copy your message":"Copy assistant message");
+    copy.onclick=async()=>{
+      try{await navigator.clipboard.writeText(String(m.content||""));copy.textContent="Copied";}
+      catch{status("Copy unavailable — select the message text to copy.",true);}
+    };
+    box.append(copy);target.append(box);
     if(m.imageAssetId){
       const img=node("img");img.alt="Private attached mathematics image";
       img.loading="lazy";box.append(img);
@@ -76,7 +84,7 @@ function drawMessages(){
           img.src=urls.attached;
       }).catch(()=>{img.alt="Attached image unavailable for this account";});
     }
-    if(m.role==="assistant")void typeset(body);
+    if(m.role==="assistant")void typesetChatMarkdown(body,typeset);
   }
   target.scrollTop=target.scrollHeight;
 }
@@ -117,16 +125,24 @@ async function sendText(message,context=""){
   if(busyChat||!message.trim())return;
   busyChat=true;$("ai-send").disabled=true;
   const snapshot=messages.slice();
+  const sentThreadId=threadId, sentImage=selectedImage;
+  const input=$("ai-prompt"),submittedDraft=input.value;
+  input.value="";
   messages.push({role:"user",content:message,
     imageAssetId:selectedImage?.assetId||null,imageJobId:selectedImage?.jobId||null});
   drawMessages();status("Sending your message to Mimo…");
   try {
     const answer=await sendTeacherChatMessage({
       message,context,threadId,requestId:crypto.randomUUID(),
-      ...(selectedImage?{imageJobId:selectedImage.jobId,imageAssetId:selectedImage.assetId}:{}),
+      ...(sentImage?{imageJobId:sentImage.jobId,imageAssetId:sentImage.assetId}:{}),
       history:snapshot.filter(m=>["user","assistant"].includes(m.role))
         .slice(-8).map(m=>({role:m.role,content:String(m.content||"").slice(0,1200)})),
     });
+    if(threadId!==sentThreadId){
+      await loadThreads();
+      status("Your answer is saved in the conversation where you sent it.");
+      return true;
+    }
     messages.push({role:"assistant",content:answer.reply});
     threadId=answer.threadId||threadId;
     drawMessages();
@@ -134,10 +150,16 @@ async function sendText(message,context=""){
       history.replaceState(null,"","ai.html?thread="+encodeURIComponent(threadId));
       await loadThreads();
     } else status("Reply received, but history could not be saved. Copy the answer before closing.",true);
-    $("ai-prompt").value="";selectedImage=null;
+    selectedImage=null;
     return true;
-  }catch(error){messages=snapshot;drawMessages();status(safeError(error),true);
-    return false;}
+  }catch(error){
+    if(threadId===sentThreadId){
+      messages=snapshot;drawMessages();
+      if(!input.value)input.value=submittedDraft;
+    }
+    status(safeError(error),true);
+    return false;
+  }
   finally{busyChat=false;$("ai-send").disabled=false;}
 }
 async function chatSubmit(event){
