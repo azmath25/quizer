@@ -146,6 +146,12 @@ try:
         page.locator("#ai-tab-jobs").click()
         check(page.locator("#ai-job-form").is_visible(),"Production PDF job form missing")
         check(page.locator("#ai-job-budget").count()==1,"Budget control missing")
+        check(page.locator("#ai-job-budget").input_value()=="0.30",
+              "Standard per-page budget should be default")
+        page.locator("#ai-job-last-page").fill("6")
+        page.locator("#ai-job-total-budget").fill("0.50")
+        check("remaining pages will stop" in page.locator("#ai-job-estimate").inner_text(),
+              "Hard document budget warning missing")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
         page.locator("#ai-tab-chat").click()
