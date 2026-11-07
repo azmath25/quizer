@@ -45,9 +45,9 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
   });
 
   return Object.freeze({
-    async listThreads(uid, limit = 25) {
+    async listThreads(uid, limit = 50) {
       owner(uid);
-      if (!Number.isInteger(limit) || limit < 1 || limit > 30) invalid();
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) invalid();
       const result = await db.query(
         "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count,turn_count FROM quizer_ai.threads WHERE owner_uid=$1 ORDER BY updated_at DESC,id DESC LIMIT $2",
         [uid,limit]);
