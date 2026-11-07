@@ -75,7 +75,7 @@ function snipBlock(el) {
 
 export function visibleTextIn(rect) {
   const fragments = [];
-  let scanned = 0, budget = 0;
+  let scanned = 0, visited = 0, budget = 0;
   const emit = (text,kind,el) => {
     if (!text || budget >= MAX_SNIP_TEXT) return;
     const value = kind === "math" ? text : normalizeSnipText(text);
@@ -98,7 +98,7 @@ export function visibleTextIn(rect) {
   }
   const walker = document.createTreeWalker(document.body,
     NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-  while (walker.nextNode() && scanned < 12000 && budget < MAX_SNIP_TEXT) {
+  while (visited++ < 100000 && walker.nextNode() && scanned < 12000 && budget < MAX_SNIP_TEXT) {
     const node = walker.currentNode;
     if (node.nodeType === 1) {
       if (mathRoots.has(node)) {
@@ -118,16 +118,15 @@ export function visibleTextIn(rect) {
     }
     const value = node.textContent;
     if (!value?.trim()) continue;
-    scanned += Math.min(value.length,1000);
     const el = node.parentElement;
     if (!isSnipVisible(el)) continue;
     // Never collect glyphs, accessibility MathML duplicates, or MathJax's
     // hidden source while also emitting the exact original TeX above.
-    if (el.closest("mjx-container,.MathJax,mjx-assistive-mml,katex-mathml") ||
-        [...mathRoots.keys()].some(root => root.contains?.(node))) continue;
+    if (el.closest("mjx-container,.MathJax,mjx-assistive-mml,.katex-mathml")) continue;
     const range = document.createRange();
     range.selectNodeContents(node);
     if (![...range.getClientRects()].some(r => intersects(r,rect))) continue;
+    scanned += Math.min(value.length,1000);
     emit(value,"text",el);
   }
   return assembleSnipFragments(fragments);
