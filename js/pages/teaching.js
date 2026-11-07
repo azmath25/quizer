@@ -27,7 +27,7 @@ export async function mount(root) {
       "Teaching",
       "Manage your quizzes, participants and marking.",
       linkButton("Problem bank", "problems.html", "secondary", "book") +
-        linkButton("Create quiz", "upload.html", "primary", "plus") + linkButton("Document & Image Desk", "documents.html", "secondary"),
+        linkButton("Create quiz", "upload.html", "primary", "plus") + linkButton("AI Studio · document extraction", "ai.html?mode=job", "secondary"),
     ) +
     `<div class="tabs workspace-subnav" role="tablist" aria-label="Teaching workspace"><button data-tab="quizzes" role="tab">My quizzes</button><button data-tab="requests" role="tab">Access requests</button><button data-tab="results" role="tab">Results</button></div><div class="toolbar" id="filters"></div><div data-message></div><div id="teaching-list"></div>`;
   const list = root.querySelector("#teaching-list"),

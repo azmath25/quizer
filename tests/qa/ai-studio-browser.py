@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Authenticated-looking browser smoke using local callable mocks, no cloud traffic.
+"""Axiom-style Quizer AI Studio browser smoke with local callable mocks.
 
-Checks original AI Studio visual structure and the production Firebase/Mimo wiring.
+Checks one-page information architecture and existing Firebase/Mimo wiring.
 The test cannot prove real deployment or live service authorization.
 """
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -10,6 +10,19 @@ from threading import Thread
 from functools import partial
 from shutil import which
 from playwright.sync_api import sync_playwright
+import struct
+import zlib
+
+def png_sample(width=64,height=64):
+    def chunk(tag,data):
+        return struct.pack(">I",len(data))+tag+data+struct.pack(
+            ">I",zlib.crc32(tag+data)&0xffffffff)
+    scanlines=b"".join(b"\x00"+b"\xff\xff\xff\xff"*width for _ in range(height))
+    return (b"\x89PNG\r\n\x1a\n"+
+            chunk(b"IHDR",struct.pack(">IIBBBBB",width,height,8,6,0,0,0))+
+            chunk(b"IDAT",zlib.compress(scanlines))+
+            chunk(b"IEND",b""))
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -87,12 +100,12 @@ try:
         except Exception as exc:
           gate=page.locator("#ai-access-gate").inner_text()
           raise AssertionError(f"Studio not initialized as {role}: gate={gate}, errors={errors[:4]}") from exc
-        check(page.locator("#app").is_visible(),f"{role}: original Studio hidden")
-        check(page.locator(".studio-heading strong").inner_text()=="AI Studio","Original studio heading missing")
-        check(page.locator(".topbar .tools .icon-btn").count()==3,"Original toolbar icons missing")
-        check(page.locator(".shell .sidebar").count()==1,"Original conversation sidebar missing")
-        check(page.locator(".shell .stage").count()==1,"Original animated stage missing")
-        check(page.locator(".shell .inspector").count()==1,"Original job inspector missing")
+        check(page.locator("#app").is_visible(),f"{role}: AI Studio hidden")
+        check(page.locator(".axiom-brand-link strong").inner_text()=="Quizer AI","Axiom-style brand header missing")
+        check(page.locator(".topbar .tools .icon-btn").count()==3,"Workspace toolbar icons missing")
+        check(page.locator(".axiom-shell .axiom-sidebar").count()==1,"Axiom workspace navigation missing")
+        check(page.locator(".axiom-shell .axiom-center .axiom-stage").count()==1,"Centered conversation column missing")
+        check(page.locator(".axiom-shell .axiom-workbench").count()==1,"Contextual job workbench missing")
         check(page.locator(".welcome .prompt-card:visible").count()==2,"Original welcome should show two suggestions")
         page.locator(".chat-options summary").click()
         check(page.locator(".chat-actions button").count()==3,"Original More menu actions missing")
@@ -103,21 +116,41 @@ try:
         check(page.locator("#theme-trigger").count()==1,"Quizer shared theme control missing")
         check(page.locator("#desktop-nav a[href='ai.html'][aria-current='page']").count()==1,
               "AI Studio header navigation not active")
-        check(page.locator("#app").get_attribute("class")=="app","Inspector/sidebar should start closed")
-        if width>1060:
+        check("show-inspector" not in page.locator("#app").get_attribute("class"),"Workbench should start collapsed")
+        if width>1180:
           check(page.locator(".inspector").evaluate("(e)=>getComputedStyle(e).display")=="none",
                 "Inspector not collapsed on desktop")
         page.locator(".tools [data-act='inspector']").click()
-        if width>1060:
+        if width>1180:
           check(page.locator(".inspector").evaluate("(e)=>getComputedStyle(e).display")!="none",
                 "Inspector did not reopen")
         else:
           check("show-inspector" in page.locator("#app").get_attribute("class"),"Mobile inspector did not open")
-        page.locator(".tools [data-act='inspector']").click()
+        if width<=1180:
+          page.locator(".inspector [data-act='inspector']").click()
+        else:
+          page.locator(".tools [data-act='inspector']").click()
+        page.locator(".topbar [data-act='commands']").click()
+        check(page.locator("#ai-command-dialog").evaluate("(d)=>d.open"),
+              "Real command palette did not open")
+        page.locator("#ai-command-query").fill("extract pdf")
+        check(page.locator("#ai-command-results button").count()==1,
+              "Command palette did not filter tools")
+        page.locator("#ai-command-results button").click()
+        check(page.locator("#ai-job-form").is_visible(),
+              "Extract command did not open live document lab")
+        page.locator("#ai-return-chat").click()
+        page.locator("#ai-chat-text-file").set_input_files({
+          "name":"lesson.tex","mimeType":"text/plain",
+          "buffer":b"Solve x+1=2.\\nUse original LaTeX.",
+        })
+        page.wait_for_function("document.getElementById('ai-prompt').value.includes('Teacher-selected text')")
+        check(page.locator(".message.user").count()==0,
+              "Importing a local TeX file must not auto-send a paid model request")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
         page.locator("#ai-new-chat").click()
-        check(page.locator("#type-dialog").evaluate("(e)=>e.open"),"Original type chooser missing")
+        check(page.locator("#type-dialog").evaluate("(e)=>e.open"),"Workflow mode chooser missing")
         page.locator("#type-dialog .type-card").filter(has_text="Problem solver").click()
         check("Problem solver" in page.locator("#compose-mode").inner_text(),
               "Problem solver mode not selected")
@@ -133,6 +166,36 @@ try:
         page.locator("#ai-tab-jobs").click()
         check(page.locator("#ai-job-form").is_visible(),"Production PDF job form missing")
         check(page.locator("#ai-job-budget").count()==1,"Budget control missing")
+        check(page.locator("#ai-job-budget").input_value()=="0.30",
+              "Standard per-page budget should be default")
+        page.locator("#ai-job-last-page").fill("6")
+        page.locator("#ai-job-total-budget").fill("0.50")
+        check("remaining pages will stop" in page.locator("#ai-job-estimate").inner_text(),
+              "Hard document budget warning missing")
+        page.locator("#ai-job-file").set_input_files({
+          "name":"local-math.pdf","mimeType":"application/pdf",
+          "buffer":b"%PDF-1.7\n1 0 obj <<>>\nendobj\n%%EOF",
+        })
+        page.locator(".axiom-preview-pdf").wait_for(timeout=5000)
+        check(page.locator("#ai-upload-consent").is_checked()==False,
+              "Local preview must never consent to Mimo upload")
+        check(page.locator(".axiom-preview-feedback").count()==1,
+              "Private PDF preview feedback missing")
+        if width==1440 and role=="teacher":
+          page.locator("#ai-job-file").set_input_files({
+            "name":"figure.png","mimeType":"image/png","buffer":png_sample(),
+          })
+          page.wait_for_function("document.querySelector('.axiom-preview-feedback')?.textContent.includes('Local image ready')")
+          page.locator("#ai-upload-consent").check()
+          frame=page.locator(".axiom-crop-layer").bounding_box()
+          check(frame is not None and frame["width"]>30,"Local image cropping canvas missing")
+          page.mouse.move(frame["x"]+8,frame["y"]+8)
+          page.mouse.down()
+          page.mouse.move(frame["x"]+52,frame["y"]+52,steps=6)
+          page.mouse.up()
+          page.wait_for_function("document.querySelector('.axiom-preview-feedback')?.textContent.includes('Prepared')",timeout=5000)
+          check(not page.locator("#ai-upload-consent").is_checked(),
+                "Cropping an image must invalidate prior upload consent")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
         page.locator("#ai-tab-chat").click()
@@ -140,12 +203,12 @@ try:
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
           check("show-sidebar" in page.locator("#app").get_attribute("class"),
-                "Original mobile history drawer cannot open")
+                "Mobile workspace drawer cannot open")
         overflow=page.evaluate("document.documentElement.scrollWidth-window.innerWidth")
         check(overflow<=2,f"Horizontal overflow at {width}px: {overflow}")
         check(not errors,f"Page errors at {width}px: {errors[:5]}")
         context.close()
-        print(f"PASS restored AI Studio role={role} width={width}px")
+        print(f"PASS Axiom one-page Studio role={role} width={width}px")
       student_context=browser.new_context(viewport={"width":390,"height":844})
       student=student_context.new_page()
       mock_session(student,"student")

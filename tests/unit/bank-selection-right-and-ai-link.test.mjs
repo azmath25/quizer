@@ -23,10 +23,10 @@ test("compact bank still places selected inspector above problem list",()=>{
   assert.match(editor,/grid-template-areas:\s*"selection" "bank"/);
 });
 
-test("AI Studio prototype is published and discoverable to teachers and admins",()=>{
+test("AI Studio one-page workspace is discoverable to teachers and admins",()=>{
   assert.match(build,/n\.endsWith\("\.html"\)/);
   assert.match(ai,/AI Studio/);
   assert.match(shell,/\["ai", "ai\.html", "AI Studio"\]/);
   assert.match(shell,/key !== "ai" \|\| s\.capabilities\.teach \|\| s\.capabilities\.admin/);
-  assert.match(profile,/linkButton\("AI Studio \(preview\)", "ai\.html"/);
+  assert.match(profile,/linkButton\("AI Studio", "ai\.html"/);
 });

@@ -5,6 +5,7 @@
  * An ambiguous dispatch is NEVER silently replayed.
  */
 import {createHash, randomUUID} from "node:crypto";
+import {safeMimoRunDiagnostic} from "./run-diagnostics.js";
 import {validateExtractedPage,createExtractionReview,decideExtractionQuestion,prepareReviewedExtractionImport} from "../../shared/mimo-extraction.js";
 import {
   EXTRACTION_WORKFLOW,ExtractionError,authorizeExtractionRole,
@@ -175,6 +176,8 @@ export function createBatchService({
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,error:p.error||null,
         stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
+        ...(p.diagnosticCode?{diagnosticCode:p.diagnosticCode,
+          ...(p.diagnosticHttpStatus?{diagnosticHttpStatus:p.diagnosticHttpStatus}:{})}:{}),
       })),
     };
   }
@@ -314,6 +317,12 @@ export function createBatchService({
       automatically_saved:false,published:false};
   }
 
+  // Vision PDF pages send image + text to a shared model credential.
+  // Keep at most one page per document in flight until actual provider TPM
+  // admission is available. This avoids a 3-page burst; it is NOT a global
+  // per-model token limiter and does not guarantee provider acceptance.
+  const MAX_ACTIVE_PAGES_PER_DOCUMENT=1;
+
   // Worker-only: not callable by the browser. Claims are transactionally fenced.
   async function claim(jobId){
     let selected=null;
@@ -323,7 +332,7 @@ export function createBatchService({
       if(!snap.exists||snap.data().state!=="running")return;
       const job=snap.data(),pages=job.pages||[];
       const active=pages.filter(p=>["submitted","claiming"].includes(p.state)).length;
-      if(active>=3)return;
+      if(active>=MAX_ACTIVE_PAGES_PER_DOCUMENT)return;
       const next=pages.findIndex(p=>p.state==="queued");
       if(next<0)return;
       // Reserve worst-case costs before starting; never count a failed run as free.
@@ -399,7 +408,8 @@ export function createBatchService({
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
         await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
           {state:"attention",stageStatus:"failed",
-            error:"MIMO_RUN_"+run.status.toUpperCase()});
+            error:"MIMO_RUN_"+run.status.toUpperCase(),
+            ...safeMimoRunDiagnostic(run.output)});
       }
       if(["running","queued"].includes(run.status)){
         // Persist safe stage identifiers, never private prompts, outputs,
@@ -433,13 +443,13 @@ export function createBatchService({
           {state:"attention",error:"MIMO_OUTCOME_UNKNOWN"});
         continue;
       }
-      // Poll at most three active runs, without holding a database lock.
-      for(const page of (job.pages||[]).filter(p=>p.state==="submitted").slice(0,3))
+      // Poll at most one active page per document, without a database lock.
+      for(const page of (job.pages||[]).filter(p=>p.state==="submitted").slice(0,MAX_ACTIVE_PAGES_PER_DOCUMENT))
         await poll(job,page);
-      // Admit up to three independent page runs in one tick instead of
-      // artificially waiting one full minute between every page.
+      // Dispatch one page at a time. Avoid three simultaneous vision bursts;
+      // provider token-per-minute admission remains a separate Mimo feature.
       const claims=[];
-      for(let n=0;n<3;n++){
+      for(let n=0;n<MAX_ACTIVE_PAGES_PER_DOCUMENT;n++){
         const selection=await claim(job.jobId);
         if(!selection)break;
         claims.push(selection);

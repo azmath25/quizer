@@ -1,0 +1,311 @@
+/* P1 Quizer AI Studio. Axiom-inspired information architecture:
+   compact persistent nav, centered conversation, optional contextual workbench.
+   Quizer design tokens/permissions/services remain authoritative. */
+.axiom-studio{
+  --ax-border:var(--border);--ax-surface:var(--surface);
+  --ax-subtle:var(--surface-alt);--ax-ink:var(--text);
+  --ax-muted:var(--muted);--ax-accent:var(--brand);
+  --ax-tint:color-mix(in srgb,var(--brand) 7%,var(--surface));
+  --ax-mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  width:100%;height:calc(100dvh - 64px);min-height:0;
+  display:block;isolation:isolate;overflow:hidden;background:var(--bg);
+  font-family:"Plus Jakarta Sans",var(--font-sans),system-ui,sans-serif;
+  font-size:13px;color:var(--ax-ink)
+}
+.axiom-studio *{box-sizing:border-box}
+.axiom-studio .ico{stroke-width:1.85}
+.axiom-studio .shell.axiom-shell{
+  display:grid;grid-template-columns:270px minmax(0,1fr);
+  height:100%;min-height:0;width:100%;position:relative;overflow:hidden
+}
+.axiom-studio .sidebar.axiom-sidebar{
+  display:flex;flex-direction:column;background:var(--ax-surface);
+  border-right:1px solid var(--ax-border);z-index:23;min-height:0;min-width:0
+}
+.axiom-side-inner{display:flex;flex-direction:column;min-height:0;height:100%;padding:25px 15px 15px}
+.axiom-brand{display:flex;align-items:center;justify-content:space-between;padding:0 9px 26px}
+.axiom-brand-link{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ax-ink)}
+.axiom-mark{width:35px;height:35px;display:grid;place-items:center;
+  border:1px solid color-mix(in srgb,var(--brand) 30%,var(--ax-border));
+  background:var(--ax-tint);color:var(--brand);border-radius:11px}
+.axiom-brand-link strong{display:block;font-size:20px;font-weight:800;line-height:1.16;letter-spacing:-.075em}
+.axiom-brand-link strong em{font-style:normal;color:var(--brand)}
+.axiom-brand-link small{display:block;margin-top:4px;font:9px var(--ax-mono);
+  color:var(--ax-muted);letter-spacing:.13em}
+.axiom-sidebar-close{display:none!important}
+.axiom-studio .new.axiom-new{
+  display:flex;align-items:center;justify-content:flex-start;gap:11px;
+  height:47px;width:100%;padding:0 13px;border:0;border-radius:11px;
+  background:var(--brand);color:white;
+  font-weight:800;font-size:12px;box-shadow:0 7px 20px color-mix(in srgb,var(--brand) 17%,transparent);
+  transition:transform .15s,filter .15s
+}
+.axiom-new:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.axiom-new kbd{margin-left:auto;font:9px var(--ax-mono);background:#ffffff1f;
+  border-radius:5px;padding:5px 7px;color:inherit}
+.axiom-studio .side-search.axiom-search{
+  height:42px;margin:12px 0 0;border-radius:10px;background:var(--bg);
+  color:var(--ax-muted);padding:0 11px;display:flex;gap:9px
+}
+.axiom-search input{font-size:11px!important}
+.axiom-search .kbd{white-space:nowrap;border:0;background:transparent;font:9px var(--ax-mono)}
+.axiom-overline{display:flex;align-items:center;gap:9px;margin:29px 9px 12px;
+  color:var(--ax-muted);font:9px var(--ax-mono);letter-spacing:.115em;font-weight:700}
+.axiom-overline>span:last-child:not(:first-child){height:1px;flex:1;background:var(--ax-border)}
+.axiom-studio .sidenav.axiom-nav{padding:0;display:grid;gap:3px}
+.axiom-studio .sidenav.axiom-nav .nav-row{height:43px;border-radius:9px;
+  font-size:11px;display:flex;justify-content:flex-start;text-align:left;
+  align-items:center;gap:11px;padding:0 12px;letter-spacing:0;
+  font-weight:700;color:var(--ax-muted);border:0}
+.axiom-studio .sidenav.axiom-nav .nav-row:hover,
+.axiom-studio .sidenav.axiom-nav .nav-row.active{background:var(--ax-tint);color:var(--brand)}
+.axiom-nav .nav-row span{flex:1}
+.axiom-studio .nav-row small{margin-left:auto;background:var(--ax-subtle);
+  color:var(--ax-muted);border-radius:6px;font:10px var(--ax-mono);padding:3px 7px}
+.axiom-history-head{margin-top:29px;margin-bottom:10px;justify-content:space-between}
+.axiom-history-head #history-count{font-size:10px}
+.axiom-studio .history{flex:1;min-height:50px;overflow-y:auto;padding:0 3px;scrollbar-width:thin}
+.axiom-studio .history-row{padding:3px 4px;border:1px solid transparent;border-radius:9px}
+.axiom-studio .history-row:hover,.axiom-studio .history-row.active{
+  background:var(--ax-subtle);border-color:var(--ax-border)}
+.axiom-studio .history-open{padding:7px 5px;gap:9px;align-items:center}
+.axiom-studio .history-icon{background:transparent;color:var(--ax-muted);width:21px;height:25px}
+.axiom-studio .history-text strong{font-size:11px;font-weight:650}
+.axiom-studio .history-text small{font:9px var(--ax-mono)}
+.axiom-studio .pin-btn{opacity:.4}
+.axiom-studio .history-row:hover .pin-btn,.axiom-studio .history-row:focus-within .pin-btn{opacity:1}
+.axiom-sidebar-bottom{margin-top:auto;flex:none;padding-top:13px}
+.axiom-service-card{border:1px solid var(--ax-border);border-radius:13px;padding:15px;
+  background:color-mix(in srgb,var(--brand) 4%,var(--ax-surface))}
+.axiom-service-card strong{display:flex;align-items:center;gap:8px;font-size:11px}
+.axiom-status-dot{width:7px;height:7px;border-radius:50%;background:var(--brand);flex:none}
+.axiom-service-card p{font-size:10px;line-height:1.7;margin:9px 0 11px;color:var(--ax-muted)}
+.axiom-service-command{background:transparent;border:0;color:var(--brand);
+  font:10px var(--ax-mono);display:flex;align-items:center;gap:8px;padding:5px 0}
+.axiom-service-command kbd{margin-left:auto;padding-left:10px;color:var(--ax-muted)}
+.axiom-sidebar-footer{display:flex;align-items:center;gap:9px;padding:15px 3px 0;min-width:0}
+.axiom-sidebar-footer>span:nth-child(2){display:grid;gap:3px;min-width:0;flex:1}
+.axiom-sidebar-footer strong{font-size:10px}
+.axiom-sidebar-footer small{font-size:9px;color:var(--ax-muted)}
+.axiom-avatar{display:grid;place-items:center;flex:none;width:34px;height:34px;
+  background:var(--ax-subtle);color:var(--brand);border-radius:10px;border:1px solid var(--ax-border)}
+.axiom-center{display:flex;flex-direction:column;min-width:0;min-height:0;
+  overflow:hidden;background:var(--bg)}
+.axiom-studio .topbar.axiom-topbar{height:68px;flex:0 0 68px;padding:0 27px;
+  background:var(--bg);border-bottom:1px solid var(--ax-border);gap:18px;
+  backdrop-filter:none;z-index:7}
+.axiom-crumbs{display:flex;align-items:center;gap:12px;min-width:0}
+.axiom-crumbs>.ico{color:var(--ax-muted);height:14px;width:14px}
+.axiom-crumb-label{font:10px var(--ax-mono);letter-spacing:.12em;color:var(--ax-muted)}
+.axiom-crumb-current{font-size:11px;font-weight:750;white-space:nowrap;min-width:0;
+  max-width:min(35vw,300px);overflow:hidden;text-overflow:ellipsis}
+.axiom-studio .tools.axiom-toolbar{display:flex;gap:8px;align-items:center;margin-left:auto}
+.axiom-private{display:flex;align-items:center;gap:5px;font:10px var(--ax-mono);
+  color:var(--ax-muted);padding-right:10px}
+.axiom-studio .icon-btn{border-radius:9px;width:35px;height:35px;color:var(--ax-muted)}
+.axiom-studio .icon-btn:hover{background:var(--ax-subtle);color:var(--brand)}
+.axiom-studio .axiom-toggle{border:1px solid var(--ax-border);background:var(--ax-surface)}
+.axiom-studio .axiom-toggle[aria-expanded=true]{color:var(--brand);border-color:var(--brand)}
+.axiom-studio .stage.axiom-stage{
+  flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;
+  margin:0;max-width:none;padding:0;overflow:hidden;position:relative;
+  background:radial-gradient(ellipse 75% 35% at 50% 0%,
+    color-mix(in srgb,var(--brand) 4%,transparent),transparent 85%),var(--bg)
+}
+.axiom-studio .stage.axiom-stage:before,.axiom-studio .stage.axiom-stage:after{display:none}
+.axiom-studio .studio-chat-panel{display:flex;flex:1;flex-direction:column;min-height:0}
+.axiom-studio .studio-jobs-panel{display:flex;flex:1;flex-direction:column;min-height:0}
+.axiom-studio #ai-chat-panel[hidden],.axiom-studio #ai-jobs-panel[hidden]{display:none!important}
+.axiom-studio .conversation-head.axiom-conversation-head{height:72px;min-height:72px;
+  padding:0 max(26px,calc((100% - 760px)/2));border-bottom:1px solid var(--ax-border);
+  background:transparent;backdrop-filter:none;display:flex;align-items:center;justify-content:space-between}
+.axiom-studio .conversation-head .current-title{gap:11px}
+.axiom-studio .conversation-head .title-symbol{width:30px;height:30px;border-radius:9px;
+  box-shadow:none;background:var(--ax-tint);color:var(--brand)}
+.axiom-studio .conversation-head .title-copy h1{font-size:13px;letter-spacing:-.02em}
+.axiom-studio .conversation-head .title-copy p{font-size:10px}
+.axiom-studio .chat-options summary{font-size:10px}
+.axiom-studio .conversation.axiom-thread{flex:1;min-height:0;overflow-y:auto;
+  padding:26px max(26px,calc((100% - 760px)/2));scrollbar-width:thin}
+.axiom-studio .message-list{width:100%;max-width:760px;margin:0 auto}
+.axiom-studio .welcome{text-align:left;max-width:760px;margin:0;
+  padding:min(7vh,65px) 0 25px;min-height:100%}
+.axiom-studio .welcome-symbol{margin:0 0 35px;width:72px;height:72px;border-radius:21px;
+  background:var(--ax-tint);box-shadow:0 0 0 8px color-mix(in srgb,var(--brand) 3%,transparent);
+  color:var(--brand);border:1px solid color-mix(in srgb,var(--brand) 25%,var(--ax-border))}
+.axiom-studio .welcome-symbol:after{display:none}
+.axiom-studio .welcome h2{font-size:clamp(30px,3.2vw,46px);line-height:1.2;
+  letter-spacing:-.065em;font-weight:800;max-width:660px;margin:0 0 16px}
+.axiom-studio .welcome p{margin:0 0 32px;font-size:13px;line-height:1.8;
+  max-width:530px;color:var(--ax-muted)}
+.axiom-studio .prompt-grid{max-width:none;margin:0;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.axiom-studio .prompt-card{border-radius:12px;padding:16px 15px;min-height:73px;
+  align-items:center;background:var(--ax-surface);border-color:var(--ax-border);
+  box-shadow:none;transition:border-color .15s,transform .15s}
+.axiom-studio .prompt-card:hover{border-color:var(--brand);transform:translateY(-1px)}
+.axiom-studio .prompt-card span{color:var(--brand)}
+.axiom-studio .more-prompts{margin-top:17px;font-size:11px;color:var(--ax-muted)}
+.axiom-studio .more-prompts summary{cursor:pointer;width:max-content}
+.axiom-studio .more-prompts .prompt-grid{margin-top:12px}
+.axiom-studio .message{gap:14px;margin-bottom:31px}
+.axiom-studio .message .msg-icon{width:31px;height:31px;border-radius:9px;box-shadow:none}
+.axiom-studio .message .msg-body{font-size:12px;line-height:1.95}
+.axiom-studio .message.user .msg-body{border-radius:4px 13px 13px 13px;
+  background:var(--ax-surface);box-shadow:none}
+.axiom-studio .message .msg-actions{margin-top:3px}
+.axiom-studio .composer-area.axiom-composer-area{
+  flex:none;padding:10px 24px max(15px,env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,var(--bg) 22%);border-top:0
+}
+.axiom-composer-inner{max-width:760px;margin:auto;width:100%}
+.axiom-studio .composer.axiom-composer{border-radius:16px;padding:0;
+  border:1px solid var(--ax-border);background:var(--ax-surface);
+  box-shadow:0 10px 35px color-mix(in srgb,var(--text) 6%,transparent);overflow:hidden}
+.axiom-studio .composer.axiom-composer:focus-within{border-color:var(--brand);
+  box-shadow:0 10px 35px color-mix(in srgb,var(--brand) 10%,transparent)}
+.axiom-composer-eyebrow{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:13px 15px 0;color:var(--ax-muted);font:9px var(--ax-mono)}
+.axiom-composer-eyebrow>span:first-child{display:flex;align-items:center;gap:8px;
+  font-weight:700;letter-spacing:.12em;color:var(--brand)}
+.axiom-studio .composer.axiom-composer textarea{min-height:65px;max-height:180px;
+  padding:15px 16px;font-size:12px;line-height:1.8}
+.axiom-studio .composer.axiom-composer .composer-tools{margin:0;padding:9px 10px;
+  border-top:1px solid var(--ax-border);background:transparent;gap:4px}
+.axiom-studio .composer .compose-btn{font-size:10px;border-radius:8px;padding:8px}
+.axiom-studio .composer .axiom-command{color:var(--brand)}
+.axiom-studio .composer .send{margin-left:0;width:34px;height:34px;
+  background:var(--brand);color:white;border:0;border-radius:10px}
+.axiom-studio .composer-note{display:flex;justify-content:space-between;
+  max-width:none;padding:11px 5px 0;margin:0;color:var(--ax-muted);font:10px var(--ax-mono)}
+.axiom-studio .composer-note kbd{background:var(--ax-subtle);border:1px solid var(--ax-border);padding:1px 4px;border-radius:4px}
+.axiom-studio .attached{margin-bottom:6px}
+.axiom-studio .studio-jobs-content.axiom-docs{flex:1;overflow-y:auto;min-height:0;
+  max-width:100%;padding:28px max(26px,calc((100% - 850px)/2)) 50px}
+.axiom-doc-intro{margin:13px 0 26px}
+.axiom-overlabel{font:9px var(--ax-mono);letter-spacing:.14em;color:var(--brand);font-weight:750}
+.axiom-doc-intro h2{margin:14px 0 10px;font-size:clamp(24px,2.7vw,37px);
+  letter-spacing:-.05em;line-height:1.25}
+.axiom-doc-intro p{margin:0;max-width:590px;color:var(--ax-muted);font-size:12px;line-height:1.8}
+.axiom-doc-form{border:1px solid var(--ax-border);border-radius:14px;
+  padding:17px;background:var(--ax-surface)}
+.axiom-studio .ai-job-form{border:0;background:none;padding:0;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.axiom-studio .ai-job-form input,.axiom-studio .ai-job-form select{
+  border-radius:9px;background:var(--bg);color:var(--ax-ink)}
+.axiom-studio .ai-job-view{margin-top:20px;min-width:0}
+.axiom-studio .ai-status,.axiom-studio .ai-review-card{border-color:var(--ax-border)}
+.axiom-studio .inspector.axiom-workbench{
+  display:flex;flex-direction:column;min-height:0;background:var(--ax-surface);
+  border-left:1px solid var(--ax-border);z-index:22;overflow:hidden}
+.axiom-studio .inspector-head.axiom-workbench-head{height:92px;padding:18px 21px;
+  flex:none;border-bottom:1px solid var(--ax-border)}
+.axiom-studio .inspector-head.axiom-workbench-head strong{font-size:18px;margin:6px 0 4px;
+  letter-spacing:-.04em}
+.axiom-studio .inspector-head.axiom-workbench-head small{font-size:10px}
+.axiom-workbench-tabs{display:flex;gap:0;height:52px;flex:none;
+  border-bottom:1px solid var(--ax-border);padding:0 16px}
+.axiom-workbench-tabs button{flex:1;background:transparent;border:0;
+  border-bottom:2px solid transparent;color:var(--ax-muted);
+  font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;gap:7px}
+.axiom-workbench-tabs button.active,.axiom-workbench-tabs button[aria-selected=true]{color:var(--brand);
+  border-bottom-color:var(--brand)}
+.axiom-studio .inspector-actions{padding:15px 19px 4px}
+.axiom-studio .inspector-body{padding:14px 18px;scrollbar-width:thin}
+.axiom-studio .inspector-foot{padding:17px 18px;font:10px var(--ax-mono)}
+.axiom-studio .job-select{border:1px solid var(--ax-border);background:var(--ax-surface);
+  border-radius:10px;padding:12px;gap:10px;margin-bottom:9px}
+.axiom-studio .job-select:hover{background:var(--ax-subtle)}
+.axiom-studio .job-select strong{display:block;font-size:11px}
+.axiom-studio .job-select small{font-size:9px;color:var(--ax-muted)}
+.axiom-studio .backdrop{position:fixed;inset:0;background:#10243f6b;z-index:20;display:none}
+.axiom-studio .mobile-only{display:none}
+.axiom-command-dialog{width:min(92vw,600px);max-width:600px;border-radius:16px;
+  background:var(--surface);border:1px solid var(--border);color:var(--text);padding:0}
+.axiom-command-content{padding:15px}
+.axiom-command-head{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.axiom-command-head label{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:750}
+.axiom-command-content>input{display:block;width:100%;height:48px;
+  margin:13px 0;border:1px solid var(--border);border-radius:10px;
+  background:var(--bg);color:var(--text);font-size:13px;padding:0 14px}
+.axiom-command-results{display:grid;gap:4px;max-height:55vh;overflow-y:auto}
+.axiom-command-results button{display:flex;align-items:center;gap:11px;
+  background:transparent;color:var(--text);border:1px solid transparent;
+  padding:13px 11px;border-radius:9px;font-size:12px;text-align:left;width:100%}
+.axiom-command-results button:hover,.axiom-command-results button:focus-visible{
+  background:color-mix(in srgb,var(--brand) 8%,var(--surface));border-color:var(--border)}
+.axiom-command-results button small{margin-left:auto;color:var(--muted);font-size:10px}
+.axiom-command-help{border-top:1px solid var(--border);padding:14px 5px 4px;
+  color:var(--muted);font:10px ui-monospace,monospace}
+.axiom-studio #ai-status{flex:none}
+@media(max-width:1180px){
+  .axiom-studio .shell.axiom-shell{grid-template-columns:245px minmax(0,1fr)}
+  .axiom-studio .inspector.axiom-workbench{position:absolute;top:0;right:0;
+    height:100%;width:min(358px,88vw);box-shadow:-15px 0 55px #12283c2b;
+    display:flex;transform:translateX(105%);transition:transform .2s}
+  .axiom-studio.show-inspector .inspector.axiom-workbench{transform:translateX(0)}
+  .axiom-studio.show-inspector .backdrop{display:block}
+  .axiom-studio .conversation.axiom-thread{padding-inline:max(23px,calc((100% - 760px)/2))}
+  .axiom-studio .conversation-head.axiom-conversation-head{padding-inline:23px}
+}
+@media(max-width:760px){
+  .axiom-studio{height:calc(100dvh - 58px);min-height:360px}
+  .axiom-studio .shell.axiom-shell{grid-template-columns:minmax(0,1fr)}
+  .axiom-studio .sidebar.axiom-sidebar{position:absolute;top:0;bottom:0;left:0;
+    width:min(290px,88vw);height:100%;z-index:26;transform:translateX(-104%);
+    transition:transform .2s;box-shadow:12px 0 55px #172f4930}
+  .axiom-studio.show-sidebar .sidebar.axiom-sidebar{transform:translateX(0)}
+  .axiom-studio.show-sidebar .backdrop{display:block}
+  .axiom-studio .axiom-sidebar-close{display:grid!important}
+  .axiom-studio .mobile-only{display:grid}
+  .axiom-studio .topbar.axiom-topbar{height:57px;flex-basis:57px;padding:0 13px}
+  .axiom-crumbs{gap:8px}
+  .axiom-crumb-label,.axiom-private{display:none}
+  .axiom-crumb-current{max-width:30vw}
+  .axiom-studio .conversation.axiom-thread{padding:19px 17px}
+  .axiom-studio .conversation-head.axiom-conversation-head{height:65px;min-height:65px;padding:0 15px}
+  .axiom-studio .composer-area.axiom-composer-area{padding:7px 12px max(12px,env(safe-area-inset-bottom))}
+  .axiom-studio .welcome{padding-top:20px}
+  .axiom-studio .welcome-symbol{margin-bottom:25px;width:64px;height:64px}
+  .axiom-studio .welcome h2{font-size:32px}
+  .axiom-studio .studio-jobs-content.axiom-docs{padding:16px 15px 35px}
+  .axiom-studio .ai-job-form{grid-template-columns:1fr}
+  .axiom-studio .axiom-composer-eyebrow>span:last-child{display:none}
+  .axiom-studio .composer-note{font-size:9px}
+  .axiom-studio .compose-mode{display:none}
+}
+@media(max-width:460px){
+  .axiom-studio .prompt-grid{grid-template-columns:1fr}
+  .axiom-studio .welcome h2{font-size:29px}
+  .axiom-studio .axiom-toolbar{gap:3px}
+  .axiom-studio .axiom-composer .compose-btn{padding:8px 6px}
+  .axiom-studio .composer-note span:last-child{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .axiom-studio .sidebar,.axiom-studio .inspector,.axiom-studio .new{transition:none!important}
+}
+
+/* Local-first PDF and figure cropping: no third-party viewer or upload. */
+.axiom-studio .axiom-local-preview{
+  grid-column:1/-1;min-width:0;display:grid;gap:10px;
+  border:1px solid var(--ax-border);border-radius:12px;
+  background:var(--bg);padding:13px;overflow:hidden
+}
+.axiom-studio .axiom-local-preview[hidden]{display:none!important}
+.axiom-preview-title{display:flex;justify-content:space-between;gap:10px;
+  align-items:center;font-size:11px;overflow-wrap:anywhere}
+.axiom-preview-title small{font:10px var(--ax-mono);color:var(--ax-muted);white-space:nowrap}
+.axiom-preview-pdf{height:clamp(240px,36vh,480px);width:100%;border:1px solid var(--ax-border);
+  background:var(--ax-surface);border-radius:8px}
+.axiom-preview-frame{max-width:100%;width:max-content;max-height:400px;position:relative;
+  overflow:hidden;border-radius:9px;border:1px solid var(--ax-border)}
+.axiom-preview-image{display:block;max-width:100%;max-height:400px;width:auto;height:auto;
+  object-fit:contain;user-select:none}
+.axiom-crop-layer{position:absolute;inset:0;z-index:2;cursor:crosshair;
+  touch-action:none}
+.axiom-crop-outline{position:absolute;z-index:3;pointer-events:none;
+  border:2px solid var(--brand);background:color-mix(in srgb,var(--brand) 16%,transparent)}
+.axiom-crop-outline[hidden]{display:none}
+.axiom-preview-feedback{font:11px/1.7 var(--ax-mono);color:var(--ax-muted);margin:0}
+.axiom-crop-actions{display:flex;align-items:center;gap:9px}
+.axiom-crop-actions button[hidden]{display:none}

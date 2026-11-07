@@ -8,10 +8,12 @@ import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
   submitMimoBatch,listMimoBatches,readMimoBatch,readMimoBatchPage,
   readMimoBatchImage,saveMimoBatchReview,readMimoBatchPrepared,
   buildTeacherReview,decideTeacherReview,exportTeacherReview,
-  extractionError,decodeMimoPng} from "../services/mimo-extraction.js";
+  extractionError,describeMimoRunFailure,decodeMimoPng} from "../services/mimo-extraction.js";
 import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
+import {mountLocalSourcePreview} from "../components/ai-source-preview.js";
+import {inspectLocalDocument,makeTeacherContext} from "../services/local-document.js";
 
 const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access-gate");
@@ -20,6 +22,7 @@ let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="",selecte
 const originalSources=new Map();
 const batchReviews=new Map();
 let transientUrls=[];
+let sourcePreview=null;
 const listen=(id,kind,fn)=>$(id).addEventListener(kind,fn);
 const icon=(name,small=false)=>{
   const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
@@ -89,6 +92,7 @@ function studioHead(){
     link.click();setTimeout(()=>URL.revokeObjectURL(url),0);more.open=false;
   };
   menu.append(pin,rename,exportButton);more.append(menu);actions.append(more);head.append(actions);
+  const route=$("ai-route-name");if(route)route.textContent=displayTitle(current);
   const modeText=$("compose-mode");modeText.replaceChildren(icon(mode.icon,true),
     document.createTextNode(" "+mode.name));
   $("ai-prompt").placeholder=mode.placeholder;
@@ -124,11 +128,13 @@ function studioWelcome(){
   return wrap;
 }
 function applyStudioLayout(){
-  const wide=innerWidth>1060;
+  const wide=innerWidth>1180;
   app.classList.toggle("show-inspector",!wide&&inspectorVisible);
   const inspector=app.querySelector(".inspector");
-  if(wide){inspector.style.display=inspectorVisible?"":"none";
-    $("shell").style.gridTemplateColumns=inspectorVisible?"":"232px minmax(0,1fr)";
+  if(wide){
+    inspector.style.display=inspectorVisible?"":"none";
+    $("shell").style.gridTemplateColumns=inspectorVisible
+      ?"270px minmax(0,1fr) 358px":"270px minmax(0,1fr)";
   }else{inspector.style.display="";$("shell").style.gridTemplateColumns="";}
   for(const button of app.querySelectorAll('[data-act="inspector"]'))
     button.setAttribute("aria-expanded",String(inspectorVisible));
@@ -158,8 +164,15 @@ function activeTab(tab){
   $("ai-tab-jobs").classList.toggle("active",!chat);
   $("ai-pin-filter").classList.toggle("active",chat&&pinnedOnly);
   app.classList.remove("show-sidebar");
-  if(!chat&&innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}
-  studioHead();
+  if(!chat&&innerWidth<=1180){inspectorVisible=false;applyStudioLayout();}
+  for(const [id,selected] of [["ai-workbench-jobs",chat],["ai-workbench-extract",!chat]]){
+    const button=$(id);
+    if(button){button.setAttribute("aria-selected",String(selected));
+      button.classList.toggle("active",selected);}
+  }
+  if(chat)studioHead();
+  else {const route=$("ai-route-name");if(route)route.textContent="Document lab";}
+
 }
 function drawThreads(){
   const target=$("ai-threads"),needle=$("ai-chat-search").value.toLowerCase();
@@ -399,6 +412,8 @@ function drawStages(result){
   if(state==="running"||state==="submitted")
     card.append(node("p","The Mimo workflow is processing. Detailed step progress is not exposed by this bridge; no percentage or ETA is fabricated.","ai-muted"));
   if(result.error)card.append(node("p","Attention: "+result.error,"ai-error"));
+  const diagnostic=describeMimoRunFailure(result);
+  if(diagnostic)card.append(node("p",diagnostic,"ai-error"));
   return card;
 }
 async function verifySource(file,page){
@@ -588,6 +603,12 @@ async function selectBatch(id){
   try{
     const job=await readMimoBatch(id);
     if(selectedJob!==id)return;
+    // Keep the sidebar and selected detail in agreement after every refresh.
+    // The list request may be older than this durable status read.
+    const index=jobs.findIndex(item=>item.jobId===id);
+    if(index>=0){jobs[index]={...jobs[index],state:job.state,
+      updatedAt:job.updatedAt||jobs[index].updatedAt};
+      drawJobs();}
     const card=node("div","","ai-status");
     card.append(node("h2",job.fileName+" · "+job.state));
     const count=node("p",job.completed+" of "+job.pageCount+
@@ -618,7 +639,8 @@ async function selectBatch(id){
       const phase=labels[page.stage]||"Processing";
       const detail=page.state==="completed"
         ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"
-        :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")":"";
+        :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")"
+        :page.state==="attention"&&describeMimoRunFailure(page)?" · "+describeMimoRunFailure(page):"";
       const b=node("button","Page "+page.number+" — "+page.state+detail);
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
@@ -659,6 +681,8 @@ async function selectJob(id){
     const result=await readMimoExtraction(id);
     if(id!==selectedJob)return;
     result.jobId=id;
+    const index=jobs.findIndex(item=>item.jobId===id);
+    if(index>=0){jobs[index]={...jobs[index],state:result.state};drawJobs();}
     target.replaceChildren(drawStages(result));
     if(result.state==="completed"&&result.page){
       const verified=await verifySource(originalSources.get(id),result.page);
@@ -709,11 +733,37 @@ async function selectJob(id){
     }
   }catch(e){status(extractionError(e),true);}
 }
+function updatePdfBudgetSummary(){
+  const perPage=Number($("ai-job-budget").value);
+  const total=Number($("ai-job-total-budget").value);
+  const first=Number($("ai-job-page").value);
+  const endText=$("ai-job-last-page").value;
+  const end=endText?Number(endText):null;
+  const pages=end!==null&&Number.isInteger(first)&&Number.isInteger(end)
+    &&end>=first?end-first+1:null;
+  const maxPages=Number.isFinite(total)&&Number.isFinite(perPage)&&perPage>0
+    ?Math.max(0,Math.floor((total+1e-9)/perPage)):0;
+  let explanation="Each page has a hard $"+perPage.toFixed(2)+
+    " maximum, not a guaranteed charge. Total document cap: $"+total.toFixed(2)+".";
+  if(pages!==null){
+    const required=pages*perPage;
+    explanation+=" "+pages+" selected pages reserve up to $"+required.toFixed(2)+".";
+    if(required>total+0.000001)
+      explanation+=" Your total cap permits at most "+maxPages+
+        " pages; remaining pages will stop before a paid run.";
+  }else{
+    explanation+=" With this selection the total cap covers at most "+maxPages+
+      " pages. Exact PDF page count is determined after upload.";
+  }
+  if(perPage===0.15)
+    explanation+=" Economy mode can reject multi-stage verification or TikZ jobs before completion.";
+  $("ai-job-estimate").textContent=explanation;
+}
 async function newJob(event){
   event.preventDefault();if(busyJob)return;
-  const file=$("ai-job-file").files?.[0],page=Number($("ai-job-page").value);
+  const file=sourcePreview?.getFile()??null,page=Number($("ai-job-page").value);
   const lastPage=$("ai-job-last-page").value?Number($("ai-job-last-page").value):0;
-  if(!file){status("Select a PDF or image.",true);return;}
+  if(!file){status("Select and inspect a valid PDF or image (8 MiB maximum).",true);return;}
   busyJob=true;$("ai-start-job").disabled=true;
   try{
     const job=await submitMimoBatch(file,{
@@ -726,6 +776,41 @@ async function newJob(event){
     await loadJobs();await selectJob(job.jobId);
   }catch(e){status(extractionError(e),true);}
   finally{busyJob=false;$("ai-start-job").disabled=false;}
+}
+const STUDIO_COMMANDS=[
+  {name:"New exploration",hint:"Start a new AI conversation",icon:"plus",run:()=> $("type-dialog").showModal()},
+  {name:"Ask the assistant",hint:"Return to this conversation",icon:"chat",run:()=>{activeTab("chat");$("ai-prompt").focus();}},
+  {name:"Solve mathematics",hint:"Step-by-step mathematics",icon:"math",run:()=>{studioMode="solver";newThread();$("ai-prompt").focus();}},
+  {name:"Review and audit",hint:"Check mathematics and wording",icon:"review",run:()=>{studioMode="review";newThread();$("ai-prompt").focus();}},
+  {name:"Extract PDF or image",hint:"Start a private background job",icon:"doc",run:()=>{activeTab("jobs");$("ai-job-file").focus();}},
+  {name:"Saved Mimo jobs",hint:"Open the live workbench",icon:"clock",run:()=>{inspectorVisible=true;applyStudioLayout();void loadJobs().catch(e=>status(safeError(e),true));}},
+  {name:"Refresh saved chats",hint:"Read your Neon history",icon:"retry",run:()=>void loadThreads()},
+  {name:"Import TXT / TeX",hint:"Add a local source to your draft without sending",icon:"doc",run:()=> $("ai-chat-text-file").click()},
+  {name:"Snip visible math",hint:"Extract text and original MathJax source",icon:"snip",run:()=>{activeTab("chat");$("ai-snip-math").click();}},
+  {name:"Studio preferences",hint:"Adjust your workspace",icon:"settings",run:()=> $("settings-dialog").showModal()},
+];
+function displayCommands(query=""){
+  const container=$("ai-command-results");container.replaceChildren();
+  const needle=String(query).toLowerCase().trim();
+  const actions=STUDIO_COMMANDS.filter(item=>
+    (item.name+" "+item.hint).toLowerCase().includes(needle));
+  for(const action of actions){
+    const button=node("button","","axiom-command-choice");button.type="button";
+    button.setAttribute("role","option");
+    const glyph=node("span");glyph.append(icon(action.icon,true));
+    button.append(glyph,node("span",action.name),node("small",action.hint));
+    button.onclick=()=>{
+      $("ai-command-dialog").close();action.run();
+      app.classList.remove("show-sidebar");
+    };
+    container.append(button);
+  }
+  if(!actions.length)container.append(node("p","No matching commands.","ai-muted"));
+}
+function openCommands(query=""){
+  const dialog=$("ai-command-dialog");if(dialog.open)return;
+  $("ai-command-query").value=query;displayCommands(query);
+  dialog.showModal();$("ai-command-query").focus();
 }
 function wireOriginalChrome(){
   const modes=$("types");
@@ -743,12 +828,48 @@ function wireOriginalChrome(){
   }
   listen("ai-pin-filter","click",()=>{pinnedOnly=!pinnedOnly;activeTab("chat");drawThreads();});
   listen("ai-return-chat","click",()=>activeTab("chat"));
+  listen("ai-command-query","input",event=>displayCommands(event.target.value));
+  listen("ai-workbench-jobs","click",()=>{
+    $("ai-workbench-jobs").setAttribute("aria-selected","true");
+    $("ai-workbench-jobs").classList.add("active");
+    $("ai-workbench-extract").setAttribute("aria-selected","false");
+    $("ai-workbench-extract").classList.remove("active");
+    inspectorVisible=true;applyStudioLayout();
+    void loadJobs().catch(e=>status(safeError(e),true));
+  });
+  listen("ai-workbench-extract","click",()=>{activeTab("jobs");if(innerWidth>1180){inspectorVisible=true;applyStudioLayout();}});
+  document.addEventListener("keydown",event=>{
+    if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
+      event.preventDefault();openCommands();
+    }else if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="j"){
+      event.preventDefault();$("type-dialog").showModal();
+    }
+  });
   listen("rename-form","submit",event=>{
     event.preventDefault();
     if(!threadId)return;
     const name=$("rename-input").value.trim();
     if(name){aliases[threadId]=name.slice(0,100);persistAliases();drawThreads();studioHead();}
     $("rename-dialog").close();
+  });
+  listen("ai-chat-text-file","change",async()=>{
+    const file=$("ai-chat-text-file").files?.[0];
+    if(!file)return;
+    try{
+      const meta=await inspectLocalDocument(file);
+      if(meta.kind!=="text")throw Error("Choose a TXT or TeX text source.");
+      const base=makeTeacherContext(meta.text,meta.name);
+      const input=$("ai-prompt");
+      const available=input.maxLength-input.value.length-(input.value?"\n\n":"");
+      if(available<200)throw Error("Clear some draft text to import the source.");
+      const truncated=base.length>available;
+      input.value+=(input.value?"\n\n":"")+base.slice(0,available);
+      activeTab("chat");input.focus();
+      status("Local "+meta.name+" added to the draft"+
+        (truncated?" (truncated to composer limit)":"")+
+        ". Review before sending; nothing has been uploaded.");
+    }catch(error){status(String(error?.message||"Could not import text.").slice(0,180),true);}
+    finally{$("ai-chat-text-file").value="";}
   });
   listen("ai-chat-photo","change",()=>{
     const file=$("ai-chat-photo").files?.[0];
@@ -781,11 +902,12 @@ function wireOriginalChrome(){
     const act=target.dataset.act;
     if(act==="sidebar"){app.classList.add("show-sidebar");}
     else if(act==="close-drawers"){app.classList.remove("show-sidebar","show-inspector");
-      if(innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}}
+      if(innerWidth<=1180){inspectorVisible=false;applyStudioLayout();}}
     else if(act==="inspector"){
       inspectorVisible=!inspectorVisible;applyStudioLayout();
       if(inspectorVisible&&innerWidth<=760)app.classList.remove("show-sidebar");
     }else if(act==="settings")$("settings-dialog").showModal();
+    else if(act==="commands")openCommands();
     else if(act==="search"){
       if(innerWidth<=760)app.classList.add("show-sidebar");
       $("ai-chat-search").focus();
@@ -803,6 +925,10 @@ async function boot(){
     mountShell({showAssistant:false,showBackdrop:false});
     app.hidden=false;gate.hidden=true;
     wireOriginalChrome();
+    sourcePreview=mountLocalSourcePreview({
+      input:$("ai-job-file"),container:$("ai-local-source-preview"),
+      onSourceChange:()=>{$("ai-upload-consent").checked=false;},
+    });
     listen("ai-new-chat","click",()=>$("type-dialog").showModal());
     listen("ai-load-older","click",()=>void loadOlder());
     listen("ai-chat-search","input",drawThreads);
@@ -826,7 +952,14 @@ async function boot(){
     });
     listen("ai-jobs-refresh","click",()=>void loadJobs().catch(e=>status(safeError(e),true)));
     listen("ai-job-form","submit",e=>void newJob(e));
+    for(const id of ["ai-job-budget","ai-job-total-budget","ai-job-page","ai-job-last-page"])
+      listen(id,"input",updatePdfBudgetSummary);
+    updatePdfBudgetSummary();
     listen("ai-prompt","keydown",event=>{
+      if(event.key==="/"&&!event.shiftKey&&!event.ctrlKey&&!event.metaKey&&
+         !$("ai-prompt").value.trim()){
+        event.preventDefault();openCommands();return;
+      }
       if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){
         event.preventDefault();if(!busyChat)$("ai-chat-form").requestSubmit();
       }

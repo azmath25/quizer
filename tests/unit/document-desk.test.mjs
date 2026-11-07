@@ -47,18 +47,21 @@ test("Per-file local maximums and bounded model context are enforced",async()=>{
   await assert.rejects(async()=>makeTeacherContext("  ","file.txt"),/Paste or select/);
 });
 
-test("Document Desk remains teacher gated and never transmits file bytes to the Mimo text callable",()=>{
+test("Legacy Document Desk URL redirects to the one-page AI Studio and keeps local admission",()=>{
   const html=readFileSync(new URL("../../documents.html",import.meta.url),"utf8");
-  const ui=readFileSync(new URL("../../js/pages/documents.js",import.meta.url),"utf8");
+  const studio=readFileSync(new URL("../../ai.html",import.meta.url),"utf8");
+  const preview=readFileSync(new URL("../../js/components/ai-source-preview.js",import.meta.url),"utf8");
+  const client=readFileSync(new URL("../../js/pages/ai-studio.js",import.meta.url),"utf8");
   const shell=readFileSync(new URL("../../js/components/shell.js",import.meta.url),"utf8");
-  assert.match(shell,/\["documents", "documents\.html", "Documents"\]/);
-  for (const id of ["doc-source","doc-preview","doc-excerpt","doc-question","doc-consent","doc-ai-form","doc-ai-log"])
-    assert.match(html,new RegExp('id="'+id+'"'));
-  assert.match(ui,/canUseMimoTeacherChat/);
-  assert.match(ui,/sendTeacherChatMessage\(\{/);
-  assert.match(ui,/message,context,history:history\.slice\(-8\),requestId:id/);
-  assert.doesNotMatch(ui,/readAsDataURL|FileReader|base64|bytes:/);
-  assert.match(ui,/uploadAsset\(selectedFile/);
-  assert.match(ui,/consent\.checked/);
-  assert.match(ui,/version !== selectionVersion/);
+  assert.match(html,/url=ai\.html\?mode=job/);
+  assert.match(html,/location\.replace\("ai\.html\?mode=job"\)/);
+  assert.match(shell,/\["ai", "ai\.html", "AI Studio"\]/);
+  assert.doesNotMatch(shell,/\["documents", "documents\.html", "Documents"\]/);
+  for(const id of ["ai-job-file","ai-job-form","ai-local-source-preview","ai-chat-text-file","ai-upload-consent"])
+    assert.match(studio,new RegExp('id="'+id+'"'));
+  assert.match(preview,/inspectLocalDocument\(file\)/);
+  assert.match(preview,/new File\(\[blob\]/);
+  assert.match(client,/mountLocalSourcePreview\(/);
+  assert.match(client,/onSourceChange/);
+  assert.match(client,/submitMimoBatch\(/);
 });

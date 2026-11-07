@@ -117,9 +117,9 @@ test("scheduled sweeps dispatch every page once and save individually validated 
   const started=await app.start({auth:auth(uid),data:request("request_batch_test_00002")});
   await app.sweep();
   assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&
-    x.options.method==="POST").length,3,
-    "three pages are admitted within the same background tick");
-  for(let i=0;i<7;i++)await app.sweep();
+    x.options.method==="POST").length,1,
+    "only one PDF page is admitted initially to avoid vision API bursts");
+  for(let i=0;i<12;i++)await app.sweep();
   const done=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
   assert.equal(done.state,"ready_review");
   assert.equal(done.completed,3);
@@ -234,12 +234,16 @@ test("review cannot bind a forged or other-user private image asset",async()=>{
   }}),{code:"INVALID_FIGURE_ASSET"});
 });
 
-test("three concurrent claim slots never reserve beyond the per-document hard cap",async()=>{
+test("serialized PDF page claims never reserve beyond the per-document hard cap",async()=>{
   const db=firestore(),calls=[],app=service(db,upstream(calls));
   const created=await app.start({auth:auth(uid),data:request(
     "request_batch_test_parallel_reservation_007",{totalUsd:0.30},
   )});
   await app.sweep();
+  const first=await app.status({auth:auth(uid),data:{jobId:created.jobId}});
+  assert.equal(first.reservedUsd,0.15);
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,1);
+  for(let i=0;i<8;i++)await app.sweep();
   const state=await app.status({auth:auth(uid),data:{jobId:created.jobId}});
   assert.equal(state.reservedUsd,0.3);
   assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,2);
@@ -262,4 +266,49 @@ test("public progress uses only allowlisted Mimo stage identifiers",()=>{
   assert.deepEqual(publicBatchStage({checkpoints:[{node_id:"compile_png",status:"completed"}]}),
     {id:"compile_png",status:"completed"});
   assert.equal(JSON.stringify(result).includes("sensitive"),false);
+});
+
+test("P1 diagram-bearing PDF yields authenticated compiled PNG preview without replay",async()=>{
+  const db=firestore(),requests=[];
+  const base=upstream(requests);
+  const png=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0]);
+  const transport=async(url,options)=>{
+    if(url.endsWith("/artifacts/compile_png")){
+      return new Response(png,{status:200,headers:{"content-type":"image/png"}});
+    }
+    const response=await base(url,options);
+    if(/\/v1\/runs\/[a-f0-9-]+$/.test(url)){
+      const data=await response.json();
+      const n=Number(data.id.slice(-12));
+      const question=extracted(n);
+      question.questions[0].has_figure=true;
+      question.questions[0].figure_description="Graph of y=x on coordinates";
+      question.questions[0].diagram_requires_reconstruction=true;
+      data.output.exports.extracted_page_json=JSON.stringify(question);
+      data.output.nodes.compile_png.status="completed";
+      return json(data);
+    }
+    return response;
+  };
+  const app=service(db,transport);
+  const started=await app.start({auth:auth(uid),
+    data:request("p1_figure_complete_test_00000001")});
+  for(let i=0;i<9;i++)await app.sweep();
+  const state=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(state.state,"ready_review");
+  assert.equal(state.pages[0].hasReconstruction,true);
+  const page=await app.getPage({auth:auth(uid),
+    data:{jobId:started.jobId,pageNumber:1}});
+  assert.equal(page.hasReconstruction,true);
+  assert.equal(page.page.questions[0].has_figure,true);
+  const compiled=await app.image({auth:auth(uid),
+    data:{jobId:started.jobId,pageNumber:1}});
+  assert.equal(compiled.contentType,"image/png");
+  assert.deepEqual(Buffer.from(compiled.base64,"base64"),png);
+  await assert.rejects(app.image({auth:auth(uid2),
+    data:{jobId:started.jobId,pageNumber:1}}),{code:"JOB_NOT_FOUND"});
+  const dispatched=requests.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length;
+  await app.sweep();
+  assert.equal(requests.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,dispatched,
+    "checkpointed successful pages must not call paid model twice");
 });

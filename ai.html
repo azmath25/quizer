@@ -106,8 +106,9 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
  .app .studio-heading-mark{display:none}
 }
 </style>
-<link rel="stylesheet" href="assets/css/ai-studio-production.css?v=1">
-<script type="module" src="js/pages/ai-studio.js"></script>
+<link rel="stylesheet" href="assets/css/ai-studio-production.css?v=p1-20261107-2">
+<link rel="stylesheet" href="assets/css/ai-studio-axiom-p1.css?v=p1-20261107-2">
+<script type="module" src="js/pages/ai-studio.js?v=p1-20261107-2"></script>
 </head>
 <body data-page="ai">
 <header id="site-header"></header>
@@ -147,61 +148,104 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.5 3 9 8 11 5-2 8-5.5 8-11V5l-8-3Zm-4 10 3 3 5-6"/></symbol>
 </svg>
 <a class="skip" href="#workspace">Skip to workspace</a>
-<div class="app" id="app">
-<header class="topbar">
-<button class="icon-btn mobile-only" type="button" data-act="sidebar" aria-label="Open conversation history"><svg class="ico" aria-hidden="true"><use href="#ic-bars"/></svg></button>
-<div class="studio-heading"><span class="studio-heading-mark"><svg class="ico" aria-hidden="true"><use href="#ic-spark"/></svg></span><span><strong>AI Studio</strong><small>Mathematics · Documents · Review</small></span></div>
-<span class="grow"></span><span class="tag"><span class="dot"></span>Secure workspace</span>
-<div class="tools">
-<button class="icon-btn" data-act="search" type="button" aria-label="Search conversations" title="Search conversations"><svg class="ico" aria-hidden="true"><use href="#ic-search"/></svg></button>
-<button class="icon-btn" data-act="settings" type="button" aria-label="Studio preferences" title="Studio preferences"><svg class="ico" aria-hidden="true"><use href="#ic-settings"/></svg></button>
-<button class="icon-btn outline" data-act="inspector" type="button" aria-label="Toggle job inspector" aria-expanded="true" title="Job inspector"><svg class="ico" aria-hidden="true"><use href="#ic-panel"/></svg></button>
-</div></header>
-<div class="shell" id="shell">
-<aside class="sidebar" aria-label="Conversation history">
-  <div class="side-top">
-    <button class="new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> New conversation <svg class="ico sm" aria-hidden="true"><use href="#ic-chevron"/></svg></button>
-    <label class="side-search"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg><input id="ai-chat-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search conversations"><span class="kbd">⌘ K</span></label>
-  </div>
-  <nav class="sidenav" aria-label="Workspace views">
-    <button class="nav-row active" id="ai-tab-chat" type="button" aria-selected="true"><svg class="ico" aria-hidden="true"><use href="#ic-chat"/></svg> All conversations <small id="chat-count">0</small></button>
-    <button class="nav-row" id="ai-pin-filter" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-pin"/></svg> Pinned</button>
-    <button class="nav-row" id="ai-tab-jobs" type="button" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#ic-clock"/></svg> Processing jobs <small id="job-count">0</small></button>
-  </nav>
-  <div class="side-label eyebrow"><span id="history-label">Recent conversations</span><span id="history-count"></span></div>
-  <div class="history" id="ai-threads"></div>
-</aside>
-<main class="stage" id="workspace">
-  <section id="ai-chat-panel" class="studio-chat-panel">
-    <div class="conversation-head" id="conversation-head"></div>
-    <div class="conversation" id="conversation" aria-label="Conversation messages">
-      <button id="ai-load-older" class="mini-btn" type="button" hidden>Load earlier messages</button>
-      <div class="message-list" id="ai-messages" role="log" aria-live="polite"></div>
-    </div>
-    <div class="composer-area">
-      <div id="pending" class="attached"></div>
-      <form class="composer" id="ai-chat-form">
-        <textarea id="ai-prompt" rows="2" maxlength="3000" aria-label="Your message" placeholder="Ask about mathematics, quizzes, or a document..."></textarea>
-        <div class="composer-tools">
-          <button class="compose-btn" type="button" data-act="attach" title="Attach a PNG or JPEG photo for private extraction"><svg class="ico sm" aria-hidden="true"><use href="#ic-paperclip"/></svg><span>Attach</span></button>
-          <button class="compose-btn" id="ai-snip-math" type="button" title="Snip visible page text and recover MathJax LaTeX"><svg class="ico sm" aria-hidden="true"><use href="#ic-snip"/></svg><span>Snip</span></button>
-          <span class="compose-mode" id="compose-mode"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> General chat</span>
-          <button class="send" id="ai-send" type="submit" aria-label="Send message" title="Send · Enter"><svg class="ico" aria-hidden="true"><use href="#ic-send"/></svg></button>
+<div class="app axiom-studio" id="app">
+  <div class="shell axiom-shell" id="shell">
+    <aside class="sidebar axiom-sidebar" aria-label="AI Studio navigation">
+      <div class="axiom-side-inner">
+        <div class="axiom-brand">
+          <a class="axiom-brand-link" href="index.html" aria-label="Back to Quizer">
+            <span class="axiom-mark"><svg class="ico" aria-hidden="true"><use href="#ic-math"/></svg></span>
+            <span><strong>Quizer <em>AI</em></strong><small>MATHEMATICS STUDIO</small></span>
+          </a>
+          <button class="icon-btn axiom-sidebar-close" data-act="close-drawers" type="button" aria-label="Close navigation"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
-      </form>
-      <div class="composer-note"><span>Private assistant · Teacher / admin access</span><span>Enter to send · Shift+Enter for newline</span></div>
-      <input id="ai-chat-photo" type="file" accept="image/png,image/jpeg" hidden aria-label="Attach mathematics photo">
-    </div>
-  </section>
-  <section id="ai-jobs-panel" class="studio-jobs-panel" hidden>
-    <div class="conversation-head"><div class="current-title"><span class="title-symbol"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg></span><span class="title-copy"><h1>Document Lab</h1><p>Real background extraction · teacher review · private import</p></span></div><button class="mini-btn" id="ai-return-chat" type="button"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> Assistant</button></div>
-    <div class="studio-jobs-content"><h2>New extraction job</h2><form id="ai-job-form" class="ai-job-form">
+        <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> <span>New exploration</span><kbd>⌘ J</kbd></button>
+        <label class="side-search axiom-search"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg><input id="ai-chat-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search saved conversations"><span class="kbd">⌘ K</span></label>
+        <div class="axiom-overline"><span>YOUR WORKSPACE</span><span></span></div>
+        <nav class="sidenav axiom-nav" aria-label="Workspace views">
+          <button class="nav-row active" id="ai-tab-chat" type="button" aria-selected="true"><svg class="ico" aria-hidden="true"><use href="#ic-chat"/></svg> <span>Conversations</span> <small id="chat-count">0</small></button>
+          <button class="nav-row" id="ai-pin-filter" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-pin"/></svg> <span>Pinned chats</span></button>
+          <button class="nav-row" id="ai-tab-jobs" type="button" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg> <span>Document lab</span> <small id="job-count">0</small></button>
+        </nav>
+        <div class="axiom-overline axiom-history-head"><span id="history-label">RECENT CONVERSATIONS</span><small id="history-count"></small></div>
+        <div class="history" id="ai-threads" aria-label="Saved conversations"></div>
+        <div class="axiom-sidebar-bottom">
+          <div class="axiom-service-card">
+            <strong><span class="axiom-status-dot"></span> Server-backed workspace</strong>
+            <p>Conversations use your account. Document jobs run on Mimo and require your review.</p>
+            <button type="button" data-act="commands" class="axiom-service-command"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> Commands <kbd>⌘ K</kbd></button>
+          </div>
+          <div class="axiom-sidebar-footer">
+            <span class="axiom-avatar"><svg class="ico" aria-hidden="true"><use href="#ic-spark"/></svg></span>
+            <span><strong>Quizer workspace</strong><small>Signed-in teacher / admin</small></span>
+            <button class="icon-btn" data-act="settings" type="button" aria-label="Workspace preferences"><svg class="ico" aria-hidden="true"><use href="#ic-settings"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div class="axiom-center">
+      <header class="topbar axiom-topbar">
+        <div class="axiom-crumbs">
+          <button class="icon-btn mobile-only" type="button" data-act="sidebar" aria-label="Open navigation"><svg class="ico" aria-hidden="true"><use href="#ic-bars"/></svg></button>
+          <span class="axiom-crumb-label">WORKSPACE</span><svg class="ico sm" aria-hidden="true"><use href="#ic-chevron"/></svg>
+          <span class="axiom-crumb-current" id="ai-route-name">New exploration</span>
+        </div>
+        <div class="tools axiom-toolbar">
+          <span class="axiom-private"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Private</span>
+          <button class="icon-btn" data-act="commands" type="button" title="Commands · Ctrl/⌘ K" aria-label="Open commands"><svg class="ico" aria-hidden="true"><use href="#ic-search"/></svg></button>
+          <button class="icon-btn" data-act="settings" type="button" aria-label="Studio preferences" title="Preferences"><svg class="ico" aria-hidden="true"><use href="#ic-settings"/></svg></button>
+          <button class="icon-btn axiom-toggle" data-act="inspector" type="button" aria-label="Toggle workbench" aria-expanded="false" title="Show job workbench"><svg class="ico" aria-hidden="true"><use href="#ic-panel"/></svg></button>
+        </div>
+      </header>
+      <main class="stage axiom-stage" id="workspace">
+        <section id="ai-chat-panel" class="studio-chat-panel" aria-label="AI assistant conversation">
+          <div class="conversation-head axiom-conversation-head" id="conversation-head"></div>
+          <div class="conversation axiom-thread" id="conversation" aria-label="Conversation messages">
+            <button id="ai-load-older" class="mini-btn" type="button" hidden>Load earlier messages</button>
+            <div class="message-list" id="ai-messages" role="log" aria-live="polite"></div>
+          </div>
+          <div class="composer-area axiom-composer-area">
+            <div class="axiom-composer-inner">
+              <div id="pending" class="attached"></div>
+              <form class="composer axiom-composer" id="ai-chat-form">
+                <div class="axiom-composer-eyebrow"><span><svg class="ico sm" aria-hidden="true"><use href="#ic-spark"/></svg> MATH COPILOT</span><span>Secure Firebase → Mimo</span></div>
+                <textarea id="ai-prompt" rows="2" maxlength="3000" aria-label="Your message" placeholder="Ask about mathematics, quizzes, or a document..."></textarea>
+                <div class="composer-tools">
+                  <button class="compose-btn axiom-command" type="button" data-act="commands" title="Open command palette"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> <span>Commands</span></button>
+                  <button class="compose-btn" type="button" data-act="attach" title="Attach a PNG or JPEG photo for private extraction"><svg class="ico sm" aria-hidden="true"><use href="#ic-paperclip"/></svg><span>Photo</span></button>
+                  <button class="compose-btn" id="ai-snip-math" type="button" title="Snip visible page text and recover MathJax LaTeX"><svg class="ico sm" aria-hidden="true"><use href="#ic-snip"/></svg><span>Snip</span></button>
+                  <span class="compose-mode" id="compose-mode"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> General chat</span>
+                  <button class="send" id="ai-send" type="submit" aria-label="Send message" title="Send · Enter"><svg class="ico" aria-hidden="true"><use href="#ic-send"/></svg></button>
+                </div>
+              </form>
+              <div class="composer-note"><span><kbd>/</kbd> commands · <kbd>⌘ K</kbd> search</span><span>Enter sends · Shift+Enter newline</span></div>
+              <input id="ai-chat-photo" type="file" accept="image/png,image/jpeg" hidden aria-label="Attach mathematics photo">
+              <input id="ai-chat-text-file" type="file" accept=".txt,.tex,text/plain" hidden aria-label="Import a plain-text or TeX source into chat">
+            </div>
+          </div>
+        </section>
+        <section id="ai-jobs-panel" class="studio-jobs-panel" hidden aria-label="Document extraction workspace">
+          <div class="conversation-head axiom-conversation-head">
+            <div class="current-title">
+              <span class="title-symbol"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg></span>
+              <span class="title-copy"><h1>Document lab</h1><p>Private PDF & image extraction · page-by-page review · TikZ</p></span>
+            </div>
+            <button class="mini-btn" id="ai-return-chat" type="button"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> Back to chat</button>
+          </div>
+          <div class="studio-jobs-content axiom-docs">
+            <div class="axiom-doc-intro">
+              <span class="axiom-overlabel">DOCUMENT WORKSPACE</span>
+              <h2>Turn source pages into reviewed questions.</h2>
+              <p>Run extraction in the background, inspect page progress, correct mathematical text and diagrams, then approve the import.</p>
+            </div>
+            <section class="axiom-doc-form" aria-label="New extraction"><form id="ai-job-form" class="ai-job-form">
         <label>Target
           <select id="ai-job-target"><option value="quiz">Create private quiz draft</option><option value="bank">Add to Problem Bank</option></select>
         </label>
         <label>PDF or photographed problems (up to 8 MiB)
           <input id="ai-job-file" type="file" required accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
         </label>
+        <section id="ai-local-source-preview" class="axiom-local-preview" aria-label="Local source inspection" hidden></section>
         <label>First PDF page
           <input id="ai-job-page" type="number" min="1" max="100" value="1">
         </label>
@@ -210,28 +254,44 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
         </label>
         <label>Hard provider budget per page, including conditional TikZ
           <select id="ai-job-budget">
-            <option value="0.15">$0.15</option><option value="0.30">$0.30</option>
-            <option value="0.50">$0.50</option>
+            <option value="0.15">Economy · $0.15 (may stop multi-stage extraction)</option>
+            <option value="0.30" selected>Standard · $0.30 per page</option>
+            <option value="0.50">Complex diagrams · $0.50 per page</option>
           </select>
         </label>
         <label>Maximum reserved AI budget for this document (USD)
           <input id="ai-job-total-budget" type="number" min="0.15" max="50" step="0.01" value="15">
         </label>
-        <p class="ai-muted">Pages run separately in the background. The total cap reserves each page's maximum before execution; it is not a price estimate or actual bill. If exhausted, the job stops before another paid run. Review every question and diagram before private import.</p>
+        <p class="ai-muted">Pages run separately in the background. The total cap reserves each page's maximum before execution; it is not a price estimate or actual bill. If exhausted, the job stops before another paid run. Review every question and diagram before private import. The provider may still reject individual jobs even within budget.</p>
+        <p class="ai-muted" id="ai-job-estimate" role="status" aria-live="polite"></p>
         <label><input id="ai-upload-consent" type="checkbox" required> I authorize uploading this source to Mimo for processing.</label>
         <button id="ai-start-job" class="ai-primary" type="submit">Create extraction job</button>
-      </form><div id="ai-job-result" class="ai-job-view" aria-live="polite"></div></div>
-  </section>
-  <div id="ai-status" class="ai-muted" role="status" aria-live="polite"></div>
-</main>
-<aside class="inspector" aria-label="Saved jobs and progress">
-  <div class="inspector-head"><span><strong>Job inspector</strong><small>Actual status, pages and review</small></span><button class="icon-btn" data-act="inspector" type="button" aria-label="Close inspector"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button></div>
-  <div class="inspector-actions"><button type="button" id="ai-jobs-refresh" class="mini-btn"><svg class="ico sm" aria-hidden="true"><use href="#ic-retry"/></svg> Refresh jobs</button></div>
-  <div class="inspector-body" id="ai-job-list"></div>
-  <div class="inspector-foot"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Mimo job records · No simulated progress</div>
-</aside>
-<div class="backdrop" data-act="close-drawers"></div>
-</div></div>
+      </form></section>
+            <div id="ai-job-result" class="ai-job-view" aria-live="polite"></div>
+          </div>
+        </section>
+        <div id="ai-status" class="ai-muted" role="status" aria-live="polite"></div>
+      </main>
+    </div>
+    <aside class="inspector axiom-workbench" aria-label="Saved jobs and progress">
+      <div class="inspector-head axiom-workbench-head">
+        <span><small class="axiom-overlabel">THE WORKBENCH</small><strong>Document jobs</strong><small>Live Mimo stages · private review</small></span>
+        <button class="icon-btn" data-act="inspector" type="button" aria-label="Close workbench"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
+      </div>
+      <div class="axiom-workbench-tabs" role="tablist" aria-label="Workbench views">
+        <button id="ai-workbench-jobs" role="tab" aria-selected="true" class="active" type="button"><svg class="ico sm" aria-hidden="true"><use href="#ic-clock"/></svg> Jobs</button>
+        <button id="ai-workbench-extract" role="tab" aria-selected="false" type="button"><svg class="ico sm" aria-hidden="true"><use href="#ic-doc"/></svg> Extract</button>
+      </div>
+      <div class="inspector-actions">
+        <button id="ai-jobs-refresh" type="button" class="mini-btn"><svg class="ico sm" aria-hidden="true"><use href="#ic-retry"/></svg> Refresh jobs</button>
+      </div>
+      <div class="inspector-body" id="ai-job-list"></div>
+      <div class="inspector-foot"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Actual server records · No simulated progress</div>
+    </aside>
+    <div class="backdrop" data-act="close-drawers"></div>
+  </div>
+</div>
+
 <nav id="mobile-nav" aria-label="Mobile navigation"></nav><footer id="site-footer" hidden></footer>
 <div class="toast-area" id="toast" role="status" aria-live="polite"></div>
 <dialog id="type-dialog" aria-labelledby="type-title"><div class="modal"><div class="modal-head"><div><h2 id="type-title">What shall we work on?</h2><p>Purpose-built spaces for conversation, mathematics, documents and review.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><div class="types" id="types"></div></div></dialog>
@@ -239,4 +299,12 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <dialog id="settings-dialog" aria-labelledby="settings-title"><div class="modal"><div class="modal-head"><div><h2 id="settings-title">Studio preferences</h2><p>Shape the workspace to match your focus.</p></div><button class="icon-btn" data-act="close-dialog" aria-label="Close"><svg class="ico"><use href="#ic-x"/></svg></button></div><label class="setting"><span><strong>Cursor spotlight</strong><small>A soft blue glow follows the pointer.</small></span><input type="checkbox" id="spot-toggle" class="toggle"></label><label class="setting"><span><strong>Animated atmosphere</strong><small>Slow moving gradient; respects reduced-motion preference.</small></span><input type="checkbox" id="motion-toggle" class="toggle"></label><div class="setting"><span><strong>Saved history</strong><small>Conversations and job records are read from your authenticated account, not generated as a local demo.</small></span></div><div class="modal-actions"><button class="primary" type="button" data-act="close-dialog">Done</button></div></div></dialog>
 <div class="snip" id="snip"><div class="snip-info">Drag over visible conversation text · Esc to cancel</div><div class="snip-rect" id="snip-rect" hidden></div><button class="snip-exit" data-act="cancel-snip" aria-label="Cancel text snip"><svg class="ico"><use href="#ic-x"/></svg></button></div>
 
+<dialog id="ai-command-dialog" aria-labelledby="ai-command-heading" class="axiom-command-dialog">
+  <div class="axiom-command-content">
+    <div class="axiom-command-head"><label id="ai-command-heading" for="ai-command-query"><svg class="ico" aria-hidden="true"><use href="#ic-search"/></svg> Search tools and commands</label><button class="icon-btn" type="button" data-act="close-dialog" aria-label="Close commands"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button></div>
+    <input id="ai-command-query" type="search" placeholder="Chat, solve, PDF, saved jobs, snip..." autocomplete="off" aria-label="Find a studio command">
+    <div id="ai-command-results" class="axiom-command-results" role="listbox" aria-label="Available commands"></div>
+    <div class="axiom-command-help">Choose an action · Esc closes · No hidden model requests</div>
+  </div>
+</dialog>
 </body></html>
