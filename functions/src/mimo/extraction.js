@@ -149,6 +149,10 @@ function client(projectKey, fetchImpl) {
       if (!UUID.test(id)) fail("INVALID_FIELDS");
       return call("/v1/runs/"+encodeURIComponent(id));
     },
+    timeline(id) {
+      if(!UUID.test(id))fail("INVALID_FIELDS");
+      return call("/v1/runs/"+encodeURIComponent(id)+"/timeline?after=0&limit=20");
+    },
     png(id) {
       if (!UUID.test(id)) fail("INVALID_FIELDS");
       return call("/v1/runs/"+encodeURIComponent(id)+"/artifacts/compile_png",{
@@ -248,6 +252,26 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     if (!record.exists || record.data()?.uid!==uid) fail("JOB_NOT_FOUND");
     return {ref,job:record.data()};
   }
+  const PUBLIC_STAGES=Object.freeze([
+    ["processor","Reading source"],["extract","Extracting questions"],
+    ["verify","Verifying mathematics and formatting"],
+    ["rebuild_plan","Planning figures"],
+    ["tikz_source","Writing TikZ"],["compile_png","Compiling TikZ PNG"],
+    ["output","Preparing review package"],
+  ]);
+  function stages(timeline) {
+    // Never expose timeline event payloads, checkpoint results, provider prompts,
+    // credentials or private source bytes to the browser.
+    const taskRows=Array.isArray(timeline?.node_tasks)?timeline.node_tasks:[];
+    const checkpoints=Array.isArray(timeline?.checkpoints)?timeline.checkpoints:[];
+    const states=new Map();
+    for(const r of taskRows.concat(checkpoints))
+      if(typeof r?.node_id==="string"&&typeof r.status==="string")
+        states.set(r.node_id,r.status);
+    return PUBLIC_STAGES.map(([id,label])=>({
+      id,label,status:states.get(id)||"pending",
+    }));
+  }
   async function status({auth,data}) {
     const {ref,job}=await owned(auth,data?.jobId);
     if (!job.runId) {
@@ -258,10 +282,14 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       return {state:stale?"attention":job.state,
         error:stale?"MIMO_OUTCOME_UNKNOWN":job.error||null,jobId:data.jobId};
     }
-    const run=await client(projectKey,fetchImpl).run(job.runId);
+    const mimo=client(projectKey,fetchImpl);
+    const run=await mimo.run(job.runId);
+    let stageRows=[];
+    try {stageRows=stages(await mimo.timeline(job.runId));}
+    catch { /* Stages are supplemental; a timeline outage must not hide status. */ }
     if (run.status!=="completed") {
       const state=["failed","cancelled"].includes(run.status)?"failed":"running";
-      return {jobId:data.jobId,state,runId:job.runId,error:state==="failed"?"MIMO_RUN_FAILED":null};
+      return {jobId:data.jobId,state,runId:job.runId,stages:stageRows,error:state==="failed"?"MIMO_RUN_FAILED":null};
     }
     let raw=run.output?.exports?.extracted_page_json;
     if (typeof raw!=="string" || raw.length>250000) fail("MIMO_INVALID_RESPONSE");
@@ -270,9 +298,10 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     catch { fail("MIMO_INVALID_EXTRACTION"); }
     const decision=run.output?.exports?.diagram_decision_json;
     await ref.update({state:"completed"});
-    return {jobId:data.jobId,state:"completed",runId:job.runId,
+    return {jobId:data.jobId,state:"completed",runId:job.runId,stages:stageRows,
       page,diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
-      hasReconstruction:!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed"};
+      hasReconstruction:stageRows.some(r=>r.id==="compile_png"&&r.status==="completed") ||
+        (!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed")};
   }
   async function image({auth,data}) {
     const {job}=await owned(auth,data?.jobId);
