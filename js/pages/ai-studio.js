@@ -719,6 +719,32 @@ async function selectJob(id){
     }
   }catch(e){status(extractionError(e),true);}
 }
+function updatePdfBudgetSummary(){
+  const perPage=Number($("ai-job-budget").value);
+  const total=Number($("ai-job-total-budget").value);
+  const first=Number($("ai-job-page").value);
+  const endText=$("ai-job-last-page").value;
+  const end=endText?Number(endText):null;
+  const pages=end!==null&&Number.isInteger(first)&&Number.isInteger(end)
+    &&end>=first?end-first+1:null;
+  const maxPages=Number.isFinite(total)&&Number.isFinite(perPage)&&perPage>0
+    ?Math.max(0,Math.floor((total+1e-9)/perPage)):0;
+  let explanation="Each page has a hard $"+perPage.toFixed(2)+
+    " maximum, not a guaranteed charge. Total document cap: $"+total.toFixed(2)+".";
+  if(pages!==null){
+    const required=pages*perPage;
+    explanation+=" "+pages+" selected pages reserve up to $"+required.toFixed(2)+".";
+    if(required>total+0.000001)
+      explanation+=" Your total cap permits at most "+maxPages+
+        " pages; remaining pages will stop before a paid run.";
+  }else{
+    explanation+=" With this selection the total cap covers at most "+maxPages+
+      " pages. Exact PDF page count is determined after upload.";
+  }
+  if(perPage===0.15)
+    explanation+=" Economy mode can reject multi-stage verification or TikZ jobs before completion.";
+  $("ai-job-estimate").textContent=explanation;
+}
 async function newJob(event){
   event.preventDefault();if(busyJob)return;
   const file=$("ai-job-file").files?.[0],page=Number($("ai-job-page").value);
@@ -881,6 +907,9 @@ async function boot(){
     });
     listen("ai-jobs-refresh","click",()=>void loadJobs().catch(e=>status(safeError(e),true)));
     listen("ai-job-form","submit",e=>void newJob(e));
+    for(const id of ["ai-job-budget","ai-job-total-budget","ai-job-page","ai-job-last-page"])
+      listen(id,"input",updatePdfBudgetSummary);
+    updatePdfBudgetSummary();
     listen("ai-prompt","keydown",event=>{
       if(event.key==="/"&&!event.shiftKey&&!event.ctrlKey&&!event.metaKey&&
          !$("ai-prompt").value.trim()){
