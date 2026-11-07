@@ -312,3 +312,63 @@ test("P1 diagram-bearing PDF yields authenticated compiled PNG preview without r
   assert.equal(requests.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,dispatched,
     "checkpointed successful pages must not call paid model twice");
 });
+
+test("owner checks known attention run IDs without creating new paid runs",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  let remoteStatus="failed";
+  const fetchImpl=async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1))){
+      calls.push({url,options});
+      if(remoteStatus==="failed")return json({id:runId(1),status:"failed",
+        output:{error_code:"provider_rate_limited",upstream_http_status:429}});
+    }
+    return fallback(url,options);
+  };
+  const app=service(db,fetchImpl);
+  const started=await app.start({auth:auth(uid),
+    data:request("request_reconcile_20261107_001")});
+  await app.sweep();
+  await app.sweep();
+  const failed=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(failed.state,"attention");
+  assert.equal(failed.pages[0].error,"MIMO_RUN_FAILED");
+  assert.equal(failed.pages[0].diagnosticCode,"provider_rate_limited");
+  assert.equal(failed.pages[1].state,"queued");
+  const postCount=()=>calls.filter(c=>c.options?.method==="POST"&&c.url.endsWith("/runs")).length;
+  assert.equal(postCount(),1);
+  await assert.rejects(app.reconcile({auth:auth(uid2),data:{jobId:started.jobId}}),
+    {code:"JOB_NOT_FOUND"});
+  const checked=await app.reconcile({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(checked.checkedExistingRuns,1);
+  assert.equal(checked.neverStartedNewRuns,true);
+  assert.equal(checked.state,"attention");
+  assert.equal(postCount(),1,"a definitively failed run must not be auto-resubmitted");
+  // If a previously uncertain recorded run eventually completes, recover
+  // its outputs using the same immutable run ID; do not start a second run.
+  remoteStatus="completed";
+  const recovered=await app.reconcile({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(recovered.pages[0].state,"completed");
+  assert.equal(recovered.pages[1].state,"queued");
+  assert.equal(postCount(),1);
+  assert.equal((await app.getPage({auth:auth(uid),
+    data:{jobId:started.jobId,pageNumber:1}})).page.questions.length,1);
+});
+
+test("unknown dispatch without a run ID is not replayed by reconciliation",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  const app=service(db,async(url,options)=>{
+    if(url.endsWith("/runs")&&options?.method==="POST")throw Error("timeout");
+    return fallback(url,options);
+  });
+  const job=await app.start({auth:auth(uid),
+    data:request("request_unknown_reconcile_001")});
+  await app.sweep();
+  const old=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(old.pages[0].runId,null);
+  assert.equal(old.pages[0].state,"attention");
+  const before=calls.length;
+  const checked=await app.reconcile({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(checked.checkedExistingRuns,0);
+  assert.equal(checked.state,"attention");
+  assert.equal(calls.length,before);
+});
