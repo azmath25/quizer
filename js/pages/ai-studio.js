@@ -324,8 +324,120 @@ function reviewUI(container,result,sourceVerified,{batchJobId=null,reviewVersion
   }
   head.append(importButtons);container.append(head);
 }
+
+async function openBatchPage(jobId,pageNumber){
+  selectedJob=jobId;activeTab("jobs");drawJobs();
+  const target=$("ai-job-result");
+  target.replaceChildren(node("p","Loading validated page and saved review…","ai-muted"));
+  try{
+    const result=await readMimoBatchPage(jobId,pageNumber);
+    if(selectedJob!==jobId)return;
+    const back=node("button","Back to full-document progress","ai-secondary");
+    back.type="button";back.onclick=()=>void selectJob(jobId);
+    const page=result.page;
+    const heading=node("h2","Page "+pageNumber+" · "+page.questions.length+" questions");
+    target.replaceChildren(back,heading);
+    const verified=await verifySource(originalSources.get(jobId),page);
+    review=result.review||buildTeacherReview(page);
+    if(result.hasReconstruction){
+      const open=node("button","Preview TikZ PNG for this page","ai-secondary");
+      open.type="button";
+      open.onclick=async()=>{
+        open.disabled=true;
+        try{
+          const blob=decodeMimoPng(await readMimoBatchImage(jobId,pageNumber));
+          const url=URL.createObjectURL(blob);transientUrls.push(url);
+          const img=node("img");img.src=url;
+          img.alt="Reconstructed page diagram — compare against original before approval";
+          img.style.maxWidth="min(100%,480px)";
+          target.append(img);
+          const save=node("button","Save verified PNG to private assets","ai-secondary");
+          save.type="button";
+          save.onclick=async()=>{
+            save.disabled=true;
+            try{
+              const file=new File([blob],"page-"+pageNumber+"-tikz.png",{type:"image/png"});
+              const assetId=await uploadAsset(file,()=>{},"image");
+              status("Figure saved privately. Use asset ID "+assetId+
+                " in the corresponding question's image binding.");
+            }catch(e){status(safeError(e),true);}
+            finally{save.disabled=false;}
+          };
+          target.append(save);
+        }catch(e){status(extractionError(e),true);}
+        finally{open.disabled=false;}
+      };
+      target.append(open);
+    }
+    reviewUI(target,{jobId,page},verified,{
+      batchJobId:jobId,reviewVersion:result.reviewVersion,
+    });
+  }catch(e){status(safeError(e),true);}
+}
+async function selectBatch(id){
+  const target=$("ai-job-result");
+  target.replaceChildren(node("p","Loading durable document status…","ai-muted"));
+  try{
+    const job=await readMimoBatch(id);
+    if(selectedJob!==id)return;
+    const card=node("div","","ai-status");
+    card.append(node("h2",job.fileName+" · "+job.state));
+    const count=node("p",job.completed+" of "+job.pageCount+
+      " pages completed · reserved maximum $"+Number(job.reservedUsd||0).toFixed(2)+
+      " of $"+Number(job.totalUsd||0).toFixed(2));
+    card.append(count);
+    const explanation=node("p",job.state==="budget_exhausted"
+      ?"The hard cost cap has stopped the job before another page. No extra model calls will be made."
+      :job.state==="attention"
+      ?"A page needs reconciliation. Uncertain runs will not be automatically replayed."
+      :job.state==="ready_review"
+      ?"Extraction completed. Review every page before importing any question."
+      :"Mimo is running page workflows in the background. Progress uses saved checkpoints, not a simulated countdown.","ai-muted");
+    card.append(explanation);
+    if(job.error)card.append(node("p",job.error,"ai-error"));
+    const refresh=node("button","Refresh document status","ai-secondary");
+    refresh.type="button";
+    refresh.onclick=()=>void selectBatch(id);
+    card.append(refresh);
+    const list=node("div","","ai-list");
+    for(const page of job.pages||[]){
+      const b=node("button","Page "+page.number+" — "+page.state+
+        (page.state==="completed"?
+          " · "+page.questionCount+" questions · "+page.figureCount+" figures":""));
+      b.type="button";b.disabled=page.state!=="completed";
+      b.onclick=()=>void openBatchPage(id,page.number);
+      list.append(b);
+    }
+    card.append(list);
+    target.replaceChildren(card);
+    if(job.state==="ready_review"){
+      const button=node("button",job.target==="bank"
+        ?"Import all approved questions to Problem Bank"
+        :"Create private quiz draft from all approved questions","ai-primary");
+      button.type="button";
+      button.onclick=async()=>{
+        if(!confirm("Import only reviewed, approved questions from the entire document?"))return;
+        button.disabled=true;
+        try{
+          const prepared=await readMimoBatchPrepared(id);
+          const saved=await importApprovedExtraction(prepared,{
+            sourceJobId:id,title:prepared.title,target:job.target,
+            onProgress:message=>status(message),
+          });
+          if(job.target==="quiz"&&saved.quizId)
+            location.assign("upload.html?id="+encodeURIComponent(saved.quizId));
+          else location.assign("problems.html");
+        }catch(e){status(safeError(e),true);button.disabled=false;}
+      };
+      target.append(button);
+    }
+  }catch(e){status(safeError(e),true);}
+}
 async function selectJob(id){
   selectedJob=id;drawJobs();activeTab("jobs");
+  if(jobs.find(x=>x.jobId===id)?.kind==="batch"){
+    await selectBatch(id);return;
+  }
   const target=$("ai-job-result");target.replaceChildren(node("p","Fetching actual job status…","ai-muted"));
   try{
     const result=await readMimoExtraction(id);
