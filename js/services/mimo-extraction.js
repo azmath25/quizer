@@ -125,6 +125,31 @@ export function extractionError(error) {
   return map[reason]||(error?.message&&error.message.length<160?error.message:
     "Document extraction could not be completed.");
 }
+/** Surface only server-allowlisted failure categories, never Mimo raw errors. */
+export function describeMimoRunFailure(row) {
+  const code=String(row?.diagnosticCode||"");
+  const messages={
+    provider_invalid_request:"The provider rejected the extraction input.",
+    provider_authorization_rejected:"The provider rejected its configured credentials or permission.",
+    provider_model_or_endpoint_unavailable:"The configured provider model or endpoint is unavailable.",
+    provider_request_timeout_unknown:"The provider timed out; do not blindly resubmit.",
+    provider_payload_too_large:"The source exceeded the provider request size limit.",
+    provider_unprocessable_request:"The provider could not process the request.",
+    provider_rate_limited:"The provider rate limit was reached; check this job before retrying.",
+    provider_request_rejected:"The provider rejected the request.",
+    provider_server_response_unknown:"The provider returned a server error. The charge may be uncertain.",
+    provider_unexpected_status:"The provider returned an unexpected status.",
+    provider_timeout_outcome_unknown:"The provider timed out; the charge may be uncertain.",
+    provider_transport_outcome_unknown:"The provider connection failed; the charge may be uncertain.",
+    execution_invalid_response_or_contract:"Mimo could not process the provider's response.",
+    execution_internal_error:"Mimo encountered an internal execution error.",
+  };
+  const message=messages[code];
+  if(!message)return "";
+  const http=row?.diagnosticHttpStatus;
+  return message+(Number.isInteger(http)&&http>=400&&http<=599?" (HTTP "+http+")":"");
+}
+
 export function decodeMimoPng(encoded) {
   if (encoded?.contentType!=="image/png"||typeof encoded.base64!=="string"||
       encoded.base64.length>6*1024*1024) throw Error("Invalid reconstructed image.");
