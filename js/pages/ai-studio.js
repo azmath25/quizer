@@ -818,7 +818,14 @@ function wireOriginalChrome(){
   listen("ai-pin-filter","click",()=>{pinnedOnly=!pinnedOnly;activeTab("chat");drawThreads();});
   listen("ai-return-chat","click",()=>activeTab("chat"));
   listen("ai-command-query","input",event=>displayCommands(event.target.value));
-  listen("ai-workbench-jobs","click",()=>{activeTab("chat");inspectorVisible=true;applyStudioLayout();});
+  listen("ai-workbench-jobs","click",()=>{
+    $("ai-workbench-jobs").setAttribute("aria-selected","true");
+    $("ai-workbench-jobs").classList.add("active");
+    $("ai-workbench-extract").setAttribute("aria-selected","false");
+    $("ai-workbench-extract").classList.remove("active");
+    inspectorVisible=true;applyStudioLayout();
+    void loadJobs().catch(e=>status(safeError(e),true));
+  });
   listen("ai-workbench-extract","click",()=>{activeTab("jobs");if(innerWidth>1180){inspectorVisible=true;applyStudioLayout();}});
   document.addEventListener("keydown",event=>{
     if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
