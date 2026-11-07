@@ -98,9 +98,10 @@ const mock = {
   sendTeacherChatMessage: async payload => {calls.push(payload); return responder(payload);},
   renderChatMarkdown: (node, value) => {node.textContent = value;},
   typeset: async () => {},
+  typesetChatMarkdown: async () => {},
 };
 globalThis.__popupMocks = mock;
-const injection = "const {getSession, canUseMimoTeacherChat, mimoChatErrorMessage, sendTeacherChatMessage, renderChatMarkdown, typeset} = globalThis.__popupMocks;\n";
+const injection = "const {getSession, canUseMimoTeacherChat, mimoChatErrorMessage, sendTeacherChatMessage, renderChatMarkdown, typeset, typesetChatMarkdown} = globalThis.__popupMocks;\n";
 const {openAskAIPopup} = await import("data:text/javascript;base64," + Buffer.from(injection + source).toString("base64"));
 
 function setup() {
@@ -116,7 +117,7 @@ function setup() {
     newChat: find(".qa-action"), log: find(".qa-log")};
 }
 
-test("verified teacher can send once, retains draft while pending and sends completed history", async () => {
+test("verified teacher can send once, clears composer immediately and sends completed history", async () => {
   const h = setup();
   let resolve;
   responder = () => new Promise(r => {resolve = r;});
@@ -126,8 +127,8 @@ test("verified teacher can send once, retains draft while pending and sends comp
   assert.equal(calls.length, 1);
   assert.equal(calls[0].context, "Visible question only");
   assert.deepEqual(calls[0].history, []);
-  assert.equal(h.input.value, "First question");
-  assert.equal(h.input.readOnly, true);
+  assert.equal(h.input.value, "");
+  assert.equal(h.input.readOnly, false);
   assert.equal(h.send.disabled, true);
   assert.equal(h.newChat.disabled, true);
   assert.equal(h.form.getAttribute("aria-busy"), "true");
@@ -155,6 +156,33 @@ test("verified teacher can send once, retains draft while pending and sends comp
   await h.form.fire("submit");
   assert.deepEqual(calls[2].history, []);
   h.popup.close();
+});
+
+
+test("every message has a working copy button and a new draft survives a pending reply",async()=>{
+  const h=setup(),original=globalThis.navigator;
+  let resolve,copied=null;
+  Object.defineProperty(globalThis,"navigator",{configurable:true,
+    value:{clipboard:{writeText:async text=>{copied=text;}}}});
+  try{
+    responder=()=>new Promise(r=>{resolve=r;});
+    h.input.value="Solve \\(x+2=4\\)";
+    const pending=h.form.fire("submit");
+    await Promise.resolve();
+    const copy=h.log.querySelector(".qa-copy");
+    assert.ok(copy);
+    await copy.fire("click");
+    assert.equal(copied,"Solve \\(x+2=4\\)");
+    h.input.value="Next draft";
+    resolve({reply:"x=2",saved:true});
+    await pending;
+    assert.equal(h.input.value,"Next draft");
+    assert.ok(h.log.find(n=>n.className==="qa-copy"&&n.textContent==="Copy message"));
+    h.popup.close();
+  }finally{
+    if(original===undefined)delete globalThis.navigator;
+    else Object.defineProperty(globalThis,"navigator",{configurable:true,value:original});
+  }
 });
 
 test("unknown outcomes preserve the draft, show request reference and never retry", async () => {
