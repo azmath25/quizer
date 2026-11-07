@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createAiHub,AiHubError} from "../src/mimo/ai-hub.js";
+import {createAiHub,AiHubError,aiHubErrorCode} from "../src/mimo/ai-hub.js";
 
 const UID="teacher_1";
 const auth={uid:UID,token:{email_verified:true}};
@@ -149,5 +149,34 @@ test("a missing thread prevents a model call and quota usage",async()=>{
   const {handler,network}=setup();
   await assert.rejects(handler({auth,data:send({threadId:DOC})}),
     error=>error.code==="THREAD_NOT_FOUND");
+  assert.equal(network.length,0);
+});
+
+test("Neon failures are classified by SQLSTATE without exposing private messages",()=>{
+  for(const [code,reason] of [
+    ["42501","MEMORY_DB_PERMISSION_DENIED"],
+    ["28P01","MEMORY_DB_AUTH_FAILED"],
+    ["28000","MEMORY_DB_AUTH_FAILED"],
+    ["42P01","MEMORY_DB_SCHEMA_MISMATCH"],
+    ["3F000","MEMORY_DB_SCHEMA_MISMATCH"],
+    ["42703","MEMORY_DB_SCHEMA_MISMATCH"],
+    ["08006","MEMORY_DB_UNAVAILABLE"],
+    ["ETIMEDOUT","MEMORY_DB_UNAVAILABLE"],
+    ["ENOTFOUND","MEMORY_DB_UNAVAILABLE"],
+  ]){
+    const error=Object.assign(new Error("postgres://user:SECRET@host/private"),{code});
+    assert.equal(aiHubErrorCode(error),reason);
+    assert.ok(!reason.includes("SECRET"));
+  }
+  assert.equal(aiHubErrorCode({code:"UNKNOWN",message:"PRIVATE DOC"}),null);
+});
+
+test("history DB failure is read-only and does not invoke the paid Mimo workflow",async()=>{
+  const sqlError=Object.assign(new Error("secret: URL / student data"),{code:"42501"});
+  const {handler,network}=setup({memoryStore:{
+    listThreads:async()=>{throw sqlError;},
+  }});
+  await assert.rejects(handler({auth,data:{action:"chat.list",limit:100}}),
+    error=>aiHubErrorCode(error)==="MEMORY_DB_PERMISSION_DENIED");
   assert.equal(network.length,0);
 });
