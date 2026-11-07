@@ -43,3 +43,11 @@ test("separate accessible assistant and background jobs with explicit user conse
   assert.match(client,/exportTeacherReview\(/);
   assert.match(client,/teacher-approved|teacher-reviewed|approved questions/i);
 });
+
+test("saved-chat retries signal progress and do not duplicate concurrent requests",()=>{
+  assert.match(client,/if\(historyLoading\)return false/);
+  assert.match(client,/Checking saved conversations/);
+  assert.match(client,/Still unavailable/);
+  assert.match(client,/Attempt /);
+  assert.match(client,/retry\.disabled=true/);
+});

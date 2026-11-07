@@ -104,9 +104,17 @@ export async function sendTeacherChatMessage({
 export function mimoHistoryErrorMessage(error) {
   const code=String(error?.code||"").replace(/^functions\//,"");
   const reason=String(error?.details?.reason||"");
+  if(reason==="THREAD_NOT_FOUND")return "This conversation is no longer available to this account.";
   if(code==="not-found")return "Saved-chat service is not available. The Firebase mimoAiHub function may not be deployed.";
   if(reason==="MEMORY_NOT_CONFIGURED")return "Saved-chat database is not connected to the AI Studio Cloud Function.";
-  if(reason==="THREAD_NOT_FOUND")return "This conversation is no longer available to this account.";
+  if(reason==="MEMORY_DB_PERMISSION_DENIED")
+    return "Saved-chat database access is denied. The Firebase Neon role needs restricted quizer_ai schema permissions.";
+  if(reason==="MEMORY_DB_AUTH_FAILED")
+    return "Saved-chat database credentials were rejected. Check the QUIZER_NEON_DATABASE_URL secret.";
+  if(reason==="MEMORY_DB_SCHEMA_MISMATCH")
+    return "Saved-chat tables or columns are missing from the database selected by the Firebase secret.";
+  if(reason==="MEMORY_DB_UNAVAILABLE")
+    return "Saved-chat database is unreachable. Please retry when the database connection is restored.";
   if(reason==="EMAIL_UNVERIFIED")return "Verify your email address to use saved conversations.";
   if(reason==="ROLE_REQUIRED"||code==="permission-denied")
     return "Your account does not have permission to read teacher AI conversations.";

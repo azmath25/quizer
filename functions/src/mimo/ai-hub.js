@@ -176,8 +176,19 @@ export function createAiHub({
   };
 }
 
+/** Classify database failures by machine-readable codes only.
+ * Never expose SQL, connection strings, hostnames, credentials or PG messages.
+ * Neon errors are surfaced through the same authenticated Firebase callable.
+ */
 export function aiHubErrorCode(error) {
   if (error instanceof AiHubError || error instanceof AiMemoryError)
     return error.code;
+  const code=typeof error?.code==="string"?error.code:"";
+  if(code==="42501")return "MEMORY_DB_PERMISSION_DENIED";
+  if(code==="28P01"||code==="28000")return "MEMORY_DB_AUTH_FAILED";
+  if(code==="42P01"||code==="3F000"||code==="42703")return "MEMORY_DB_SCHEMA_MISMATCH";
+  if(code.startsWith("08")||["ECONNRESET","ECONNREFUSED","ETIMEDOUT",
+    "ENOTFOUND","EAI_AGAIN","ERR_TLS_CERT_ALTNAME_INVALID"].includes(code))
+    return "MEMORY_DB_UNAVAILABLE";
   return null;
 }
