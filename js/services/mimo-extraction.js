@@ -84,6 +84,8 @@ export async function submitMimoBatch(file,{
 }
 export const listMimoBatches=()=>invoke("mimoBatchList",{limit:30},30000);
 export const readMimoBatch=jobId=>invoke("mimoBatchStatus",{jobId},30000);
+/** Checks existing run IDs only: never re-uploads or starts a paid workflow. */
+export const reconcileMimoBatch=jobId=>invoke("mimoBatchReconcile",{jobId},60000);
 export const readMimoBatchPage=(jobId,pageNumber)=>
   invoke("mimoBatchGetPage",{jobId,pageNumber},30000);
 export const readMimoBatchImage=(jobId,pageNumber)=>

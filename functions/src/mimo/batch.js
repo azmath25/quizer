@@ -385,7 +385,7 @@ export function createBatchService({
         {state:"attention",error:error?.code||"MIMO_OUTCOME_UNKNOWN"});
     }
   }
-  async function poll(job,p){
+  async function poll(job,p,fromState="submitted"){
     try{
       const mimo=transport(),run=await mimo.run(p.runId);
       if(run.status==="completed"){
@@ -400,35 +400,58 @@ export function createBatchService({
           uid:job.uid,jobId:job.jobId,pageNumber:p.number,page,
           review:null,completedAt:time(),
         },{merge:true});
-        await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},{
+        await mark(job.jobId,p.number,{state:fromState,runId:p.runId},{
           state:"completed",questionCount:page.questions.length,
           figureCount:page.questions.filter(q=>q.has_figure).length,
           hasReconstruction,stage:"output",stageStatus:"completed",error:null,
         });
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
-        await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
+        await mark(job.jobId,p.number,{state:fromState,runId:p.runId},
           {state:"attention",stageStatus:"failed",
             error:"MIMO_RUN_"+run.status.toUpperCase(),
             ...safeMimoRunDiagnostic(run.output)});
       }
       if(["running","queued"].includes(run.status)){
-        // Persist safe stage identifiers, never private prompts, outputs,
-        // provider responses or transcript contents.
+        // A previously uncertain run with an already-known ID can be
+        // reattached to normal polling: no additional /runs POST is needed.
+        const reattached=fromState==="attention";
+        const patch=reattached?{state:"submitted",error:null}:{};
         try{
           const {id,status}=publicBatchStage(await mimo.timeline(p.runId));
-          if(id!==p.stage||status!==p.stageStatus)
-            await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
-              {stage:id,stageStatus:status});
-        }catch{ /* Timeline is supplemental. Do not hide a valid running job. */ }
+          if(id!==p.stage||status!==p.stageStatus){
+            patch.stage=id;patch.stageStatus=status;
+          }
+        }catch{ /* Timeline is supplemental; run status is authoritative. */ }
+        if(reattached||Object.keys(patch).length)
+          await mark(job.jobId,p.number,{state:fromState,runId:p.runId},patch);
       }
       // A running Mimo job is simply polled at the next scheduled tick.
     }catch(error){
       if(error?.code==="MIMO_RATE_LIMITED"||error?.code==="MIMO_UPSTREAM_UNAVAILABLE")
         return;
-      await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
+      await mark(job.jobId,p.number,{state:fromState,runId:p.runId},
         {state:"attention",error:error?.code||"MIMO_OUTCOME_UNKNOWN"});
     }
   }
+  // Owner-invoked recovery of durable, known run IDs. There are NO artifact
+  // uploads or /runs POST calls here. A failed run remains failed; an
+  // indeterminate dispatch with no runId is intentionally not replayed.
+  async function reconcile({auth,data}){
+    if(!isObj(data)||Object.keys(data).some(k=>k!=="jobId"))
+      fail("INVALID_FIELDS");
+    const {job}=await owned(auth,data.jobId);
+    const known=(job.pages||[]).filter(p=>
+      p.state==="attention"&&typeof p.runId==="string"&&p.runId.length>0);
+    // A bounded number of status GETs avoids an untrusted client demanding
+    // unbounded polling. All remaining pages can be checked in later calls.
+    for(const page of known.slice(0,10))
+      await poll(job,page,"attention");
+    const current=await parentRef(job.jobId).get();
+    if(!current.exists||current.data()?.uid!==job.uid)fail("JOB_NOT_FOUND");
+    return {...summarize(current.data()),checkedExistingRuns:Math.min(known.length,10),
+      neverStartedNewRuns:true};
+  }
+
   async function sweep(max=6){
     if(!Number.isInteger(max)||max<1||max>10)throw Error("Invalid sweep size");
     const found=await db.collection("mimoBatchJobs")
@@ -459,5 +482,5 @@ export function createBatchService({
     }
     return {visited};
   }
-  return Object.freeze({start,list,status,getPage,image,reviewPage,prepared,sweep});
+  return Object.freeze({start,list,status,getPage,image,reviewPage,prepared,reconcile,sweep});
 }

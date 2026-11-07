@@ -5,7 +5,7 @@ import {typeset} from "../components/math-content.js";
 import {sendTeacherChatMessage,teacherChatHistory,canUseMimoTeacherChat,
   mimoChatErrorMessage,mimoHistoryErrorMessage} from "../services/mimo-chat.js";
 import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
-  submitMimoBatch,listMimoBatches,readMimoBatch,readMimoBatchPage,
+  submitMimoBatch,listMimoBatches,readMimoBatch,reconcileMimoBatch,readMimoBatchPage,
   readMimoBatchImage,saveMimoBatchReview,readMimoBatchPrepared,
   buildTeacherReview,decideTeacherReview,exportTeacherReview,
   extractionError,describeMimoRunFailure,decodeMimoPng} from "../services/mimo-extraction.js";
@@ -375,7 +375,7 @@ function drawJobs(){
     const text=node("span");
     text.append(node("strong",job.fileName||job.jobId),
       node("small",(job.kind==="batch"?"Document · ":"Page · ")+
-        (job.state||"queued")+" · "+humanTime(job.createdAt)));
+        (job.state==="attention"?"Needs action"+(job.attention?" ("+job.attention+" pages)":""):job.state||"queued")+" · "+humanTime(job.createdAt)));
     b.append(text,icon("chevron",true));
     b.onclick=()=>void selectJob(job.jobId);
     target.append(b);
@@ -597,6 +597,24 @@ async function openBatchPage(jobId,pageNumber){
     });
   }catch(e){status(safeError(e),true);}
 }
+function documentTaskLabel(page,jobState){
+  const error=String(page.error||"");
+  if(page.state==="completed")return "Completed";
+  if(page.state==="attention"){
+    if(/^MIMO_RUN_(FAILED|CANCELLED|DISPATCH_FAILED)$/.test(error))
+      return "Failed — Mimo run ended";
+    if(error==="MIMO_RUN_WAITING_FOR_REVIEW")
+      return "Mimo requires review";
+    if(!page.runId)return "Dispatch outcome unknown — no run ID";
+    return "Outcome uncertain — existing run needs checking";
+  }
+  if(page.state==="queued"&&["attention","budget_exhausted"].includes(jobState))
+    return "Paused — not yet dispatched";
+  if(page.state==="queued")return "Queued";
+  if(page.state==="submitted")return "Running";
+  if(page.state==="claiming")return "Dispatching";
+  return String(page.state||"Unknown");
+}
 async function selectBatch(id){
   const target=$("ai-job-result");
   target.replaceChildren(node("p","Loading durable document status…","ai-muted"));
@@ -610,7 +628,14 @@ async function selectBatch(id){
       updatedAt:job.updatedAt||jobs[index].updatedAt};
       drawJobs();}
     const card=node("div","","ai-status");
-    card.append(node("h2",job.fileName+" · "+job.state));
+    const confirmedFailures=(job.pages||[]).filter(p=>p.state==="attention"&&
+      /^MIMO_RUN_(FAILED|CANCELLED|DISPATCH_FAILED)$/.test(String(p.error||""))).length;
+    const uncertain=(job.pages||[]).filter(p=>p.state==="attention").length-confirmedFailures;
+    const heading=job.state==="attention"?(confirmedFailures
+      ?"Needs action · "+confirmedFailures+" failed page"+(confirmedFailures===1?"":"s")
+      :"Needs action · "+uncertain+" uncertain page"+(uncertain===1?"":"s"))
+      :job.state;
+    card.append(node("h2",job.fileName+" · "+heading));
     const count=node("p",job.completed+" of "+job.pageCount+
       " pages completed · reserved maximum $"+Number(job.reservedUsd||0).toFixed(2)+
       " of $"+Number(job.totalUsd||0).toFixed(2));
@@ -618,7 +643,7 @@ async function selectBatch(id){
     const explanation=node("p",job.state==="budget_exhausted"
       ?"The hard cost cap has stopped the job before another page. No extra model calls will be made."
       :job.state==="attention"
-      ?"A page needs reconciliation. Uncertain runs will not be automatically replayed."
+      ?"Known failed runs cannot finish without a new, separately approved job. Uncertain runs can only be checked by their existing IDs; no page is automatically retried."
       :job.state==="ready_review"
       ?"Extraction completed. Review every page before importing any question."
       :"Mimo is running page workflows in the background. Progress uses saved checkpoints, not a simulated countdown.","ai-muted");
@@ -628,6 +653,28 @@ async function selectBatch(id){
     refresh.type="button";
     refresh.onclick=()=>void selectBatch(id);
     card.append(refresh);
+    const checked=(job.pages||[]).filter(p=>p.state==="attention"&&p.runId);
+    if(checked.length){
+      const reconcile=node("button","Check existing run IDs (no new AI jobs)","ai-secondary");
+      reconcile.type="button";
+      reconcile.onclick=async()=>{
+        reconcile.disabled=true;
+        reconcile.textContent="Checking existing Mimo runs…";
+        try{
+          const response=await reconcileMimoBatch(id);
+          if(selectedJob!==id)return;
+          status("Checked "+response.checkedExistingRuns+
+            " existing run"+(response.checkedExistingRuns===1?"":"s")+
+            ". No extraction was resubmitted.");
+          await selectBatch(id);
+        }catch(error){
+          status(extractionError(error),true);
+          reconcile.disabled=false;
+          reconcile.textContent="Check existing run IDs (no new AI jobs)";
+        }
+      };
+      card.append(reconcile);
+    }
     const list=node("div","","ai-list");
     const labels={
       processor:"Reading source",extract:"Extracting questions",
@@ -641,7 +688,14 @@ async function selectBatch(id){
         ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"
         :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")"
         :page.state==="attention"&&describeMimoRunFailure(page)?" · "+describeMimoRunFailure(page):"";
-      const b=node("button","Page "+page.number+" — "+page.state+detail);
+      const taskLabel=documentTaskLabel(page,job.state);
+      const more=page.state==="attention"
+        ?(page.runId?" · Run "+page.runId:" · No known run ID")
+        :"";
+      const b=node("button","Page "+page.number+" — "+taskLabel+
+        (page.state==="attention"?" · "+(page.stage||"processor"):detail)+
+        (page.state==="attention"&&describeMimoRunFailure(page)
+          ?" · "+describeMimoRunFailure(page):"")+more);
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
       list.append(b);

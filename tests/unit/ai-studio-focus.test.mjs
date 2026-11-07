@@ -73,3 +73,13 @@ test("selected job detail refresh corrects stale inspector list state",()=>{
   assert.match(client,/state:result\.state/);
   assert.match(client,/drawJobs\(\)/);
 });
+
+test("tasks distinguish confirmed failure, uncertain state, and queued-but-paused",()=>{
+  assert.match(client,/function documentTaskLabel\(page,jobState\)/);
+  assert.match(client,/Failed — Mimo run ended/);
+  assert.match(client,/Dispatch outcome unknown — no run ID/);
+  assert.match(client,/Paused — not yet dispatched/);
+  assert.match(client,/Check existing run IDs \(no new AI jobs\)/);
+  assert.match(client,/reconcileMimoBatch\(id\)/);
+  assert.match(client,/Checked /);
+});

@@ -246,6 +246,7 @@ const batchCallable=(action,memory="256MiB")=>onCall({
 export const mimoBatchStart=batchCallable("start","512MiB");
 export const mimoBatchList=batchCallable("list");
 export const mimoBatchStatus=batchCallable("status");
+export const mimoBatchReconcile=batchCallable("reconcile");
 export const mimoBatchGetPage=batchCallable("getPage");
 export const mimoBatchImage=batchCallable("image");
 export const mimoBatchReviewPage=batchCallable("reviewPage");
