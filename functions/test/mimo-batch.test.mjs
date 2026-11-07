@@ -22,6 +22,22 @@ function firestore(){
     exists:records.has(ref.path),data:()=>records.get(ref.path),
     id:ref.path.split("/").at(-1),
   });
+  // Real Firestore serializes/retries overlapping transactions. Preserve
+  // that atomic behavior in the concurrency test instead of allowing lost
+  // array updates from an unrealistic in-memory mock.
+  let transactionTail=Promise.resolve();
+  const atomic=async fn=>{
+    const previous=transactionTail;
+    let release;
+    transactionTail=new Promise(resolve=>{release=resolve;});
+    await previous;
+    try{return await fn({
+      get:async ref=>snap(ref),
+      set:(ref,data)=>records.set(ref.path,data),
+      create:(ref,data)=>{if(records.has(ref.path))throw Error("duplicate create");records.set(ref.path,data);},
+      update:(ref,data)=>records.set(ref.path,{...records.get(ref.path),...data}),
+    });}finally{release();}
+  };
   const doc=path=>({
     path,get:async()=>snap({path}),
     update:async data=>records.set(path,{...records.get(path),...data}),
@@ -29,12 +45,7 @@ function firestore(){
   });
   return {
     records,doc,
-    runTransaction:async fn=>fn({
-      get:async ref=>snap(ref),
-      set:(ref,data)=>records.set(ref.path,data),
-      create:(ref,data)=>{if(records.has(ref.path))throw Error("duplicate create");records.set(ref.path,data);},
-      update:(ref,data)=>records.set(ref.path,{...records.get(ref.path),...data}),
-    }),
+    runTransaction:atomic,
     collection:name=>({
       where:(key,op,val)=>({
         limit:n=>({
