@@ -111,7 +111,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 </head>
 <body data-page="ai">
 <header id="site-header"></header>
-<div id="ai-access-gate" role="status" style="padding:24px;font:600 15px system-ui;color:var(--ink)">Verifying AI Studio access…</div>
+<div id="ai-access-gate" role="status" hidden></div>
 <svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
 <symbol id="ic-spark" viewBox="0 0 24 24"><path d="m12 2 2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7ZM19 18v4m-2-2h4"/></symbol>
 <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
@@ -147,7 +147,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.5 3 9 8 11 5-2 8-5.5 8-11V5l-8-3Zm-4 10 3 3 5-6"/></symbol>
 </svg>
 <a class="skip" href="#workspace">Skip to workspace</a>
-<div class="app" id="app" hidden>
+<div class="app" id="app">
 <header class="topbar">
 <button class="icon-btn mobile-only" type="button" data-act="sidebar" aria-label="Open conversation history"><svg class="ico" aria-hidden="true"><use href="#ic-bars"/></svg></button>
 <div class="studio-heading"><span class="studio-heading-mark"><svg class="ico" aria-hidden="true"><use href="#ic-spark"/></svg></span><span><strong>AI Studio</strong><small>Mathematics · Documents · Review</small></span></div>
