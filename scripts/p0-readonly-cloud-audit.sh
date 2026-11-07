@@ -31,7 +31,7 @@ print("state:",d.get("state","unknown"))
 print("updated:",d.get("updateTime","unknown"))
 print("runtime:",(d.get("buildConfig") or {}).get("runtime","unknown"))
 print("bound_secret_names:",",".join(sorted(set(str(b.get("secret","")) for b in bindings))) or "(none)")
-print("bound_neon_secret:",any(b.get("secret")=="QUIZER_NEON_DATABASE_URL" for b in bindings))
+print("bound_neon_secret:",any(str(b.get("secret") or "").rsplit("/",1)[-1]=="QUIZER_NEON_DATABASE_URL" for b in bindings))
 print("service_revision:",(config.get("revision") or "not exposed"))
 '
 }
