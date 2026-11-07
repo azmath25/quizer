@@ -107,7 +107,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 }
 </style>
 <link rel="stylesheet" href="assets/css/ai-studio-production.css?v=1">
-<script type="module" src="js/pages/ai-studio.js?v=original-restore-1"></script>
+<script type="module" src="js/pages/ai-studio.js"></script>
 </head>
 <body data-page="ai">
 <header id="site-header"></header>
@@ -190,7 +190,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
         </div>
       </form>
       <div class="composer-note"><span>Private assistant · Teacher / admin access</span><span>Enter to send · Shift+Enter for newline</span></div>
-      <input type="file" id="ai-chat-photo" accept="image/png,image/jpeg" hidden aria-label="Attach mathematics photo">
+      <input id="ai-chat-photo" type="file" accept="image/png,image/jpeg" hidden aria-label="Attach mathematics photo">
     </div>
   </section>
   <section id="ai-jobs-panel" class="studio-jobs-panel" hidden>
@@ -224,7 +224,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
   </section>
   <div id="ai-status" class="ai-muted" role="status" aria-live="polite"></div>
 </main>
-<aside class="inspector" aria-label="Real background job inspector">
+<aside class="inspector" aria-label="Saved jobs and progress">
   <div class="inspector-head"><span><strong>Job inspector</strong><small>Actual status, pages and review</small></span><button class="icon-btn" data-act="inspector" type="button" aria-label="Close inspector"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button></div>
   <div class="inspector-actions"><button type="button" id="ai-jobs-refresh" class="mini-btn"><svg class="ico sm" aria-hidden="true"><use href="#ic-retry"/></svg> Refresh jobs</button></div>
   <div class="inspector-body" id="ai-job-list"></div>
