@@ -30,6 +30,14 @@ function firestore(){
   const snapshot=path=>({exists:docs.has(path),data:()=>docs.get(path)});
   const db={
     docs,
+    collection(name){return {
+      where(field,op,uid){
+        if(field!=="uid"||op!=="==")throw Error("unexpected query");
+        return {limit(){return {get:async()=>({docs:[...docs.entries()]
+          .filter(([key,val])=>key.startsWith(name+"/")&&val.uid===uid)
+          .map(([key,val])=>({id:key.split("/").at(-1),data:()=>val}))})};}};
+      },
+    }},
     doc(path){return {
       path,get:async()=>snapshot(path),
       update:async value=>docs.set(path,{...docs.get(path),...value}),
@@ -76,7 +84,7 @@ test("teacher uploads one bounded PDF then starts pinned vision-page workflow",a
   assert.deepEqual({id:sent.input.artifact_id,kind:sent.input.kind,mode:sent.input.mode,page:sent.input.page_number},
     {id:ART,kind:"mimo_pdf_artifact",mode:"vision_page",page:1});
   assert.deepEqual([sent.version,sent.background,sent.cost_mode,sent.cost_limit_usd],
-    [1,true,"hard",0.03]);
+    [1,true,"hard",0.15]);
   assert.match(calls[2].opts.headers["Idempotency-Key"],/^quizer-extract-[a-f0-9]{64}$/);
   const done=await bridge.status({auth:auth(),data:{jobId:started.jobId}});
   assert.equal(done.state,"completed");
@@ -147,4 +155,36 @@ test("stale accepted job surfaces outcome unknown without replaying a paid uploa
   assert.equal(value.state,"attention");
   assert.equal(value.error,"MIMO_OUTCOME_UNKNOWN");
   assert.equal(calls.length,0);
+});
+
+test("teacher-selected budget is bounded and retained for idempotent job",async()=>{
+  const db=firestore(),calls=[],bridge=service(db,upstream(calls));
+  const accepted=await bridge.start({auth:auth(),data:{
+    ...payload("extraction_request_higher_budget_001"),costLimitUsd:0.5,target:"bank",
+  }});
+  assert.equal(JSON.parse(calls.at(-1).opts.body).cost_limit_usd,0.5);
+  const row=db.docs.get("mimoExtractionJobs/"+accepted.jobId);
+  assert.equal(row.costLimitUsd,0.5);
+  assert.equal(row.target,"bank");
+  await assert.rejects(bridge.start({auth:auth(),data:{
+    ...payload("extraction_request_higher_budget_001"),costLimitUsd:0.15,target:"bank",
+  }}),{code:"REQUEST_ID_CONFLICT"});
+  for(const costLimitUsd of [0,0.01,0.501,5,NaN,"0.15"]){
+    await assert.rejects(bridge.start({auth:auth(),data:{
+      ...payload("extraction_request_invalid_budget_001"),costLimitUsd,
+    }}),{code:"INVALID_FIELDS"});
+  }
+});
+
+test("owner-scoped history includes only teacher's own extraction jobs",async()=>{
+  const db=firestore(),bridge=service(db,upstream());
+  const a=await bridge.start({auth:auth(),data:payload("extraction_request_history_0001")});
+  const b=await bridge.start({auth:auth(UID2),data:payload("extraction_request_history_0002")});
+  const first=await bridge.list({auth:auth(),data:{limit:20}});
+  assert.equal(first.jobs.length,1);
+  assert.equal(first.jobs[0].jobId,a.jobId);
+  assert.equal(first.jobs[0].costLimitUsd,0.15);
+  const second=await bridge.list({auth:auth(UID2),data:{}});
+  assert.equal(second.jobs[0].jobId,b.jobId);
+  await assert.rejects(bridge.list({auth:auth(),data:{limit:500}}),{code:"INVALID_FIELDS"});
 });
