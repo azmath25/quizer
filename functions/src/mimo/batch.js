@@ -314,6 +314,12 @@ export function createBatchService({
       automatically_saved:false,published:false};
   }
 
+  // Vision PDF pages send image + text to a shared model credential.
+  // Keep at most one page per document in flight until actual provider TPM
+  // admission is available. This avoids a 3-page burst; it is NOT a global
+  // per-model token limiter and does not guarantee provider acceptance.
+  const MAX_ACTIVE_PAGES_PER_DOCUMENT=1;
+
   // Worker-only: not callable by the browser. Claims are transactionally fenced.
   async function claim(jobId){
     let selected=null;
@@ -323,7 +329,7 @@ export function createBatchService({
       if(!snap.exists||snap.data().state!=="running")return;
       const job=snap.data(),pages=job.pages||[];
       const active=pages.filter(p=>["submitted","claiming"].includes(p.state)).length;
-      if(active>=3)return;
+      if(active>=MAX_ACTIVE_PAGES_PER_DOCUMENT)return;
       const next=pages.findIndex(p=>p.state==="queued");
       if(next<0)return;
       // Reserve worst-case costs before starting; never count a failed run as free.
@@ -433,13 +439,13 @@ export function createBatchService({
           {state:"attention",error:"MIMO_OUTCOME_UNKNOWN"});
         continue;
       }
-      // Poll at most three active runs, without holding a database lock.
-      for(const page of (job.pages||[]).filter(p=>p.state==="submitted").slice(0,3))
+      // Poll at most one active page per document, without a database lock.
+      for(const page of (job.pages||[]).filter(p=>p.state==="submitted").slice(0,MAX_ACTIVE_PAGES_PER_DOCUMENT))
         await poll(job,page);
-      // Admit up to three independent page runs in one tick instead of
-      // artificially waiting one full minute between every page.
+      // Dispatch one page at a time. Avoid three simultaneous vision bursts;
+      // provider token-per-minute admission remains a separate Mimo feature.
       const claims=[];
-      for(let n=0;n<3;n++){
+      for(let n=0;n<MAX_ACTIVE_PAGES_PER_DOCUMENT;n++){
         const selection=await claim(job.jobId);
         if(!selection)break;
         claims.push(selection);
