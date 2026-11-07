@@ -40,7 +40,7 @@ const MODES={
   review:{name:"Review & audit",icon:"review",desc:"Check grammar, logic, precision and ambiguity.",placeholder:"Paste material and describe what to audit...",
     prompts:[["Find ambiguity","Flag ambiguity and missing assumptions"],["Improve grammar","Polish wording without changing the math"],["Check consistency","Check numbering, formulas and notation"],["Proof referee","Identify unproved steps and possible counterexamples"]]},
 };
-let studioMode="chat",pinnedOnly=false,inspectorVisible=true;
+let studioMode="chat",pinnedOnly=false,inspectorVisible=innerWidth>1060;
 const PIN_STORAGE="quizer.ai.studio.local-pins.v1";
 let pins=new Set();
 try{pins=new Set(JSON.parse(localStorage.getItem(PIN_STORAGE)||"[]"));}catch{}
@@ -122,7 +122,8 @@ function activeTab(tab){
   $("ai-tab-chat").classList.toggle("active",chat&&!pinnedOnly);
   $("ai-tab-jobs").classList.toggle("active",!chat);
   $("ai-pin-filter").classList.toggle("active",chat&&pinnedOnly);
-  if(!chat&&innerWidth<=1060){inspectorVisible=true;applyStudioLayout();}
+  app.classList.remove("show-sidebar");
+  if(!chat&&innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}
   studioHead();
 }
 function drawThreads(){
@@ -227,7 +228,8 @@ async function loadOlder(){
 function newThread(){
   threadId=null;messages=[];hasOlder=false;imageContext="";selectedImage=null;
   history.replaceState(null,"","ai.html");
-  drawThreads();drawMessages();$("ai-prompt").value="";activeTab("chat");
+  drawThreads();drawMessages();$("ai-prompt").value="";
+  $("ai-chat-photo").value="";$("pending").replaceChildren();activeTab("chat");
   $("ai-prompt").focus();
 }
 async function sendText(message,context=""){
@@ -257,7 +259,8 @@ async function sendText(message,context=""){
     drawMessages();
     if(answer.saved&&threadId){
       history.replaceState(null,"","ai.html?thread="+encodeURIComponent(threadId));
-      await loadThreads();
+      try{await loadThreads();status("");}
+      catch{status("Reply saved, but the conversation list could not refresh.",true);}
     } else status("Reply received, but history could not be saved. Copy the answer before closing.",true);
     selectedImage=null;
     return true;
@@ -286,14 +289,15 @@ async function chatSubmit(event){
         target:"chat",costLimitUsd:0.15,imageAssetId,
       });
       originalSources.set(result.jobId,file);
-      $("ai-chat-photo").value="";
+      $("ai-chat-photo").value="";$("ai-prompt").value="";$("pending").replaceChildren();
       status("Photo accepted as background vision job. Select it after completion to discuss the extracted mathematics.");
       await loadJobs();await selectJob(result.jobId);
       activeTab("jobs");
     }catch(error){status(extractionError(error),true);}
     return;
   }
-  const confirmed=await sendText(prompt,imageContext);
+  const modeContext=studioMode==="chat"?"":("Workspace: "+MODES[studioMode].name+". "+MODES[studioMode].desc);
+  const confirmed=await sendText(prompt,[modeContext,imageContext].filter(Boolean).join("\n"));
   if(confirmed)imageContext="";
 }
 function drawJobs(){
@@ -672,6 +676,68 @@ async function newJob(event){
   }catch(e){status(extractionError(e),true);}
   finally{busyJob=false;$("ai-start-job").disabled=false;}
 }
+function wireOriginalChrome(){
+  const modes=$("types");
+  for(const [key,mode] of Object.entries(MODES)){
+    const button=node("button","","type-card");button.type="button";
+    const symbol=node("span","","type-symbol");symbol.append(icon(mode.icon));
+    const label=node("span");label.append(node("strong",mode.name),node("small",mode.desc));
+    button.append(symbol,label);
+    button.onclick=()=>{
+      $("type-dialog").close();
+      if(key==="document"){activeTab("jobs");return;}
+      studioMode=key;pinnedOnly=false;newThread();
+    };
+    modes.append(button);
+  }
+  listen("ai-pin-filter","click",()=>{pinnedOnly=!pinnedOnly;activeTab("chat");drawThreads();});
+  listen("ai-return-chat","click",()=>activeTab("chat"));
+  listen("ai-chat-photo","change",()=>{
+    const file=$("ai-chat-photo").files?.[0];
+    const pending=$("pending");pending.replaceChildren();
+    if(file){
+      const item=node("span","","file");item.append(icon("paperclip",true));
+      item.append(node("strong",file.name));
+      const remove=node("button","","icon-btn");remove.type="button";remove.title="Remove attachment";
+      remove.setAttribute("aria-label","Remove photo");remove.append(icon("x",true));
+      remove.onclick=()=>{$("ai-chat-photo").value="";pending.replaceChildren();};
+      item.append(remove);pending.append(item);
+    }
+  });
+  const settings=(()=>{
+    try{return JSON.parse(localStorage.getItem("quizer.ai.visual.v1")||"{}");}catch{return {};}
+  })();
+  $("spot-toggle").checked=settings.spot!==false;
+  $("motion-toggle").checked=settings.motion!==false;
+  const applySettings=()=>{
+    const spotlight=$("spot-toggle").checked,motion=$("motion-toggle").checked;
+    $("workspace").style.setProperty("--spotlight",spotlight?"1":"0");
+    $("workspace").style.setProperty("--aurora",motion?"block":"none");
+    try{localStorage.setItem("quizer.ai.visual.v1",
+      JSON.stringify({spot:spotlight,motion}));}catch{}
+  };
+  listen("spot-toggle","change",applySettings);
+  listen("motion-toggle","change",applySettings);applySettings();
+  app.addEventListener("click",event=>{
+    const target=event.target.closest("[data-act]");if(!target)return;
+    const act=target.dataset.act;
+    if(act==="sidebar"){app.classList.add("show-sidebar");}
+    else if(act==="close-drawers"){app.classList.remove("show-sidebar","show-inspector");
+      if(innerWidth<=1060){inspectorVisible=false;applyStudioLayout();}}
+    else if(act==="inspector"){
+      inspectorVisible=!inspectorVisible;applyStudioLayout();
+      if(inspectorVisible&&innerWidth<=760)app.classList.remove("show-sidebar");
+    }else if(act==="settings")$("settings-dialog").showModal();
+    else if(act==="search"){
+      if(innerWidth<=760)app.classList.add("show-sidebar");
+      $("ai-chat-search").focus();
+    }else if(act==="close-dialog"){
+      const dlg=target.closest("dialog");if(dlg?.open)dlg.close();
+    }else if(act==="attach")$("ai-chat-photo").click();
+  });
+  window.addEventListener("resize",applyStudioLayout,{passive:true});
+  applyStudioLayout();
+}
 async function boot(){
   try {
     // Firebase may wait on a slow getSessionInfo callable. Never leave the
@@ -710,10 +776,11 @@ async function boot(){
     }
     mountShell({showAssistant:false,showBackdrop:false});
     app.hidden=false;gate.hidden=true;
-    listen("ai-new-chat","click",newThread);
+    wireOriginalChrome();
+    listen("ai-new-chat","click",()=>$("type-dialog").showModal());
     listen("ai-load-older","click",()=>void loadOlder());
     listen("ai-chat-search","input",drawThreads);
-    listen("ai-tab-chat","click",()=>activeTab("chat"));
+    listen("ai-tab-chat","click",()=>{pinnedOnly=false;activeTab("chat");drawThreads();});
     listen("ai-tab-jobs","click",()=>activeTab("jobs"));
     listen("ai-chat-form","submit",e=>void chatSubmit(e));
     listen("ai-snip-math","click",async()=>{
@@ -749,7 +816,9 @@ async function boot(){
     const params=new URLSearchParams(location.search);
     if(params.get("target")==="bank")$("ai-job-target").value="bank";
     const initialThread=params.get("thread");
-    await Promise.allSettled([loadThreads(),loadJobs()]);
+    const initialLoads=await Promise.allSettled([loadThreads(),loadJobs()]);
+    if(initialLoads[0].status==="rejected")status("Saved conversations could not be loaded. Retry after checking your connection.",true);
+    if(initialLoads[1].status==="rejected")status("Saved jobs could not be loaded. Refresh the job inspector.",true);
     if(initialThread&&/^[a-f0-9-]{36}$/i.test(initialThread)){
       try{await openThread(initialThread);}catch(e){status("Saved chat is unavailable for this account.",true);newThread();}
     }else{newThread();}
