@@ -43,3 +43,26 @@ test("separate accessible assistant and background jobs with explicit user conse
   assert.match(client,/exportTeacherReview\(/);
   assert.match(client,/teacher-approved|teacher-reviewed|approved questions/i);
 });
+
+test("P1 Axiom-inspired single-page layout retains real services",()=>{
+  const css=read("assets/css/ai-studio-axiom-p1.css");
+  assert.match(page,/class="shell axiom-shell" id="shell"/);
+  assert.match(page,/class="sidebar axiom-sidebar"/);
+  assert.match(page,/class="axiom-center"/);
+  assert.match(page,/class="inspector axiom-workbench"/);
+  assert.match(page,/class="stage axiom-stage" id="workspace"/);
+  assert.match(page,/id="ai-command-dialog"/);
+  assert.match(page,/id="ai-workbench-extract"/);
+  assert.match(page,/id="ai-workbench-jobs"/);
+  assert.match(page,/id="ai-job-form"/);
+  assert.match(page,/id="ai-messages"/);
+  assert.match(page,/assets\/css\/ai-studio-axiom-p1\.css/);
+  assert.match(css,/270px minmax\(0,1fr\)/);
+  assert.match(css,/@media\(max-width:760px\)/);
+  assert.match(client,/function openCommands\(/);
+  assert.match(client,/STUDIO_COMMANDS/);
+  assert.match(client,/submitMimoBatch\(/);
+  assert.match(client,/readMimoBatchPage\(/);
+  assert.match(client,/readMimoPng\(/);
+  assert.doesNotMatch(page,/Local design mode|DEMO|Simulated job/);
+});
