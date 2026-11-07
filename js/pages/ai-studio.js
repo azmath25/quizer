@@ -844,14 +844,14 @@ async function boot(){
       const timeout=setTimeout(()=>finish({...getSession(),authTimedOut:true}),12000);
       unsub=watchSession(value=>{
         if(value.status==="error"||value.status==="unconfigured"||
-          value.authResolved)finish(value);
+          (value.authResolved&&(!value.user||value.roleResolved)))finish(value);
       });
       void initFirebase().catch(error=>finish({
         ...getSession(),status:"error",error:String(error?.message||error),
       }));
     });
     if(session.authTimedOut||session.status==="error"||session.status==="unconfigured"){
-      status("Sign-in is unavailable. Check your connection, then reload the page.",true);
+      status("Account services are still loading. Your workspace remains available; retry after connection is restored.",true);
       return;
     }
     if(!session?.user){location.replace("login.html?next=ai.html");return;}
