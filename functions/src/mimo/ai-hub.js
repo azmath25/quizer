@@ -60,7 +60,7 @@ export function createAiHub({
     if (data && typeof data === "object" && data.action === undefined)
       return sendMimo({auth,data});
     object(data,["action","message","context","history","requestId",
-      "threadId","documentId","mode","limit","title","text"]);
+      "threadId","documentId","mode","limit","title","text","before"]);
     if (!ACTIONS.has(data.action)) fail("INVALID_FIELDS");
     const uid=await authorize(db,auth);
     if (data.action === "chat.list") {
