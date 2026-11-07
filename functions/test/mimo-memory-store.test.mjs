@@ -16,7 +16,7 @@ function fakePool({ownerExists=true,priorThread=null,failAt=""}={}) {
       ? {rowCount:1,rows:[{id:THREAD}]} : {rowCount:0,rows:[]};
     if(sql.includes("SELECT DISTINCT thread_id"))return priorThread
       ? {rowCount:1,rows:[{thread_id:priorThread}]} : {rowCount:0,rows:[]};
-    if(sql.includes("SELECT id,title,created_at,updated_at FROM quizer_ai.threads"))return ownerExists
+    if(sql.includes("SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count,turn_count FROM quizer_ai.threads"))return ownerExists
       ? {rowCount:1,rows:[{id:THREAD,title:"Math",created_at:new Date(0),updated_at:new Date(0)}]}
       : {rowCount:0,rows:[]};
     if(sql.includes("FROM quizer_ai.documents WHERE owner_uid=$1 AND id=$2"))return {rowCount:0,rows:[]};
@@ -108,4 +108,12 @@ test("server reads are bounded and owner-filtered",async()=>{
       assert.equal(call.params[0],UID);
     }
   }
+});
+
+test("new turns mark compact memory pending while preserving full messages",async()=>{
+  const pool=fakePool();
+  const store=createAiMemoryStore({pool});
+  await store.saveTurn({uid:UID,threadId:THREAD,requestId,message:"x+y",reply:"sum"});
+  assert.ok(pool.calls.some(c=>c.sql.includes("memory_status=CASE")&&c.params.at(-1)===1));
+  assert.equal(pool.calls.filter(c=>c.sql.includes("INSERT INTO quizer_ai.messages")).length,2);
 });
