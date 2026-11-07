@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
-import {createBatchService} from "../src/mimo/batch.js";
+import {createBatchService,publicBatchStage} from "../src/mimo/batch.js";
 const uid="teacherA",uid2="teacherB",secret="server_only_project_key_at_least_32_chars";
 const PDF=Buffer.from("%PDF-1.7\nA mathematical sheet\n%%EOF");
 const ART="11111111-1111-4111-8111-111111111111";
@@ -233,4 +233,22 @@ test("three concurrent claim slots never reserve beyond the per-document hard ca
   assert.equal(state.reservedUsd,0.3);
   assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,2);
   assert.equal(state.state,"budget_exhausted");
+});
+
+test("public progress uses only allowlisted Mimo stage identifiers",()=>{
+  const result=publicBatchStage({
+    node_tasks:[
+      {node_id:"processor",status:"completed",content:"secret input"},
+      {node_id:"extract",status:"completed",prompt:"sensitive math"},
+      {node_id:"verify",status:"completed"},
+      {node_id:"tikz_source",status:"running"},
+      {node_id:"private_token",status:"completed"},
+    ],
+  });
+  assert.deepEqual(result,{id:"tikz_source",status:"running"});
+  assert.deepEqual(publicBatchStage({node_tasks:[{node_id:"compiler",status:"complete"}]}),
+    {id:"processor",status:"pending"});
+  assert.deepEqual(publicBatchStage({checkpoints:[{node_id:"compile_png",status:"completed"}]}),
+    {id:"compile_png",status:"completed"});
+  assert.equal(JSON.stringify(result).includes("sensitive"),false);
 });
