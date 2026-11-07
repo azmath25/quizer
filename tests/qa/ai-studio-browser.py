@@ -127,6 +127,13 @@ try:
         check(page.locator("#ai-job-form").is_visible(),
               "Extract command did not open live document lab")
         page.locator("#ai-return-chat").click()
+        page.locator("#ai-chat-text-file").set_input_files({
+          "name":"lesson.tex","mimeType":"text/plain",
+          "buffer":b"Solve x+1=2.\\nUse original LaTeX.",
+        })
+        page.wait_for_function("document.getElementById('ai-prompt').value.includes('Teacher-selected text')")
+        check(page.locator(".message.user").count()==0,
+              "Importing a local TeX file must not auto-send a paid model request")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
         page.locator("#ai-new-chat").click()
