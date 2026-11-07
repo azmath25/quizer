@@ -181,6 +181,8 @@ const extractionErrors={
   MIMO_REQUEST_REJECTED:"failed-precondition",
   MIMO_INVALID_EXTRACTION:"failed-precondition",
   MIMO_INVALID_RESPONSE:"unavailable",
+  INVALID_FIGURE_ASSET:"failed-precondition",
+  REVIEW_VERSION_CONFLICT:"aborted",REVIEW_INCOMPLETE:"failed-precondition",
 };
 async function extractionAction(action,request) {
   try {
@@ -246,6 +248,8 @@ export const mimoBatchList=batchCallable("list");
 export const mimoBatchStatus=batchCallable("status");
 export const mimoBatchGetPage=batchCallable("getPage");
 export const mimoBatchImage=batchCallable("image");
+export const mimoBatchReviewPage=batchCallable("reviewPage");
+export const mimoBatchPrepared=batchCallable("prepared","512MiB");
 export const mimoBatchSweep=onSchedule({
   schedule:"every 1 minutes",region:REGION,memory:"512MiB",
   timeoutSeconds:120,maxInstances:1,secrets:extractionSecrets,
