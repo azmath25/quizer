@@ -30,6 +30,7 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   const allowed = canUseMimoTeacherChat(getSession());
   const pageContext = String(context || "").slice(0, 4000);
   let history = [];
+  let threadId = null;
   let pending = false;
   let closed = false;
 
@@ -53,7 +54,10 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   const closeButton = element("button", "qa-action qa-close", "×");
   closeButton.type = "button";
   closeButton.setAttribute("aria-label", "Close AI chat");
-  headActions.append(newChat, closeButton);
+  const openStudio = element("a", "qa-action", "AI Studio");
+  openStudio.href = "ai.html";
+  openStudio.setAttribute("aria-label", "Open saved conversations in AI Studio");
+  headActions.append(openStudio, newChat, closeButton);
   head.append(heading, headActions);
 
   const note = element("p", "qa-note",
@@ -155,6 +159,8 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
   newChat.addEventListener("click", () => {
     if (pending || closed) return;
     history = [];
+    threadId = null;
+    openStudio.href = "ai.html";
     input.value = "";
     empty();
     input.focus();
@@ -205,10 +211,16 @@ export function openAskAIPopup({ title = "Ask AI", context = "" } = {}) {
         context: pageContext,
         history: history.slice(-8),
         requestId,
+        threadId,
       });
       if (closed) return;
       loading.remove();
       addMessage("assistant", response.reply);
+      if (response.threadId) {
+        threadId = response.threadId;
+        openStudio.href = "ai.html?thread=" + encodeURIComponent(threadId);
+      }
+      if (!response.saved) addError("Reply received, but chat history could not be saved. Keep the answer.", requestId);
       history = [...history,
         {role: "user", content: question.slice(0, 1200)},
         {role: "assistant", content: response.reply.slice(0, 1200)}].slice(-8);
