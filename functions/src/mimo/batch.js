@@ -119,6 +119,7 @@ export function createBatchService({
         reservedUsd:0,pageStart:file.start,pageEndRequested:file.end,
         createdAt:new Date(timestamp).toISOString(),updatedAt:time(),
         state:"accepted",error:null,artifactId:null,documentPages:0,pages:[],
+        needsAttentionPolling:false,
       });
     });
     if(existing)return summarize(existing);
@@ -141,7 +142,7 @@ export function createBatchService({
       if(pages.length>100)fail("INVALID_FIELDS");
       await ref.update({
         artifactId:artifact.id,documentPages:total,pages,
-        state:"running",error:null,updatedAt:time(),
+        state:"running",needsAttentionPolling:false,error:null,updatedAt:time(),
       });
       return {jobId,state:"running",pageCount:pages.length,documentPages:total,
         target:file.target,totalUsd:file.totalUsd,perPageUsd:file.perPageUsd};
@@ -176,6 +177,8 @@ export function createBatchService({
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,error:p.error||null,
         stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
+        retryAt:typeof p.retryAt==="string"&&/^20\\d\\d-/.test(p.retryAt)&&p.retryAt.length<=35?p.retryAt:null,
+        retryCount:Number.isInteger(p.retryCount)&&p.retryCount>=0&&p.retryCount<=100?p.retryCount:0,
         ...(p.diagnosticCode?{diagnosticCode:p.diagnosticCode,
           ...(p.diagnosticHttpStatus?{diagnosticHttpStatus:p.diagnosticHttpStatus}:{})}:{}),
       })),
@@ -338,7 +341,8 @@ export function createBatchService({
       // Reserve worst-case costs before starting; never count a failed run as free.
       const newReserved=Math.round((job.reservedUsd+job.perPageUsd)*100)/100;
       if(newReserved>job.totalUsd+0.0000001){
-        tx.update(ref,{state:"budget_exhausted",updatedAt:time()});return;
+        tx.update(ref,{state:"budget_exhausted",
+          needsAttentionPolling:pages.some(p=>p.state==="submitted"),updatedAt:time()});return;
       }
       const page={...pages[next],state:"claiming",
         claimId:randomUUID(),claimedAt:time()};
@@ -366,7 +370,9 @@ export function createBatchService({
       // conceal in-flight submissions or their independently saved results.
       const nextState=job.state==="budget_exhausted"?"budget_exhausted":
         hasAttention?"attention":complete?"ready_review":"running";
-      tx.update(ref,{pages:changed,state:nextState,updatedAt:time(),...jobPatch});
+      tx.update(ref,{pages:changed,state:nextState,
+        needsAttentionPolling:nextState!=="running"&&changed.some(p=>p.state==="submitted"),
+        updatedAt:time(),...jobPatch});
       updated=true;
     });
     return updated;
@@ -403,11 +409,11 @@ export function createBatchService({
         await mark(job.jobId,p.number,{state:fromState,runId:p.runId},{
           state:"completed",questionCount:page.questions.length,
           figureCount:page.questions.filter(q=>q.has_figure).length,
-          hasReconstruction,stage:"output",stageStatus:"completed",error:null,
+          hasReconstruction,stage:"output",stageStatus:"completed",retryAt:null,error:null,
         });
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
         await mark(job.jobId,p.number,{state:fromState,runId:p.runId},
-          {state:"attention",stageStatus:"failed",
+          {state:"attention",stageStatus:"failed",retryAt:null,
             error:"MIMO_RUN_"+run.status.toUpperCase(),
             ...safeMimoRunDiagnostic(run.output)});
       }
@@ -416,6 +422,22 @@ export function createBatchService({
         // reattached to normal polling: no additional /runs POST is needed.
         const reattached=fromState==="attention";
         const patch=reattached?{state:"submitted",error:null}:{};
+        const retryAt=run.status==="queued"&&typeof run.next_attempt_at==="string"&&
+          Number.isFinite(Date.parse(run.next_attempt_at))&&
+          Date.parse(run.next_attempt_at)>now()
+          ?run.next_attempt_at:null;
+        const retryCount=Number.isInteger(run.rate_limit_deferrals)?
+          Math.min(100,Math.max(0,run.rate_limit_deferrals)):0;
+        if(retryAt!==p.retryAt||retryCount!==(p.retryCount||0)){
+          patch.retryAt=retryAt;patch.retryCount=retryCount;
+          if(retryAt){patch.stage="processor";patch.stageStatus="pending";}
+        }
+        // A paused provider call should not trigger a supplemental timeline GET.
+        if(retryAt){
+          if(reattached||Object.keys(patch).length)
+            await mark(job.jobId,p.number,{state:fromState,runId:p.runId},patch);
+          return;
+        }
         try{
           const {id,status}=publicBatchStage(await mimo.timeline(p.runId));
           if(id!==p.stage||status!==p.stageStatus){
@@ -454,10 +476,19 @@ export function createBatchService({
 
   async function sweep(max=6){
     if(!Number.isInteger(max)||max<1||max>10)throw Error("Invalid sweep size");
-    const found=await db.collection("mimoBatchJobs")
-      .where("state","in",["running","budget_exhausted","attention"]).limit(max).get();
+    // Old attention/budget-exhausted jobs must never occupy the runnable
+    // dispatch slots. updatedAt rotates equally old jobs fairly.
+    // Requires Firestore composites (state,updatedAt) and
+    // (needsAttentionPolling,updatedAt), installed BEFORE this function.
+    const runnable=await db.collection("mimoBatchJobs")
+      .where("state","==","running").orderBy("updatedAt","asc").limit(max).get();
+    const unfinished=await db.collection("mimoBatchJobs")
+      .where("needsAttentionPolling","==",true)
+      .orderBy("updatedAt","asc").limit(Math.min(2,max)).get();
+    const jobs=new Map();
+    for(const doc of [...runnable.docs,...unfinished.docs])jobs.set(doc.id,doc);
     let visited=0;
-    for(const doc of found.docs){
+    for(const doc of jobs.values()){
       const job=doc.data();visited++;
       const stale=(job.pages||[]).find(p=>p.state==="claiming"&&
         now()-Date.parse(p.claimedAt)>180000);
@@ -466,19 +497,23 @@ export function createBatchService({
           {state:"attention",error:"MIMO_OUTCOME_UNKNOWN"});
         continue;
       }
-      // Poll at most one active page per document, without a database lock.
-      for(const page of (job.pages||[]).filter(p=>p.state==="submitted").slice(0,MAX_ACTIVE_PAGES_PER_DOCUMENT))
-        await poll(job,page);
-      // Dispatch one page at a time. Avoid three simultaneous vision bursts;
-      // provider token-per-minute admission remains a separate Mimo feature.
-      const claims=[];
-      for(let n=0;n<MAX_ACTIVE_PAGES_PER_DOCUMENT;n++){
-        const selection=await claim(job.jobId);
-        if(!selection)break;
-        claims.push(selection);
+      // Poll active *known* run IDs even when other pages require attention.
+      for(const page of (job.pages||[]).filter(p=>p.state==="submitted")
+        .slice(0,MAX_ACTIVE_PAGES_PER_DOCUMENT))await poll(job,page);
+      // Do not dispatch new paid work for paused or attention-required jobs.
+      if(job.state==="running"){
+        const claims=[];
+        for(let n=0;n<MAX_ACTIVE_PAGES_PER_DOCUMENT;n++){
+          const selection=await claim(job.jobId);
+          if(!selection)break;
+          claims.push(selection);
+        }
+        // Every claim reserves budget transactionally before any provider call.
+        await Promise.all(claims.map(selection=>dispatch(job.jobId,selection)));
       }
-      // Every claim reserves budget transactionally before any provider call.
-      await Promise.all(claims.map(selection=>dispatch(job.jobId,selection)));
+      // The sweep heartbeat rotates idle running/attention jobs; without it
+      // a long-lived provider wait can starve newer jobs behind limit(max).
+      await parentRef(job.jobId).update({updatedAt:time()});
     }
     return {visited};
   }
