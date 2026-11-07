@@ -5,6 +5,7 @@
  * An ambiguous dispatch is NEVER silently replayed.
  */
 import {createHash, randomUUID} from "node:crypto";
+import {safeMimoRunDiagnostic} from "./run-diagnostics.js";
 import {validateExtractedPage,createExtractionReview,decideExtractionQuestion,prepareReviewedExtractionImport} from "../../shared/mimo-extraction.js";
 import {
   EXTRACTION_WORKFLOW,ExtractionError,authorizeExtractionRole,
@@ -175,6 +176,8 @@ export function createBatchService({
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,error:p.error||null,
         stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
+        ...(p.diagnosticCode?{diagnosticCode:p.diagnosticCode,
+          ...(p.diagnosticHttpStatus?{diagnosticHttpStatus:p.diagnosticHttpStatus}:{})}:{}),
       })),
     };
   }
@@ -405,7 +408,8 @@ export function createBatchService({
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
         await mark(job.jobId,p.number,{state:"submitted",runId:p.runId},
           {state:"attention",stageStatus:"failed",
-            error:"MIMO_RUN_"+run.status.toUpperCase()});
+            error:"MIMO_RUN_"+run.status.toUpperCase(),
+            ...safeMimoRunDiagnostic(run.output)});
       }
       if(["running","queued"].includes(run.status)){
         // Persist safe stage identifiers, never private prompts, outputs,
