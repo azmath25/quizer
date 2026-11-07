@@ -1,0 +1,32 @@
+name: P0 read-only Cloud audit script QA
+on:
+  pull_request:
+    paths:
+      - scripts/p0-readonly-cloud-audit.sh
+      - .github/workflows/p0-readonly-cloud-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-script:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Shell syntax and read-only safety checks
+        run: |
+          bash -n scripts/p0-readonly-cloud-audit.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("scripts/p0-readonly-cloud-audit.sh").read_text()
+          assert "gcloud functions describe" in s
+          assert "gcloud logging read" in s
+          assert "gcloud secrets versions list" in s
+          assert "gcloud secrets versions access" not in s
+          assert "gcloud config set" not in s
+          assert "npx firebase deploy" not in s
+          assert "gcloud run deploy" not in s
+          print("PASS: safe read-only P0 audit commands")
+          PY
