@@ -51,7 +51,8 @@ test("Document Desk remains teacher gated and never transmits file bytes to the 
   const html=readFileSync(new URL("../../documents.html",import.meta.url),"utf8");
   const ui=readFileSync(new URL("../../js/pages/documents.js",import.meta.url),"utf8");
   const shell=readFileSync(new URL("../../js/components/shell.js",import.meta.url),"utf8");
-  assert.match(shell,/\["documents", "documents\.html", "Documents"\]/);
+  assert.match(shell,/\["ai", "ai\.html", "AI Studio"\]/);
+  assert.doesNotMatch(shell,/\["documents", "documents\.html", "Documents"\]/);
   for (const id of ["doc-source","doc-preview","doc-excerpt","doc-question","doc-consent","doc-ai-form","doc-ai-log"])
     assert.match(html,new RegExp('id="'+id+'"'));
   assert.match(ui,/canUseMimoTeacherChat/);
