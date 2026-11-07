@@ -18,6 +18,7 @@ function inline(parent, input, depth = 0) {
       node = document.createElement("span");
       node.className = "qa-math";
       node.textContent = token.replace(UNSAFE_TEX, "\\text");
+      node.qaOriginalTex = token;
     } else if (token.charCodeAt(0) === 96) {
       node = document.createElement("code");
       node.textContent = token.slice(1, -1);
@@ -71,10 +72,23 @@ export function renderChatMarkdown(target, source) {
       const closer = opener === "$$" ? "$$" : "\\]";
       const chunks = [line];
       i++;
-      while (!chunks.join("\n").slice(opener.length).includes(closer) && i < lines.length) chunks.push(lines[i++]);
+      let joined = chunks.join("\n");
+      while (!joined.slice(opener.length).includes(closer) &&
+          i < lines.length && lines[i].trim()) {
+        chunks.push(lines[i++]);
+        joined = chunks.join("\n");
+      }
+      if (!joined.slice(opener.length).includes(closer)) {
+        const unfinished = document.createElement("pre");
+        unfinished.className = "qa-tex-uncompiled";
+        unfinished.textContent = "Uncompiled LaTeX (missing " + closer + "):\n" + joined;
+        output.append(unfinished);
+        continue;
+      }
       const math = document.createElement("div");
       math.className = "qa-display-math qa-math";
-      math.textContent = chunks.join("\n").replace(UNSAFE_TEX, "\\text");
+      math.textContent = joined.replace(UNSAFE_TEX, "\\text");
+      math.qaOriginalTex = joined;
       output.append(math); continue;
     }
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
@@ -107,4 +121,38 @@ export function renderChatMarkdown(target, source) {
     inline(paragraph, text.join("\n")); output.append(paragraph);
   }
   target.replaceChildren(output);
+}
+
+/**
+ * MathJax can render an unknown control sequence as an error marker.
+ * Keep the original, unmodified model TeX available after typesetting,
+ * and EXPAND it automatically when MathJax produced an error or failed.
+ * No raw model HTML is added to the DOM.
+ */
+export async function typesetChatMarkdown(root, typeset) {
+  const mathNodes = [...root.querySelectorAll(".qa-math")]
+    .filter(node => typeof node.qaOriginalTex === "string")
+    .map(node => ({node, raw:node.qaOriginalTex}));
+  let failed = false;
+  try { await typeset(root); } catch { failed = true; }
+  for (const {node,raw} of mathNodes) {
+    if (!node.isConnected || node.qaSourceAdded) continue;
+    const invalid = failed || !!node.querySelector(
+      "mjx-merror,.mjx-merror,.MathJax_Error,[data-mjx-error]"
+    );
+    const details = document.createElement("details");
+    details.className = "qa-tex-source";
+    details.open = invalid;
+    const label = document.createElement("summary");
+    label.textContent = invalid
+      ? "LaTeX could not render — original source"
+      : "View original LaTeX";
+    const source = document.createElement("pre");
+    const code = document.createElement("code");
+    code.textContent = raw;
+    source.append(code);
+    details.append(label,source);
+    node.qaSourceAdded = true;
+    node.after(details);
+  }
 }
