@@ -1,9 +1,5 @@
 name: Document & Image Desk and teacher 250/day verification (no deploy)
 on:
-  push:
-    branches: [feature/quizer-document-image-workbench-20261106]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -3,21 +3,6 @@ name: Publish Quizer to GitHub Pages
 # Publish the verified public frontend from the canonical main branch.
 # Nothing in this workflow invokes Firebase CLI or modifies Firebase hosting.
 on:
-  push:
-    branches:
-      - main
-    # Backend-only commits should not republish unchanged static pages.
-    paths:
-      - ".github/workflows/quizer-github-pages.yml"
-      - "*.html"
-      - ".nojekyll"
-      - "assets/**"
-      - "js/**"
-      - "shared/**"
-      - "examples/**"
-      - "scripts/build.mjs"
-      - "package.json"
-      - "package-lock.json"
   workflow_dispatch:
 
 permissions:

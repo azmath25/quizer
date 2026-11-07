@@ -1,8 +1,7 @@
 name: Quizer full modernization verification (no deployment)
 on:
-  push:
-    branches: [feature/quizer-full-modernization-2026-11-05]
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

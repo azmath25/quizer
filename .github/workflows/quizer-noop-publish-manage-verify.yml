@@ -1,9 +1,7 @@
 name: Quizer unchanged publish and Manage tabs regression
 on:
-  push:
-    branches:
-      - fix/quizer-publish-noop-and-manage-tabs-2026-11-05
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

@@ -1,22 +1,6 @@
 name: Quizer quiet-layout verification
 
 on:
-  push:
-    branches:
-      - design/quizer-quiet-data-layout-2026-11-05
-    paths:
-      - ".github/workflows/quizer-quiet-layout-verify.yml"
-      - "functions/**"
-      - "js/**"
-      - "assets/**"
-      - "quiz.html"
-      - "shared/**"
-      - "db/**"
-      - "scripts/**"
-      - "tests/**"
-      - "package.json"
-      - "package-lock.json"
-      - "firebase.json"
   workflow_dispatch:
 
 permissions:

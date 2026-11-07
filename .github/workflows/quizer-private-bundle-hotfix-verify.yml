@@ -1,9 +1,7 @@
 name: Hotfix verification - historical private bundles
 on:
-  push:
-    branches:
-      - fix/quizer-historical-private-bundle-2026-11-05
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

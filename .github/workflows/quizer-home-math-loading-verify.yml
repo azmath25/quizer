@@ -1,8 +1,7 @@
 name: Quizer home stylesheet-first MathJax verification
 on:
-  push:
-    branches: [fix/home-math-css-before-mathjax-2026-11-06]
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:
