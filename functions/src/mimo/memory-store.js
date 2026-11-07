@@ -53,16 +53,27 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
         [uid,limit]);
       return result.rows.map(cleanThread);
     },
-    async getThread(uid, threadId) {
-      owner(uid); identifier(threadId);
-      const meta = await db.query(
-        "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count FROM quizer_ai.threads WHERE owner_uid=$1 AND id=$2",
+    async getThread(uid, threadId, beforeId=null) {
+      owner(uid);identifier(threadId);
+      if(beforeId!==null)identifier(beforeId);
+      const meta=await db.query(
+        "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count,turn_count FROM quizer_ai.threads WHERE owner_uid=$1 AND id=$2",
         [uid,threadId]);
-      if (!meta.rowCount) throw new AiMemoryError("THREAD_NOT_FOUND");
-      const data = await db.query(
-        "SELECT * FROM (SELECT id,role,body,request_id,mimo_run_id,created_at FROM quizer_ai.messages WHERE owner_uid=$1 AND thread_id=$2 ORDER BY created_at DESC,id DESC LIMIT 50) recent ORDER BY created_at ASC,id ASC",
-        [uid,threadId]);
-      return {thread:cleanThread(meta.rows[0]), messages:data.rows.map(cleanMessage)};
+      if(!meta.rowCount)throw new AiMemoryError("THREAD_NOT_FOUND");
+      const data=await db.query(
+        `SELECT * FROM (
+           SELECT id,role,body,request_id,mimo_run_id,created_at
+           FROM quizer_ai.messages WHERE owner_uid=$1 AND thread_id=$2
+             AND ($3::uuid IS NULL OR (created_at,id) <
+               (SELECT created_at,id FROM quizer_ai.messages
+                 WHERE owner_uid=$1 AND thread_id=$2 AND id=$3::uuid))
+           ORDER BY created_at DESC,id DESC LIMIT 51
+         ) recent ORDER BY created_at ASC,id ASC`,
+        [uid,threadId,beforeId]);
+      const hasMore=data.rows.length>50;
+      return {thread:cleanThread(meta.rows[0]),
+        messages:(hasMore?data.rows.slice(1):data.rows).map(cleanMessage),
+        hasMore};
     },
     async saveTurn({uid,threadId,requestId,message,reply,runId}) {
       owner(uid);
