@@ -487,3 +487,20 @@ test("rate-limited known run shows scheduled retry and never resubmits",async()=
   assert.equal(calls.filter(c=>c.url.endsWith("/runs")&&c.options?.method==="POST").length,1);
   assert.equal(calls.filter(c=>c.url.includes("/timeline")).length,0);
 });
+
+
+test("historical Mimo RPM review is classified safely without exposing raw errors",async()=>{
+  const db=firestore(),base=upstream(),app=service(db,async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1)))return json({
+      id:runId(1),status:"waiting_for_review",
+      output:{status:"waiting_for_review",reason:"RPM deferral requires operator review"},
+    });
+    return base(url,options);
+  });
+  const job=await app.start({auth:auth(uid),data:request("legacy_quota_20261108_test")});
+  await app.sweep();await app.sweep();
+  const state=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(state.state,"attention");
+  assert.equal(state.pages[0].diagnosticCode,"provider_rate_limited");
+  assert.equal(state.pages[1].state,"queued");
+});
