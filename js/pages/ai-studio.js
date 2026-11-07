@@ -601,6 +601,12 @@ async function selectBatch(id){
   try{
     const job=await readMimoBatch(id);
     if(selectedJob!==id)return;
+    // Keep the sidebar and selected detail in agreement after every refresh.
+    // The list request may be older than this durable status read.
+    const index=jobs.findIndex(item=>item.jobId===id);
+    if(index>=0){jobs[index]={...jobs[index],state:job.state,
+      updatedAt:job.updatedAt||jobs[index].updatedAt};
+      drawJobs();}
     const card=node("div","","ai-status");
     card.append(node("h2",job.fileName+" · "+job.state));
     const count=node("p",job.completed+" of "+job.pageCount+
@@ -672,6 +678,8 @@ async function selectJob(id){
     const result=await readMimoExtraction(id);
     if(id!==selectedJob)return;
     result.jobId=id;
+    const index=jobs.findIndex(item=>item.jobId===id);
+    if(index>=0){jobs[index]={...jobs[index],state:result.state};drawJobs();}
     target.replaceChildren(drawStages(result));
     if(result.state==="completed"&&result.page){
       const verified=await verifySource(originalSources.get(id),result.page);
