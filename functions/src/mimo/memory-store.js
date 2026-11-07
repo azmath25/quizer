@@ -19,7 +19,9 @@ function string(value, max, required = true) {
 function owner(value) { if (typeof value !== "string" || !UID.test(value)) invalid(); return value; }
 function identifier(value) { if (typeof value !== "string" || !UUID.test(value)) invalid(); return value; }
 function cleanThread(row) {
-  return {id:row.id, title:row.title, createdAt:row.created_at, updatedAt:row.updated_at};
+  return {id:row.id, title:row.title, createdAt:row.created_at, updatedAt:row.updated_at,
+    memorySummary:String(row.memory_summary||"").slice(0,1600),
+    memoryTurnCount:Number(row.memory_turn_count||0)};
 }
 function cleanMessage(row) {
   return {id:row.id, role:row.role, content:row.body, requestId:row.request_id,
@@ -47,14 +49,14 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
       owner(uid);
       if (!Number.isInteger(limit) || limit < 1 || limit > 30) invalid();
       const result = await db.query(
-        "SELECT id,title,created_at,updated_at FROM quizer_ai.threads WHERE owner_uid=$1 ORDER BY updated_at DESC,id DESC LIMIT $2",
+        "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count FROM quizer_ai.threads WHERE owner_uid=$1 ORDER BY updated_at DESC,id DESC LIMIT $2",
         [uid,limit]);
       return result.rows.map(cleanThread);
     },
     async getThread(uid, threadId) {
       owner(uid); identifier(threadId);
       const meta = await db.query(
-        "SELECT id,title,created_at,updated_at FROM quizer_ai.threads WHERE owner_uid=$1 AND id=$2",
+        "SELECT id,title,created_at,updated_at,memory_summary,memory_turn_count FROM quizer_ai.threads WHERE owner_uid=$1 AND id=$2",
         [uid,threadId]);
       if (!meta.rowCount) throw new AiMemoryError("THREAD_NOT_FOUND");
       const data = await db.query(
@@ -93,13 +95,76 @@ export function createAiMemoryStore({connectionString, pool} = {}) {
             [randomUUID(),id,uid,requestId,output,runId ?? null]);
         }
         await client.query(
-          "UPDATE quizer_ai.threads SET updated_at=now() WHERE id=$1 AND owner_uid=$2",[id,uid]);
+          `UPDATE quizer_ai.threads SET updated_at=now(),
+            turn_count=turn_count+$3,
+            memory_status=CASE
+              WHEN memory_status IN ('idle','pending')
+               AND turn_count+$3-memory_turn_count>=3 THEN 'pending'
+              ELSE memory_status END
+            WHERE id=$1 AND owner_uid=$2`,
+          [id,uid,prior.rowCount?0:1]);
         await client.query("COMMIT");
         return {threadId:id, saved:true};
       } catch(error) {
         await client.query("ROLLBACK");
         throw error;
       } finally { client.release(); }
+    },
+    // Claim at most one incremental summary per sweep; claim first, then make
+    // the paid Mimo call. An ambiguous call is marked attention, never replayed.
+    async claimMemoryTask() {
+      const client=await db.connect();
+      try {
+        await client.query("BEGIN");
+        const found=await client.query(
+          `SELECT id,owner_uid,turn_count,memory_turn_count,memory_summary
+            FROM quizer_ai.threads
+            WHERE memory_status='pending' AND turn_count-memory_turn_count>=3
+            ORDER BY updated_at ASC FOR UPDATE SKIP LOCKED LIMIT 1`);
+        if (!found.rowCount) { await client.query("COMMIT"); return null; }
+        const row=found.rows[0],claimId=randomUUID();
+        const turns=await client.query(
+          `SELECT role,body FROM quizer_ai.messages
+            WHERE owner_uid=$1 AND thread_id=$2
+            ORDER BY created_at ASC,id ASC OFFSET $3 LIMIT 8`,
+          [row.owner_uid,row.id,Number(row.memory_turn_count)*2]);
+        await client.query(
+          `UPDATE quizer_ai.threads SET memory_status='running',
+            memory_claim_id=$3,memory_claimed_at=now()
+            WHERE id=$1 AND owner_uid=$2`,
+          [row.id,row.owner_uid,claimId]);
+        await client.query("COMMIT");
+        return {uid:row.owner_uid,threadId:row.id,claimId,
+          oldSummary:String(row.memory_summary||""),
+          fromTurn:Number(row.memory_turn_count),
+          throughTurn:Math.min(Number(row.turn_count),Number(row.memory_turn_count)+4),
+          messages:turns.rows.map(x=>({role:x.role,content:x.body}))};
+      } catch(error) { await client.query("ROLLBACK"); throw error; }
+      finally {client.release();}
+    },
+    async completeMemoryTask(task,summary) {
+      const {uid,threadId,claimId,throughTurn}=task;
+      owner(uid);identifier(threadId);identifier(claimId);
+      const value=string(summary,1600);
+      if (!Number.isInteger(throughTurn)||throughTurn<0) invalid();
+      const result=await db.query(
+        `UPDATE quizer_ai.threads SET memory_summary=$4,
+          memory_turn_count=$5,memory_status=
+            CASE WHEN turn_count-$5>=3 THEN 'pending' ELSE 'idle' END,
+          memory_claim_id=NULL,memory_claimed_at=NULL
+          WHERE id=$1 AND owner_uid=$2 AND memory_claim_id=$3
+            AND memory_status='running' AND memory_turn_count<=$5`,
+        [threadId,uid,claimId,value,throughTurn]);
+      return result.rowCount===1;
+    },
+    async failMemoryTask(task) {
+      const {uid,threadId,claimId}=task;
+      owner(uid);identifier(threadId);identifier(claimId);
+      await db.query(
+        `UPDATE quizer_ai.threads SET memory_status='attention'
+          WHERE id=$1 AND owner_uid=$2 AND memory_claim_id=$3
+            AND memory_status='running'`,
+        [threadId,uid,claimId]);
     },
     async listDocuments(uid,limit=20) {
       owner(uid);
