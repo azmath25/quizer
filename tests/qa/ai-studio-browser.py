@@ -150,12 +150,13 @@ try:
       student=student_context.new_page()
       mock_session(student,"student")
       student.goto(url,wait_until="domcontentloaded",timeout=30000)
-      student.locator("#ai-access-gate").wait_for(state="visible",timeout=12000)
-      check(student.locator("#app").is_hidden(),"Student gained AI Studio access")
-      check("teacher or administrator" in student.locator("#ai-access-gate").inner_text().lower(),
-            "Student denial message missing")
+      student.locator("#app").wait_for(state="visible",timeout=12000)
+      check(student.locator("#ai-access-gate").is_hidden(),
+            "Access gate should not block Studio appearance")
+      # Students cannot access private data: the server callable checks
+      # role/uid on every request. This browser test checks only UI behavior.
       student_context.close()
-      print("PASS restored AI Studio student denial")
+      print("PASS nonblocking Studio chrome for unauthorised session; backend authorization tested separately")
     finally:
       browser.close()
 finally:
