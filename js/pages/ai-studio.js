@@ -12,6 +12,7 @@ import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
 import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
+import {mountLocalSourcePreview} from "../components/ai-source-preview.js";
 
 const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access-gate");
@@ -20,6 +21,7 @@ let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="",selecte
 const originalSources=new Map();
 const batchReviews=new Map();
 let transientUrls=[];
+let sourcePreview=null;
 const listen=(id,kind,fn)=>$(id).addEventListener(kind,fn);
 const icon=(name,small=false)=>{
   const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
@@ -747,9 +749,9 @@ function updatePdfBudgetSummary(){
 }
 async function newJob(event){
   event.preventDefault();if(busyJob)return;
-  const file=$("ai-job-file").files?.[0],page=Number($("ai-job-page").value);
+  const file=sourcePreview?.getFile()??null,page=Number($("ai-job-page").value);
   const lastPage=$("ai-job-last-page").value?Number($("ai-job-last-page").value):0;
-  if(!file){status("Select a PDF or image.",true);return;}
+  if(!file){status("Select and inspect a valid PDF or image (8 MiB maximum).",true);return;}
   busyJob=true;$("ai-start-job").disabled=true;
   try{
     const job=await submitMimoBatch(file,{
@@ -884,6 +886,10 @@ async function boot(){
     mountShell({showAssistant:false,showBackdrop:false});
     app.hidden=false;gate.hidden=true;
     wireOriginalChrome();
+    sourcePreview=mountLocalSourcePreview({
+      input:$("ai-job-file"),container:$("ai-local-source-preview"),
+      onSourceChange:()=>{$("ai-upload-consent").checked=false;},
+    });
     listen("ai-new-chat","click",()=>$("type-dialog").showModal());
     listen("ai-load-older","click",()=>void loadOlder());
     listen("ai-chat-search","input",drawThreads);
