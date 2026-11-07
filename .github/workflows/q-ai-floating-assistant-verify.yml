@@ -1,10 +1,6 @@
 name: Verify floating Mimo Assistant (no deploy)
 
 on:
-  push:
-    branches: [feature/q-ai-floating-assistant-mimo-20261106]
-  pull_request:
-    branches: [work/quizer-audit-optimization-2026-11]
   workflow_dispatch:
 
 permissions:

@@ -1,9 +1,6 @@
 name: Consolidated Quizer feature verification (no deployment)
 
 on:
-  push:
-    branches:
-      - feature/quizer-math-results-pass-tour-latest-2026-11-05
   workflow_dispatch:
 
 permissions:

@@ -1,8 +1,5 @@
 name: Verify Quizer touch cards, bank actions and snipping
 on:
-  push:
-    branches:
-      - feature/mobile-full-card-quiz-tap-2026-11-06
   workflow_dispatch:
 
 permissions:

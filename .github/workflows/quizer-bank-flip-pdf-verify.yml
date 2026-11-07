@@ -1,9 +1,7 @@
 name: Verify bank card full-width flip and teacher PDF placeholders
 on:
-  push:
-    branches:
-      - fix/bank-card-flip-pdf-placeholders-2026-11-06
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

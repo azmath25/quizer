@@ -1,14 +1,7 @@
 name: Restore original AI Studio UI verification
 on:
-  pull_request:
-    paths:
-      - ai.html
-      - js/pages/ai-studio.js
-      - assets/css/ai-studio-production.css
-      - tests/qa/ai-studio-browser.py
-      - tests/unit/ai-studio-focus.test.mjs
-      - .github/workflows/ai-studio-original-restore.yml
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

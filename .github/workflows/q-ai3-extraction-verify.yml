@@ -1,10 +1,6 @@
 name: Q-AI.3 extraction contract verification (no deploy)
 
 on:
-  push:
-    branches: [feature/q-ai3-extraction-contract-20261106]
-  pull_request:
-    branches: [work/quizer-audit-optimization-2026-11]
   workflow_dispatch:
 
 permissions:

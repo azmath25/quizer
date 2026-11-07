@@ -1,9 +1,7 @@
 name: AI Studio shared-shell parity verification
 on:
-  push:
-    branches:
-      - feature/ai-site-shell-parity-2026-11-05
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

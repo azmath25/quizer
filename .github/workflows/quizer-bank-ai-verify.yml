@@ -1,22 +1,6 @@
 name: Quizer bank layout and AI Studio verification
 
 on:
-  push:
-    branches:
-      - fix/problem-bank-grid-ai-discoverability-2026-11-05
-    paths:
-      - ".github/workflows/quizer-bank-ai-verify.yml"
-      - "functions/**"
-      - "js/**"
-      - "assets/**"
-      - "quiz.html"
-      - "shared/**"
-      - "db/**"
-      - "scripts/**"
-      - "tests/**"
-      - "package.json"
-      - "package-lock.json"
-      - "firebase.json"
   workflow_dispatch:
 
 permissions:
