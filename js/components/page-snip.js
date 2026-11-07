@@ -73,7 +73,7 @@ function snipBlock(el) {
     el.closest("div,section,article") || el;
 }
 
-function visibleTextIn(rect) {
+export function visibleTextIn(rect) {
   const fragments = [];
   let scanned = 0, budget = 0;
   const emit = (text,kind,el) => {
