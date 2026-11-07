@@ -343,15 +343,35 @@ test("owner checks known attention run IDs without creating new paid runs",async
   assert.equal(checked.neverStartedNewRuns,true);
   assert.equal(checked.state,"attention");
   assert.equal(postCount(),1,"a definitively failed run must not be auto-resubmitted");
-  // If a previously uncertain recorded run eventually completes, recover
-  // its outputs using the same immutable run ID; do not start a second run.
-  remoteStatus="completed";
-  const recovered=await app.reconcile({auth:auth(uid),data:{jobId:started.jobId}});
-  assert.equal(recovered.pages[0].state,"completed");
-  assert.equal(recovered.pages[1].state,"queued");
+  // A definitively failed Mimo run remains failed on reconciliation.
+  const stillFailed=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(stillFailed.pages[0].error,"MIMO_RUN_FAILED");
   assert.equal(postCount(),1);
+});
+
+test("late completion is recovered only for a previously uncertain status check",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  let ambiguous=true;
+  const fn=async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1))&&ambiguous)
+      throw new Error("ambiguous GET response");
+    return fallback(url,options);
+  };
+  const app=service(db,fn);
+  const job=await app.start({auth:auth(uid),
+    data:request("request_late_completed_001")});
+  await app.sweep();await app.sweep();
+  const uncertain=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(uncertain.pages[0].error,"MIMO_OUTCOME_UNKNOWN");
+  assert.equal(uncertain.pages[0].state,"attention");
+  ambiguous=false;
+  const restored=await app.reconcile({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(restored.pages[0].state,"completed");
+  assert.equal(restored.pages[1].state,"queued");
+  const postCount=calls.filter(x=>x.options?.method==="POST"&&x.url.endsWith("/runs")).length;
+  assert.equal(postCount,1);
   assert.equal((await app.getPage({auth:auth(uid),
-    data:{jobId:started.jobId,pageNumber:1}})).page.questions.length,1);
+    data:{jobId:job.jobId,pageNumber:1}})).page.questions.length,1);
 });
 
 test("unknown dispatch without a run ID is not replayed by reconciliation",async()=>{
@@ -375,13 +395,12 @@ test("unknown dispatch without a run ID is not replayed by reconciliation",async
 
 test("reconciliation reattaches an existing still-running job without dispatching again",async()=>{
   const db=firestore(),calls=[],fallback=upstream(calls);
-  let actualStatus="failed";
+  let ambiguous=true;
   const fn=async(url,options)=>{
     if(url.endsWith("/v1/runs/"+runId(1))){
       calls.push({url,options});
-      return actualStatus==="failed"
-        ?json({id:runId(1),status:"failed"})
-        :json({id:runId(1),status:"running"});
+      if(ambiguous)throw new Error("ambiguous GET response");
+      return json({id:runId(1),status:"running"});
     }
     return fallback(url,options);
   };
@@ -391,7 +410,7 @@ test("reconciliation reattaches an existing still-running job without dispatchin
   await app.sweep();await app.sweep();
   const paused=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
   assert.equal(paused.pages[0].state,"attention");
-  actualStatus="running";
+  ambiguous=false;
   const checked=await app.reconcile({auth:auth(uid),data:{jobId:job.jobId}});
   assert.equal(checked.pages[0].state,"submitted");
   assert.equal(checked.state,"running");
