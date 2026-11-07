@@ -104,7 +104,11 @@ test("one PDF upload creates durable whole-document parent and owner-scoped hist
 test("scheduled sweeps dispatch every page once and save individually validated checkpoints",async()=>{
   const db=firestore(),calls=[],app=service(db,upstream(calls));
   const started=await app.start({auth:auth(uid),data:request("request_batch_test_00002")});
-  for(let i=0;i<8;i++)await app.sweep();
+  await app.sweep();
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&
+    x.options.method==="POST").length,3,
+    "three pages are admitted within the same background tick");
+  for(let i=0;i<7;i++)await app.sweep();
   const done=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
   assert.equal(done.state,"ready_review");
   assert.equal(done.completed,3);
@@ -217,4 +221,16 @@ test("review cannot bind a forged or other-user private image asset",async()=>{
       verified_against_source:true,manual_marking_confirmed:false,reason:null,
     }],
   }}),{code:"INVALID_FIGURE_ASSET"});
+});
+
+test("three concurrent claim slots never reserve beyond the per-document hard cap",async()=>{
+  const db=firestore(),calls=[],app=service(db,upstream(calls));
+  const created=await app.start({auth:auth(uid),data:request(
+    "request_batch_test_parallel_reservation_007",{totalUsd:0.30},
+  )});
+  await app.sweep();
+  const state=await app.status({auth:auth(uid),data:{jobId:created.jobId}});
+  assert.equal(state.reservedUsd,0.3);
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,2);
+  assert.equal(state.state,"budget_exhausted");
 });
