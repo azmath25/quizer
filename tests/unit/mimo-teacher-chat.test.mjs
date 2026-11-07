@@ -36,7 +36,7 @@ test("each teacher submission uses exactly one existing Firebase callable", asyn
     functions: {region: "europe-west1"},
     functionsSDK: {httpsCallable: (functions, name, options) => {
       assert.equal(functions, services.functions);
-      assert.equal(name, "mimoTeacherChat");
+      assert.equal(name, "mimoAiHub");
       assert.equal(options.timeout, 115000);
       return async payload => {
         calls.push(payload);
@@ -54,6 +54,7 @@ test("each teacher submission uses exactly one existing Firebase callable", asyn
   assert.equal(answer.reply, "The answer is \\(x=2\\).");
   assert.equal(answer.runId, "run_1");
   assert.equal(calls.length, 1);
+  assert.equal(calls[0].action, "chat.send");
   assert.equal(calls[0].requestId, "unique-1");
   assert.equal(calls[0].message, "Explain");
   assert.equal(calls[0].context.length, 4000);
