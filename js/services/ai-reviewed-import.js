@@ -31,7 +31,7 @@ export async function importApprovedExtraction(prepared,{
   const checkpointKey=recoveryKey(actor.user.uid,sourceJobId,target);
   let recovery=null;
   try {
-    const saved=JSON.parse(sessionStorage.getItem(checkpointKey)||"null");
+    const saved=JSON.parse(localStorage.getItem(checkpointKey)||"null");
     if(safeRecord(saved)&&saved.fingerprint===fingerprint)recovery=saved;
   }catch{}
   // Stable per source+teacher+approved-content import intent. A corrected
@@ -51,7 +51,7 @@ export async function importApprovedExtraction(prepared,{
       bankOnly:target==="bank",sourceFingerprint:fingerprint,
     },nonce);
     recovery={jobId:created.jobId,sourceAssetId,fingerprint};
-    try{sessionStorage.setItem(checkpointKey,JSON.stringify(recovery));}catch{}
+    try{localStorage.setItem(checkpointKey,JSON.stringify(recovery));}catch{}
   }
   const checkpoint=await api("getImportCheckpoint",{jobId:recovery.jobId});
   if(checkpoint.sourceFingerprint!==fingerprint||checkpoint.itemCount!==records.length||
@@ -59,7 +59,8 @@ export async function importApprovedExtraction(prepared,{
       checkpoint.sourceAssetId!==recovery.sourceAssetId)
     throw Error("Import checkpoint does not match approved source.");
   if(checkpoint.status==="succeeded"){
-    try{sessionStorage.removeItem(checkpointKey);}catch{}
+    // Retain the confirmed receipt across page reloads and repeat clicks.
+    // No private question text or secret is stored in browser storage.
     return checkpoint.result;
   }
   if(checkpoint.status!=="running")throw Error("Existing import requires manual reconciliation.");
@@ -81,6 +82,6 @@ export async function importApprovedExtraction(prepared,{
     jobId:recovery.jobId,title,description:"Imported from teacher-reviewed Mimo extraction",
     settings:DEFAULT_SETTINGS,order:records.map(x=>x.importItemKey),
   });
-  try{sessionStorage.removeItem(checkpointKey);}catch{}
+  // Keep the job receipt to reopen it idempotently on this device.
   return result;
 }
