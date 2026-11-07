@@ -158,6 +158,32 @@ test("verified teacher can send once, clears submitted draft immediately and sen
   h.popup.close();
 });
 
+test("every message has a working copy button and a new draft survives a pending reply",async()=>{
+  const h=setup(),original=globalThis.navigator;
+  let resolve,copied=null;
+  Object.defineProperty(globalThis,"navigator",{configurable:true,
+    value:{clipboard:{writeText:async text=>{copied=text;}}}});
+  try{
+    responder=()=>new Promise(r=>{resolve=r;});
+    h.input.value="Solve \\(x+2=4\\)";
+    const pending=h.form.fire("submit");
+    await Promise.resolve();
+    const copy=h.log.querySelector(".qa-copy");
+    assert.ok(copy);
+    await copy.fire("click");
+    assert.equal(copied,"Solve \\(x+2=4\\)");
+    h.input.value="Next draft";
+    resolve({reply:"x=2",saved:true});
+    await pending;
+    assert.equal(h.input.value,"Next draft");
+    assert.ok(h.log.find(n=>n.className==="qa-copy"&&n.textContent==="Copy message"));
+    h.popup.close();
+  }finally{
+    if(original===undefined)delete globalThis.navigator;
+    else Object.defineProperty(globalThis,"navigator",{configurable:true,value:original});
+  }
+});
+
 test("unknown outcomes preserve the draft, show request reference and never retry", async () => {
   const h = setup();
   responder = async () => {throw {details: {reason: "MIMO_OUTCOME_UNKNOWN"}};};
