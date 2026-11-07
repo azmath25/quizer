@@ -438,10 +438,18 @@ async function selectBatch(id){
     refresh.onclick=()=>void selectBatch(id);
     card.append(refresh);
     const list=node("div","","ai-list");
+    const labels={
+      processor:"Reading source",extract:"Extracting questions",
+      verify:"Verifying mathematics",rebuild_plan:"Planning figures",
+      tikz_source:"Writing TikZ",compile_png:"Compiling TikZ PNG",
+      output:"Preparing review",queued:"Waiting for worker",
+    };
     for(const page of job.pages||[]){
-      const b=node("button","Page "+page.number+" — "+page.state+
-        (page.state==="completed"?
-          " · "+page.questionCount+" questions · "+page.figureCount+" figures":""));
+      const phase=labels[page.stage]||"Processing";
+      const detail=page.state==="completed"
+        ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"
+        :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")":"";
+      const b=node("button","Page "+page.number+" — "+page.state+detail);
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
       list.append(b);
