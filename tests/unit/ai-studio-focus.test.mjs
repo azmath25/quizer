@@ -66,3 +66,10 @@ test("P1 Axiom-inspired single-page layout retains real services",()=>{
   assert.match(client,/readMimoPng\(/);
   assert.doesNotMatch(page,/Local design mode|DEMO|Simulated job/);
 });
+
+test("selected job detail refresh corrects stale inspector list state",()=>{
+  assert.match(client,/const job=await readMimoBatch\(id\)/);
+  assert.match(client,/state:job\.state/);
+  assert.match(client,/state:result\.state/);
+  assert.match(client,/drawJobs\(\)/);
+});
