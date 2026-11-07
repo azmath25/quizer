@@ -111,7 +111,9 @@ try:
         else:
           check("show-inspector" in page.locator("#app").get_attribute("class"),"Mobile inspector did not open")
         page.locator(".tools [data-act='inspector']").click()
-        page.locator("#ai-new-chat").click(force=True)
+        if width<=760:
+          page.locator("[data-act='sidebar']").first.click()
+        page.locator("#ai-new-chat").click()
         check(page.locator("#type-dialog").evaluate("(e)=>e.open"),"Original type chooser missing")
         page.locator("#type-dialog .type-card").filter(has_text="Problem solver").click()
         check("Problem solver" in page.locator("#compose-mode").inner_text(),
@@ -123,10 +125,14 @@ try:
         copy=page.locator(".message.assistant .ai-copy-msg").last
         check(copy.locator("svg").count()==1 and copy.inner_text().strip()=="",
               "Copy button should be icon-only")
-        page.locator("#ai-tab-jobs").click(force=True)
+        if width<=760:
+          page.locator("[data-act='sidebar']").first.click()
+        page.locator("#ai-tab-jobs").click()
         check(page.locator("#ai-job-form").is_visible(),"Production PDF job form missing")
         check(page.locator("#ai-job-budget").count()==1,"Budget control missing")
-        page.locator("#ai-tab-chat").click(force=True)
+        if width<=760:
+          page.locator("[data-act='sidebar']").first.click()
+        page.locator("#ai-tab-chat").click()
         check(page.locator("#ai-chat-panel").is_visible(),"Cannot return to assistant")
         if width<=760:
           page.locator("[data-act='sidebar']").first.click()
