@@ -226,7 +226,10 @@ def main():
     print("DELETED_OLD_PAGE_RECORDS", len(children))
 
     current = get_doc(token, current_name)
-    statuses = [state for _, state, _ in page_refs(current)]
+    statuses = [
+        p.get("mapValue", {}).get("fields", {}).get("state", {}).get("stringValue", "?")
+        for p in current.get("fields", {}).get("pages", {}).get("arrayValue", {}).get("values", [])
+    ]
     print("CURRENT_JOB", job_id(current)[:10],
           "state=", value(current, "state"), "pages=", statuses)
     print("CLEANUP_PASS. Keep archive until job processing is independently verified.")
