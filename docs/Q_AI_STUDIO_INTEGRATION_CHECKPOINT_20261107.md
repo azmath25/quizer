@@ -1,39 +1,44 @@
-# Q-AI Studio integration checkpoint — 2026-11-07
+# AI Studio / Quizer–Mimo implementation checkpoint — 2026-11-07
 
-## Approved product direction
+> This is a checkpoint, **not proof of deployment or workflow correctness**. Code and current CI/test evidence are authoritative. Do not merge this draft or remove `documents.html` until release gates pass.
 
-AI Studio (`ai.html`) is the single teacher-facing place for quick chat and background extraction. Create Quiz and Problem Bank link to the correct AI Studio job target; reviewed, structurally validated Quizer records import only after explicit approval.
+## Delivered separately to main
 
-## Implemented in **draft feature branch only**
+- Quizer PR #27: MathJax source-LaTeX preserving page snips. GitHub Pages deployed.
+- Quizer PR #28: copyable messages, uncompiled LaTeX fallback and empty-on-send composers. CI passed; GitHub Pages deployed.
+- Mimo PR #32: bounded deterministic `text_join`, `json_merge`, `json_validate` utilities. Merged after CI; **Cloud Run has not been redeployed**, so production workflow tools may not include them.
 
-- Replaced the simulated `ai.html` with authenticated chat and jobs UI.
-- Reused the original Quizer `validateProblem`, extraction-review schema, LaTeX round-trip, and existing import receipt APIs for direct private draft/bank creation.
-- Introduced a server-only `mimoAiHub` callable to share Neon chat threads across AI Studio, Ask AI popup, and floating assistant. Pagination permits older messages to be loaded.
-- Reused existing Neon history implementation from earlier branch without merging unrelated changes.
-- Added a bounded incremental conversation summary: full messages remain in Neon, only <=1600 characters of memory plus a few latest turns feed the cheap text workflow; each summary call has a $0.003 hard cap, a durable fenced claim, and no silent retries on unknown outcomes.
-- Introduced an owner-scoped `mimoExtractList` callable for persisted Firestore extraction jobs. The server now exposes sanitized Mimo timeline node statuses; no checkpoint payload is returned.
-- Raised per-page Quizer extraction default from $0.03 to $0.15 with explicit $0.15/$0.30/$0.50 selection and validation (server never accepts >$0.50 per run). The previous deployed functions still use $0.03.
-- Added direct approved Quizer import adapter; existing Quizer API validates owned assets and import records before saving.
-- Added image selection from chat; an explicit vision extraction job processes the photo, and the extracted mathematical content can then be used as contextual text in a chat response. General generated images remain unsupported.
-- Reconstructed TikZ PNG, where available, is privately saved and must be manually associated with the correct reviewed question.
+## AI Studio draft implementation — Quizer PR #26
 
-## Q-AI.SNIP — math-aware snipping (added to plan and implemented in branch)
+1. `ai.html` replaces the prototype with real authenticated teacher chat and a Background Jobs tab. Existing Create Quiz and Problem Bank paths link into the appropriate job target.
+2. Shared `mimoAiHub` Firebase callable uses Neon owner-scoped threads/messages and sends a compact conversation synopsis plus the last few turns instead of the whole transcript. The scheduled summarizer is fenced, uses at most $0.003 per confirmed request, and never automatically repeats uncertain model work. Original messages remain queryable.
+3. Photo upload creates a private Quizer image asset and a separately billed, owner-gated vision-extraction job. The attached photo reference and resulting conversation are saved. Text chat is **not** itself a native multimodal model; arbitrary returned images are **not** available.
+4. Whole-document jobs accept a single PDF/image and select pages 1–100, with an independently reserved $0.03–$0.50 per-page hard Mimo run cap and a teacher-selectable document reservation cap up to $50. Atomic Firestore transaction claims permit at most three active pages, multiple admissions per scheduled tick, and no hidden reruns after uncertain dispatch. Outstanding runs are still polled when the document budget becomes exhausted.
+5. The job API persists owner-authorized sanitized stage labels and per-page checkpoints: reading, extraction, verification, TikZ writing, PNG compilation, and preparing review. No fake ETA/progress percentages; timeline data must not leak prompts, credentials, or source content.
+6. Completed pages require source SHA verification, complete teacher decisions, canonical Quizer problem validation, LaTeX parser round trip and owned ready image-asset bindings. Revisions use optimistic version checks. The existing import APIs create private quiz drafts or problem-bank entries only after approval; no automatic publish.
+7. Prior single-page extraction remains functional until the new UI has been verified; do not delete its `documents.html` page beforehand.
 
-- Rebuild browser-page text snips **in DOM order**: the old code scanned text and appended all MathJax formulas at the end, scrambling mixed text/formulas.
-- Obtain original MathJax TeX at the typeset root, not unreadable rendered SVG glyphs or duplicate accessibility MathML; preserve inline versus display math delimiters.
-- Preserve separate paragraphs and repeated choice texts, enforce input limits, and keep math delimiters intact rather than clipping partial formulas.
-- Keep browser-tab pixel snip as a separate explicit-permission path for figures or formulas whose original LaTeX is unavailable; never pretend OCR or external-screen extraction has occurred.
-- Both the floating teacher assistant and `ai.html` consume the same DOM snip module. The user reviews the selected text in the composer before sending; no automatic model call or hidden answer-key extraction.
-- Tests: equation ordering, duplicate answer choices, display delimiters, bounded output, synthetic MathJax DOM integration, existing browser capture/privacy tests.
+## Storage / migration checkpoint
 
-## Safety / outstanding release blockers
+- Live Neon branch `sat-quiz-live-2026-11` was updated **additively** with compact chat-memory columns and image-asset/job references on 2026-11-07. Checked with `information_schema`. No existing chat, quiz, or job records were dropped.
+- PDF batch job metadata and review records currently live in owner-scoped Firestore; this is durable but not the proposed future Neon-native job ledger. Long-term job audit/report migrations are separate.
+- Original uploaded files and generated images stay in Quizer private asset storage or Mimo artifact storage, not the Neon message bodies.
 
-1. **Not yet a full-document background scheduler**: existing Quizer extraction supports one PDF page per run, 2 requests/minute and 20 requests/day. A 100-question / 20-figure parent job with durable per-page/per-figure checkpoints, total job budget, resumability and worker-side scheduling is still required.
-2. Review decisions live in the current browser; persist source-verified approvals and figure association before production release. Existing job metadata persists in Firestore but is not yet a unified Neon job ledger.
-3. No direct general-purpose vision chat workflow or arbitrary model-generated image output yet. Image conversation currently uses a bounded vision-extraction bridge.
-4. Old previously ephemeral popup conversations cannot be retroactively recovered unless data survives in that browser; new conversations use shared server-side history.
-5. Quizer live Neon requires **additive** `20261107_ai_compact_memory.sql` migration after production risk review. Applied/tested only on isolated Neon AI dev branch.
-6. Firebase deployment requires the authenticated `sat-quiz-fd317` project, secrets `QUIZER_NEON_DATABASE_URL` and `QUIZER_MIMO_PROJECT_KEY`, and owner-visible tests.
-7. Do not remove `documents.html`, merge, or release until the replacement is feature-complete, full test matrix is green and real provider workflows have been verified.
+## Release blockers and scope not yet completed
 
-Mimo deterministic `text_join`, `json_merge` and `json_validate` live on a separate **draft** feature branch; their unit/cloud-readiness CI passed. Neither repo is merged or deployed from this work.
+- **Real provider run**: Verify whole PDF with multiple pages and a figure, provider run-budget admission, output JSON quality, TikZ artifact fetch, final Quizer preview, and safe private import under an authenticated teacher. CI's Mimo mocks alone cannot prove this.
+- **Per-figure TikZ at scale**: Existing pinned Mimo workflow exposes a conditional *page* PNG. There is not yet one independent compile/retry checkpoint for each of 20 figures on one or many pages. A failed diagram must not rerun the whole source extraction; figure-specific workflow design and real tests are outstanding.
+- **Vision output**: Photos can be uploaded and their verified extracted mathematics discussed, but arbitrary model-produced image replies and raw-image native model chat require additional Mimo workflow support.
+- **Browser continuity**: New server-backed chats from `ai.html` and popups are shared. Old pre-release local-only chats may not exist on Neon and cannot automatically be recovered from other devices.
+- **Notification / ETA**: In-app job state/history works in draft; measured ETA and push notifications are not released.
+- **Deployment**: Firebase/Cloud Scheduler requires authenticated Google Cloud access. Release script `scripts/deploy-ai-studio-functions.sh --deploy` checks project, secrets and tests, then targets only AI-related Firebase functions. Do not use until the current PR is green and the live source/permission contract is verified.
+- `documents.html` deletion remains **deferred intentionally** until the new release is live and an actual teacher can extract, review and import from `ai.html`.
+
+## QA evidence to collect before full release
+
+- Full Github CI green on current PR #26 head (backend/unit/static/build and Firebase emulator/transport).
+- Live teacher can open an old saved thread started in popup from `ai.html?thread=...`, continue it, refresh, and see summary-backed context.
+- Real PDF page extraction completes within selected capped budget; 3-page + 20-figure simulations distinguish per-page and per-figure limitations.
+- Forced unknown/timeout does **not** reissue paid run; background job remains visible after reload; exhausted budget does not start new calls.
+- Rejecting/approving questions persists across reloads and remains owner-gated. Forged assets, duplicate imports, incorrect answers, malicious LaTeX and hidden grading data are blocked.
+- Only after passing release checks: deploy Firebase functions, then merge and publish UI, then retire `documents.html`.
