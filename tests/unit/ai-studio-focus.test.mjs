@@ -8,7 +8,7 @@ const page=read("ai.html"),client=read("js/pages/ai-studio.js");
 const shell=read("js/components/shell.js"),home=read("js/pages/home.js");
 
 test("AI Studio is a real module, not the old simulated localStorage demo",()=>{
-  assert.match(page,/src="js\/pages\/ai-studio\.js"/);
+  assert.match(page,/src="js\/pages\/ai-studio\.js(?:\?v=[\w-]+)?"/);
   assert.match(client,/sendTeacherChatMessage/);
   assert.match(client,/teacherChatHistory\("chat\.list"/);
   assert.match(client,/listMimoExtractions\(/);
