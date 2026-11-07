@@ -51,11 +51,15 @@ export async function authorizeExtractionRole(db, auth) {
 }
 export function validateExtractionUpload(raw) {
   if (!plain(raw) || Object.keys(raw).some(k =>
-    !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd","target"].includes(k)))
+    !["requestId","fileName","contentType","base64","pageNumber","costLimitUsd","target","imageAssetId"].includes(k)))
     fail("INVALID_FIELDS");
   const {requestId,fileName,contentType,base64,pageNumber} = raw;
   const target=raw.target ?? "quiz";
   if (!["quiz","bank","chat"].includes(target)) fail("INVALID_FIELDS");
+  const imageAssetId=raw.imageAssetId??null;
+  if(imageAssetId!==null&&
+    (typeof imageAssetId!=="string"||!/^[a-zA-Z0-9_-]{1,128}$/.test(imageAssetId)||
+      target!=="chat"))fail("INVALID_FIELDS");
   const requestedBudget=raw.costLimitUsd ?? EXTRACTION_WORKFLOW.costLimitUsd;
   if (typeof requestedBudget!=="number" || !Number.isFinite(requestedBudget) ||
       requestedBudget<0.03 || requestedBudget>EXTRACTION_WORKFLOW.maxPerRunUsd ||
@@ -75,7 +79,7 @@ export function validateExtractionUpload(raw) {
       bytes.toString("base64") !== base64 || !bytes.subarray(0,MIME[contentType].head.length)
         .equals(MIME[contentType].head)) fail("INVALID_FIELDS");
   if (contentType !== "application/pdf" && pageNumber !== 1) fail("INVALID_FIELDS");
-  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes),costLimitUsd:requestedBudget,target};
+  return {requestId,fileName,contentType,bytes,pageNumber,digest:sha(bytes),costLimitUsd:requestedBudget,target,imageAssetId};
 }
 function checkConfig(projectKey) {
   if (typeof projectKey !== "string" || projectKey.length < 24 ||
@@ -168,6 +172,12 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     const uid=await authorizeExtractionRole(db,auth);
     const file=validateExtractionUpload(data);
     checkConfig(projectKey);
+    if(file.imageAssetId){
+      const asset=await db.doc("assets/"+file.imageAssetId).get();
+      if(!asset.exists||asset.data()?.ownerId!==uid||
+        asset.data()?.kind!=="image"||asset.data()?.status!=="ready")
+        fail("INVALID_IMAGE_ASSET");
+    }
     const jobId=sha(uid+":"+file.requestId);
     const jobRef=db.doc("mimoExtractionJobs/"+jobId);
     const quotaRef=db.doc("mimoExtractionLimits/"+uid);
@@ -180,7 +190,8 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
         if (prev.uid !== uid || prev.digest !== file.digest ||
             prev.pageNumber !== file.pageNumber || prev.contentType !== file.contentType ||
             (prev.costLimitUsd ?? 0.03) !== file.costLimitUsd ||
-            (prev.target ?? "quiz") !== file.target)
+            (prev.target ?? "quiz") !== file.target ||
+            (prev.imageAssetId??null)!==file.imageAssetId)
           fail("REQUEST_ID_CONFLICT");
         existing=prev;
         return;
@@ -193,7 +204,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
           count>=EXTRACTION_WORKFLOW.perUtcDay) fail("RATE_LIMITED");
       tx.set(quotaRef,{day,count:count+1,recent:[...recent,time]});
       tx.create(jobRef,{uid,digest:file.digest,fileName:file.fileName,
-        contentType:file.contentType,pageNumber:file.pageNumber,costLimitUsd:file.costLimitUsd,target:file.target,
+        contentType:file.contentType,pageNumber:file.pageNumber,costLimitUsd:file.costLimitUsd,target:file.target,imageAssetId:file.imageAssetId,
         state:"accepted",createdAt:new Date(time).toISOString(),runId:null,
         source:null,error:null});
     });
@@ -242,6 +253,7 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       jobId:item.id,state:item.state,fileName:item.fileName,
       pageNumber:item.pageNumber,createdAt:item.createdAt,
       target:item.target??"quiz",costLimitUsd:item.costLimitUsd??0.03,
+      imageAssetId:item.imageAssetId??null,
       runId:item.runId??null,error:item.error??null,
     }))};
   }
@@ -299,7 +311,8 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
     const decision=run.output?.exports?.diagram_decision_json;
     await ref.update({state:"completed"});
     return {jobId:data.jobId,state:"completed",runId:job.runId,stages:stageRows,
-      page,diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
+      page,imageAssetId:job.imageAssetId??null,
+      diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
       hasReconstruction:stageRows.some(r=>r.id==="compile_png"&&r.status==="completed") ||
         (!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed")};
   }
