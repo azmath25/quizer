@@ -177,7 +177,7 @@ export function createBatchService({
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,error:p.error||null,
         stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
-        retryAt:typeof p.retryAt==="string"&&/^20\\d\\d-/.test(p.retryAt)&&p.retryAt.length<=35?p.retryAt:null,
+        retryAt:typeof p.retryAt==="string"&&p.retryAt.length<=35&&Number.isFinite(Date.parse(p.retryAt))?p.retryAt:null,
         retryCount:Number.isInteger(p.retryCount)&&p.retryCount>=0&&p.retryCount<=100?p.retryCount:0,
         ...(p.diagnosticCode?{diagnosticCode:p.diagnosticCode,
           ...(p.diagnosticHttpStatus?{diagnosticHttpStatus:p.diagnosticHttpStatus}:{})}:{}),
