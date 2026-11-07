@@ -85,3 +85,12 @@ body[data-page="ai"] #ai-access[hidden]{display:none}
 @media(max-width:1120px){.ai-studio{grid-template-columns:220px minmax(0,1fr)}.ai-jobs{display:none}}
 @media(max-width:720px){.ai-studio{display:flex;flex-direction:column;height:calc(100dvh - 60px);min-height:0}.ai-sidebar{flex:none;max-height:150px;padding:10px 14px;border-right:0;border-bottom:1px solid var(--ai-line)}.ai-sidebar h2,.ai-sidebar>.ai-muted{display:none}.ai-sidebar #ai-new-chat{height:36px}.ai-sidebar #ai-chat-search{margin:8px 0}.ai-sidebar #ai-threads{display:none}.ai-main{flex:1}.ai-main-header{padding:12px 15px;min-height:65px}.ai-main-header h1{font-size:15px}.ai-main-header p{display:none}.ai-tabs button{padding:8px;font-size:10px}.ai-transcript{padding:17px 14px;gap:16px}.ai-composer{margin:0 10px 9px;padding:11px}.ai-job-form{grid-template-columns:1fr}.ai-job-form>label,.ai-job-form>p,.ai-job-form>button{grid-column:1/-1}.ai-msg{padding-left:37px}}
 @media(prefers-reduced-motion:reduce){.ai-main:before,.ai-msg{animation:none!important}.ai-studio button{transition:none}}
+
+
+/* Compact copy affordance: icon only, with accessible label and hover tooltip. */
+.ai-msg .ai-copy-msg{display:inline-grid;place-items:center;align-self:flex-start;width:29px;height:29px;min-width:29px;padding:0;margin-top:4px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);box-shadow:none;line-height:1}
+.ai-msg .ai-copy-msg:hover,.ai-msg .ai-copy-msg:focus-visible{background:var(--brand-tint);color:var(--brand);border-color:var(--ai-line)}
+.ai-msg .ai-copy-msg svg{display:block;width:16px;height:16px}
+.qa-tex-source{margin:3px 0 8px;font-size:10px;color:var(--muted)}
+.qa-tex-source summary{cursor:pointer;width:fit-content;max-width:100%;font-size:10px;color:var(--muted);padding:3px 0}
+.qa-tex-source pre,.qa-tex-uncompiled{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.6;background:var(--surface-alt);padding:10px 12px;border-radius:9px}
