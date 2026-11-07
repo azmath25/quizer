@@ -8,7 +8,7 @@ import {submitMimoExtraction,readMimoExtraction,readMimoPng,listMimoExtractions,
   submitMimoBatch,listMimoBatches,readMimoBatch,readMimoBatchPage,
   readMimoBatchImage,saveMimoBatchReview,readMimoBatchPrepared,
   buildTeacherReview,decideTeacherReview,exportTeacherReview,
-  extractionError,decodeMimoPng} from "../services/mimo-extraction.js";
+  extractionError,describeMimoRunFailure,decodeMimoPng} from "../services/mimo-extraction.js";
 import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
@@ -412,6 +412,8 @@ function drawStages(result){
   if(state==="running"||state==="submitted")
     card.append(node("p","The Mimo workflow is processing. Detailed step progress is not exposed by this bridge; no percentage or ETA is fabricated.","ai-muted"));
   if(result.error)card.append(node("p","Attention: "+result.error,"ai-error"));
+  const diagnostic=describeMimoRunFailure(result);
+  if(diagnostic)card.append(node("p",diagnostic,"ai-error"));
   return card;
 }
 async function verifySource(file,page){
@@ -637,7 +639,8 @@ async function selectBatch(id){
       const phase=labels[page.stage]||"Processing";
       const detail=page.state==="completed"
         ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"
-        :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")":"";
+        :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")"
+        :page.state==="attention"&&describeMimoRunFailure(page)?" · "+describeMimoRunFailure(page):"";
       const b=node("button","Page "+page.number+" — "+page.state+detail);
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
