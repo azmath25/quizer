@@ -33,7 +33,7 @@ function encode(bytes) {
     text+=String.fromCharCode(...bytes.subarray(i,i+32768));
   return btoa(text);
 }
-export async function submitMimoExtraction(file, pageNumber=1, {costLimitUsd=0.15,target="quiz"}={}) {
+export async function submitMimoExtraction(file, pageNumber=1, {costLimitUsd=0.15,target="quiz",imageAssetId=null}={}) {
   if (!(file instanceof File)||!file.size||file.size>MAX_MIMO_FILE_BYTES)
     throw Error("Choose a nonempty PDF, PNG or JPEG up to 8 MiB.");
   const type=/\.pdf$/i.test(file.name)?"application/pdf":
@@ -52,6 +52,7 @@ export async function submitMimoExtraction(file, pageNumber=1, {costLimitUsd=0.1
     const result=await invoke("mimoExtractStart",{
       requestId,fileName:file.name.slice(0,120),contentType:type,base64,
       pageNumber:type==="application/pdf"?pageNumber:1,costLimitUsd,target,
+      ...(imageAssetId?{imageAssetId}:{}) ,
     });
     return {...result,requestId};
   } catch(e) {
