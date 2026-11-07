@@ -258,8 +258,12 @@ export const mimoBatchSweep=onSchedule({
   try {
     await createBatchService({db,projectKey:QUIZER_MIMO_PROJECT_KEY.value()})
       .sweep(6);
-  }catch {
-    console.error("mimo_batch_sweep_unavailable");
+  }catch(error) {
+    // Do not log database documents, provider URLs, credentials or exception messages.
+    const raw=error?.code;
+    const safeCode=(typeof raw==="string"&&/^[a-zA-Z0-9_-]{1,32}$/.test(raw))
+      ?raw:"unknown";
+    console.error("mimo_batch_sweep_unavailable",safeCode);
   }
 });
 
