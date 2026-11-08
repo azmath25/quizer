@@ -312,6 +312,8 @@ test("P1 diagram-bearing PDF yields authenticated compiled PNG preview without r
     data:{jobId:started.jobId,pageNumber:1}});
   assert.equal(compiled.contentType,"image/png");
   assert.deepEqual(Buffer.from(compiled.base64,"base64"),png);
+  assert.equal(compiled.byteLength,png.length);
+  assert.equal(compiled.sha256,digest(png));
   await assert.rejects(app.image({auth:auth(uid2),
     data:{jobId:started.jobId,pageNumber:1}}),{code:"JOB_NOT_FOUND"});
   const dispatched=requests.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length;
@@ -680,4 +682,70 @@ test("duplicate completed-run polling cannot erase an existing teacher review",a
     "ready_review");
   assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options?.method==="POST").length,
     postsBefore);
+});
+
+test("T1: PNG retrieval uses authenticated Mimo GET and never makes a new run",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  const png=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0]);
+  const fetchImpl=async(url,opts)=>{
+    if(url.endsWith("/artifacts/compile_png")){
+      calls.push({url,options:opts});
+      assert.match(url,/\/v1\/runs\/[a-f0-9-]{36}\/artifacts\/compile_png$/);
+      assert.equal(opts.method,"GET");
+      assert.equal(opts.headers.Accept,"image/png");
+      assert.equal(opts.headers.Authorization,"Bearer "+secret);
+      return new Response(png,{headers:{"content-type":"image/png"}});
+    }
+    const r=await fallback(url,opts);
+    if(/\/v1\/runs\/[a-f0-9-]{36}$/.test(url)){
+      const data=await r.json();
+      data.output.nodes.compile_png.status="completed";
+      return json(data);
+    }
+    return r;
+  };
+  const app=service(db,fetchImpl);
+  const started=await app.start({auth:auth(uid),
+    data:request("t1_artifact_scope_read_only_20261108",
+      {pageStart:2,pageEnd:2})});
+  await app.sweep();await app.sweep();
+  const before=calls.filter(v=>v.url.endsWith("/runs")&&v.options.method==="POST").length;
+  await assert.rejects(app.image({auth:auth(uid2),data:{
+    jobId:started.jobId,pageNumber:2}}),{code:"JOB_NOT_FOUND"});
+  const img=await app.image({auth:auth(uid),data:{
+    jobId:started.jobId,pageNumber:2}});
+  assert.equal(img.byteLength,png.length);
+  assert.equal(img.sha256,digest(png));
+  assert.equal(calls.filter(v=>v.url.endsWith("/runs")&&v.options.method==="POST").length,before);
+});
+
+test("T1: malformed Mimo media type and invalid PNG are rejected without replay",async()=>{
+  for(const invalid of ["content-type","magic"]){
+    const db=firestore(),calls=[],fallback=upstream(calls);
+    const fetchImpl=async(url,opts)=>{
+      if(url.endsWith("/artifacts/compile_png")){
+        calls.push({url,options:opts});
+        return new Response(invalid==="magic"?Buffer.from("not png"):
+          Buffer.from([137,80,78,71,13,10,26,10]),{
+          headers:{"content-type":invalid==="content-type"?"application/json":"image/png"}
+        });
+      }
+      const r=await fallback(url,opts);
+      if(/\/v1\/runs\/[a-f0-9-]{36}$/.test(url)){
+        const data=await r.json();
+        data.output.nodes.compile_png.status="completed";
+        return json(data);
+      }
+      return r;
+    };
+    const app=service(db,fetchImpl);
+    const started=await app.start({auth:auth(uid),
+      data:request("t1_reject_bad_png_"+invalid.replace("-","_")+"_20261108",
+        {pageStart:1,pageEnd:1})});
+    await app.sweep();await app.sweep();
+    const postCount=calls.filter(v=>v.url.endsWith("/runs")&&v.options.method==="POST").length;
+    await assert.rejects(app.image({auth:auth(uid),data:{
+      jobId:started.jobId,pageNumber:1}}),{code:"MIMO_INVALID_RESPONSE"});
+    assert.equal(calls.filter(v=>v.url.endsWith("/runs")&&v.options.method==="POST").length,postCount);
+  }
 });
