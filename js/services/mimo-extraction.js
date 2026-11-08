@@ -122,7 +122,10 @@ export function extractionError(error) {
     MIMO_INVALID_EXTRACTION:"AI output did not match Quizer's required schema. Review/retry from the original source.",
     MIMO_OUTCOME_UNKNOWN:"Mimo may have accepted the request. Do not automatically retry.",
     MIMO_RATE_LIMITED:"The provider is rate limited. Check the existing job before trying again.",
-    MIMO_UPSTREAM_UNAVAILABLE:"Mimo is unavailable or the job could not be confirmed.",
+    MIMO_NOT_FOUND:"The stored compiled PNG was not found in Mimo. No AI rerun is needed to check this.",
+    MIMO_CONFLICT:"Mimo detected a checksum conflict for the stored image. The PNG was not used.",
+    MIMO_INVALID_RESPONSE:"The stored file was not returned as a valid PNG.",
+    MIMO_UPSTREAM_UNAVAILABLE:"Mimo is temporarily unavailable. Try the image download again without starting a new extraction.",
   };
   return map[reason]||(error?.message&&error.message.length<160?error.message:
     "Document extraction could not be completed.");
