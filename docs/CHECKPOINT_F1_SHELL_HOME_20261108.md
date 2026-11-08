@@ -30,3 +30,11 @@ The verifier could not be executed in the current assistant runtime: the checkou
 - No changes to main, production Vercel, Firebase, Mimo, Neon, extraction or F2-F7.
 - F2 can begin only at the next authorized milestone after the remaining F1 gates are satisfied.
 - F4 Documents remains **folder-first**: existing library opens by default; New extraction only by explicit click; folder moves must not rerun jobs.
+
+## Additional independent connector-side verification — 2026-11-08
+- Retrieved **actual GitHub branch source** for `js/pages/home.js`, `js/components/shell.js`, F0 spec, `atlas-v2.css`, brand tokens and entry HTML.
+- Executed the home rendering and shell navigation functions from that source in an isolated JavaScript runtime with mocked API and DOM, reproducing all **9 focused F1 behavior cases**; result: **9 passed / 0 failed**.
+- Verified: one guest primary action, active teacher resume precedence, conditional marking panel, student results, original brand/navigation structure, F4 remains planning-only, guest routes, tablet Activity access, teacher/admin route uniqueness.
+- The source execution is meaningful functional verification **but is not** a Node 22 `node --test` invocation and cannot verify CSS layout, visual appearance, real Firebase auth, or network operations.
+- Actual Vercel build logs confirm `npm run build`, **not** unit tests; preview remains READY.
+- A direct web preview fetch was unavailable, so browser screenshots and real interaction remain **unverified**. Do not close the milestone yet.
