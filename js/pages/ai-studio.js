@@ -434,9 +434,11 @@ function reviewUI(container,result,sourceVerified,{batchJobId=null,reviewVersion
   const head=node("section","","ai-review");
   head.append(node("h2","Teacher review · "+review.items.length+" questions"));
   head.append(node("p","Inspect the original file, correct LaTeX/answers, then approve or reject EVERY question. Figure problems need verified Quizer-owned PNG assets.","ai-muted"));
+  let sourcePicker=null;
   if(!sourceVerified){
     head.append(node("p","Re-select the exact original source below to enable review. Its SHA-256 must match this job.","ai-alert"));
     const source=node("input");source.type="file";source.accept=".pdf,.png,.jpg,.jpeg";
+    sourcePicker=source;
     source.onchange=async()=>{
       const file=source.files?.[0];
       if(!file)return;
@@ -463,12 +465,23 @@ function reviewUI(container,result,sourceVerified,{batchJobId=null,reviewVersion
       JSON.stringify(item.review?.figure_assets||{})):null;
     if(q.has_figure)card.append(node("p",
       "Save the reconstructed image using the button below, then add its asset ID and \\includegraphics{figure.png} in the statement.","ai-muted"));
+    if(!sourceVerified){
+      const unlock=node("button","Choose original PDF to enable approval","ai-secondary");
+      unlock.type="button";
+      unlock.onclick=()=>sourcePicker?.click();
+      card.append(node("p",
+        "Approval is locked because this browser no longer has the original PDF. Choose the same file again to verify its checksum; no new extraction or AI call is made.",
+        "ai-alert"),unlock);
+    }
     const inspected=node("input");inspected.type="checkbox";inspected.disabled=!sourceVerified;
     const inspectedLabel=node("label"," I checked this question against the original page");
     inspectedLabel.prepend(inspected);card.append(inspectedLabel);
-    const manual=node("input");manual.type="checkbox";manual.disabled=!sourceVerified;
-    const manualLabel=node("label"," Teacher will mark this open-ended answer manually");
-    manualLabel.prepend(manual);card.append(manualLabel);
+    const manual=node("input");manual.type="checkbox";
+    manual.disabled=!sourceVerified||q.question_type==="multiple_choice";
+    if(q.question_type!=="multiple_choice"){
+      const manualLabel=node("label"," Teacher will mark this open-ended answer manually");
+      manualLabel.prepend(manual);card.append(manualLabel);
+    }
     const actions=node("div","","ai-buttons");
     for(const action of ["approve","reject"]){
       const button=node("button",action==="approve"?"Approve":"Reject","ai-secondary");
@@ -717,6 +730,18 @@ async function selectBatch(id){
     card.append(list);
     target.replaceChildren(card);
     if(job.state==="ready_review"){
+      const reviewed=(job.pages||[]).filter(p=>p.reviewSaved===true);
+      const approved=(job.pages||[]).reduce((n,p)=>n+(p.approvedCount||0),0);
+      if(reviewed.length!==job.pageCount){
+        card.append(node("p",
+          "Review required: open each completed page, select the original PDF if prompted, approve or reject every question, and save the page decisions. "+
+          reviewed.length+" of "+job.pageCount+" pages reviewed.",
+          "ai-muted"));
+      }else if(approved===0){
+        card.append(node("p",
+          "All pages were reviewed, but no questions were approved for import.",
+          "ai-muted"));
+      }else{
       const button=node("button",job.target==="bank"
         ?"Import all approved questions to Problem Bank"
         :"Create private quiz draft from all approved questions","ai-primary");
@@ -736,6 +761,7 @@ async function selectBatch(id){
         }catch(e){status(safeError(e),true);button.disabled=false;}
       };
       target.append(button);
+      }
     }
   }catch(e){status(safeError(e),true);}
 }
