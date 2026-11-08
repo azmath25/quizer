@@ -13,18 +13,12 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "sat-quiz-fd317"
 MIMO_PROJECT = "mimo-backend-513412"
 REGION = "europe-west1"
 BRANCH = "fix/pdf-queue-fairness-20261108"
-INDEX_URL = (
-    "https://firestore.googleapis.com/v1/projects/sat-quiz-fd317/"
-    "databases/(default)/collectionGroups/mimoBatchJobs/indexes"
-)
 TARGETS = ",".join(
     "functions:mathquiz:" + name for name in
     ("mimoBatchStart", "mimoBatchList", "mimoBatchStatus",
@@ -95,39 +89,42 @@ def mimo_ready():
           flush=True)
 
 
-def firestore_request(method: str, url: str, body=None):
-    token = run("gcloud", "auth", "print-access-token")
-    headers = {"Authorization": "Bearer " + token,
-               "Content-Type": "application/json"}
-    data = json.dumps(body).encode() if body is not None else None
-    req = Request(url, data=data, headers=headers, method=method)
-    try:
-        with urlopen(req, timeout=30) as response:
-            return json.load(response)
-    except HTTPError as exc:
-        # Do not print response payloads or auth headers from production APIs.
-        raise Stop("Firestore index API " + method + " failed (HTTP " +
-                   str(exc.code) + "); verify database path, IAM, and API status") from None
-    except (URLError, TimeoutError, ValueError):
-        raise Stop("Firestore API unavailable or returned invalid data") from None
+def firestore_index_create(signature):
+    """Add exactly one collection-scoped composite index via supported gcloud CLI."""
+    args = [
+        "gcloud", "firestore", "indexes", "composite", "create",
+        "--project", PROJECT,
+        "--database=(default)",
+        "--collection-group=mimoBatchJobs",
+        "--query-scope=collection",
+        "--async",
+    ] + [
+        "--field-config=field-path=" + field + ",order=ascending"
+        for field in signature
+    ]
+    run(*args, timeout=100)
+    print("Additive index requested:", "+".join(signature), flush=True)
+
+
+def inspect_indexes():
+    """Use the official Cloud SDK instead of hand-built Firestore REST URLs."""
+    raw = run(
+        "gcloud", "firestore", "indexes", "composite", "list",
+        "--project", PROJECT, "--database=(default)", "--format=json",
+        timeout=120,
+    )
+    indexes = json.loads(raw)
+    require(isinstance(indexes, list), "Firestore CLI index list is not an array")
+    return [
+        index for index in indexes
+        if "/collectionGroups/mimoBatchJobs/" in index.get("name", "")
+    ]
 
 
 def index_signature(record):
     fields = record.get("fields", [])
     return tuple(f.get("fieldPath") for f in fields[:2])
 
-
-def inspect_indexes():
-    indexes = []
-    token = ""
-    while True:
-        suffix = "?pageSize=100" + ("&pageToken=" + token if token else "")
-        result = firestore_request("GET", INDEX_URL + suffix)
-        indexes.extend(result.get("indexes", []))
-        token = result.get("nextPageToken", "")
-        if not token:
-            break
-    return indexes
 
 
 def index_status(indexes, signature):
@@ -148,14 +145,7 @@ def ensure_indexes(apply: bool):
         state = index_status(indexes, signature)
         print("Firestore index", "+".join(signature), state or "MISSING", flush=True)
         if state is None and apply:
-            firestore_request("POST", INDEX_URL, {
-                "queryScope": "COLLECTION",
-                "fields": [
-                    {"fieldPath": name, "order": "ASCENDING"}
-                    for name in signature
-                ]
-            })
-            print("Additive index requested:", "+".join(signature), flush=True)
+            firestore_index_create(signature)
     if not apply:
         return
     for attempt in range(40):
