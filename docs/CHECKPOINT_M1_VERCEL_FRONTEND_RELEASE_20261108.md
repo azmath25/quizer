@@ -65,3 +65,33 @@ Remediation on this release branch:
 - No backend code, live Firebase function, provider workflow, test logic or asset content was changed.
 
 **No Vercel deployment occurred during the failing attempt**. The release must be retried from the updated branch tip. Reuse the existing clean ephemeral worktree; do not reset or clean the original Quizer checkout.
+
+## Vercel account and upload outcome; safe resume (2026-11-08)
+
+The next user-run attempt from the fresh worktree `~/quizer-m1-release.W2Crzz` successfully completed:
+- 28/28 existing M1/T1 unit tests.
+- Regeneration of ignored backend `functions/shared/` mirror and 17-route static validation.
+- `M1_STATIC_TESTS_PASS` and `M1_VERCEL_STATIC_PREFLIGHT_PASS`.
+- Vercel CLI 65.12.1 interactive login for user `azmath25`.
+- Creation of the isolated project **`azmath25s-projects/quizer-ai-studio-m1-azmath25`** and linking it into the release worktree.
+- Vercel CLI generated a local ignored `.vercel/project.json` and `.env.local` (never log or commit contents).
+
+Then `vercel deploy --prod --yes` **failed during upload** with repeated `TypeError: fetch failed`. There is **no verified production deployment URL** and **no authenticated browser confirmation**.
+
+The source-controlled release script has been changed to **resume only the existing, linked project**. It will no longer create another project or relink. It validates the local `projectName`, project and team IDs, inspects the remote project in scope `azmath25s-projects`, diagnoses unauthenticated network access without leaking credentials, enables Node 22's proxy-aware fetch when applicable, and retries with Vercel's documented compressed `--archive=tgz` upload. Vercel CLI version `65.12.1` is pinned. If network diagnostics fail, it stops before mutating the deployment.
+
+Updated one-shot verification also includes `tests/unit/m1-vercel-release-resume.test.mjs`, with project-isolation checks and `bash -n` syntax tests for both release scripts. These tests will run in Cloud Shell during preflight. Source-only invariants (3) passed locally in the GitHub audit; **the revised shell script has not yet been executed in Cloud Shell**.
+
+**Resume from the same existing worktree** (do not create another worktree or delete the existing Vercel project):
+
+```bash
+cd ~/quizer-m1-release.W2Crzz
+export PATH="$HOME/.local/node-v22.23.4/bin:$PATH"
+git fetch origin release/m1-vercel-20261108
+git switch --detach origin/release/m1-vercel-20261108
+bash scripts/mimo/m1-release-vercel-cloudshell.sh --apply
+```
+
+If the network fails again, report `M1_VERCEL_NODE_NETWORK_FAIL` (with its code) or the upload error, but do not paste Vercel tokens or `.env.local`. Retry the existing project only after diagnosing the connection; do not invent a deployed URL or mark M1 released.
+
+**Note:** the earlier checkpoint's initial-deployment wording is superseded by this successful project-creation/failed-upload outcome. Preserve both as an audit trail.
