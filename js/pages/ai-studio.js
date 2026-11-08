@@ -13,6 +13,7 @@ import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
 import {mountLocalSourcePreview} from "../components/ai-source-preview.js";
+import {createMimoPngViewer} from "../components/mimo-png-viewer.js";
 import {inspectLocalDocument,makeTeacherContext} from "../services/local-document.js";
 
 const $=id=>document.getElementById(id);
@@ -548,6 +549,15 @@ function reviewUI(container,result,sourceVerified,{batchJobId=null,reviewVersion
   head.append(importButtons);container.append(head);
 }
 
+function batchCompiledPngViewer(jobId,pageNumber){
+  return createMimoPngViewer({
+    jobId,pageNumber,
+    fetchImage:readMimoBatchImage,decodeImage:decodeMimoPng,
+    explainError:extractionError,
+    registerUrl:url=>transientUrls.push(url),
+  });
+}
+
 async function openBatchPage(jobId,pageNumber){
   selectedJob=jobId;activeTab("jobs");drawJobs();
   const target=$("ai-job-result");
@@ -560,42 +570,16 @@ async function openBatchPage(jobId,pageNumber){
     const page=result.page;
     const heading=node("h2","Page "+pageNumber+" · "+page.questions.length+" questions");
     target.replaceChildren(back,heading);
+    // The compiled image belongs to the completed page, not to the
+    // question-by-question approval interface. Fetch it as soon as this page
+    // is opened; it is a read-only artifact GET, never another Mimo run.
+    if(result.hasReconstruction){
+      const viewer=batchCompiledPngViewer(jobId,pageNumber);
+      target.append(viewer.panel);
+      void viewer.load();
+    }
     const verified=await verifySource(originalSources.get(jobId),page);
     review=result.review||buildTeacherReview(page);
-    if(result.hasReconstruction){
-      const open=node("button","Preview TikZ PNG for this page","ai-secondary");
-      open.type="button";
-      open.onclick=async()=>{
-        open.disabled=true;
-        try{
-          const blob=decodeMimoPng(await readMimoBatchImage(jobId,pageNumber));
-          const url=URL.createObjectURL(blob);transientUrls.push(url);
-          const img=node("img");img.src=url;
-          img.alt="Reconstructed page diagram — compare against original before approval";
-          img.style.maxWidth="min(100%,480px)";
-          target.append(img);
-          const download=node("a","Download reconstructed PNG","ai-secondary");
-          download.href=url;
-          download.download="page-"+pageNumber+"-tikz.png";
-          target.append(download);
-          const save=node("button","Save verified PNG to private assets","ai-secondary");
-          save.type="button";
-          save.onclick=async()=>{
-            save.disabled=true;
-            try{
-              const file=new File([blob],"page-"+pageNumber+"-tikz.png",{type:"image/png"});
-              const assetId=await uploadAsset(file,()=>{},"image");
-              status("Figure saved privately. Use asset ID "+assetId+
-                " in the corresponding question's image binding.");
-            }catch(e){status(safeError(e),true);}
-            finally{save.disabled=false;}
-          };
-          target.append(save);
-        }catch(e){status(extractionError(e),true);}
-        finally{open.disabled=false;}
-      };
-      target.append(open);
-    }
     reviewUI(target,{jobId,page},verified,{
       batchJobId:jobId,reviewVersion:result.reviewVersion,
     });
@@ -703,33 +687,11 @@ async function selectBatch(id){
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
       list.append(b);
-      // A compiled TikZ asset should be reachable directly from the document
-      // overview. Requiring entry into a separate per-question review form
-      // obscured real images and made successful runs look text-only.
+      // Expose the stored image separately from old question review forms.
+      // Overview retrieval is opt-in so a large PDF never downloads every
+      // diagram just because the teacher opened the job.
       if(page.state==="completed"&&page.hasReconstruction){
-        const view=node("button","View / download page "+page.number+" PNG","ai-secondary");
-        view.type="button";
-        view.onclick=async()=>{
-          view.disabled=true;
-          try{
-            const blob=decodeMimoPng(await readMimoBatchImage(id,page.number));
-            if(selectedJob!==id)return;
-            const url=URL.createObjectURL(blob);transientUrls.push(url);
-            const panel=node("figure","","ai-generated-figure");
-            const img=node("img");img.src=url;
-            img.alt="Mimo-generated TikZ diagram for PDF page "+page.number;
-            img.style.maxWidth="min(100%,560px)";
-            img.style.height="auto";
-            const download=node("a","Download compiled PNG","ai-secondary");
-            download.href=url;download.download="page-"+page.number+"-tikz.png";
-            panel.append(img,download);
-            view.replaceWith(panel);
-          }catch(error){
-            status(extractionError(error),true);
-            view.disabled=false;
-          }
-        };
-        list.append(view);
+        list.append(batchCompiledPngViewer(id,page.number).panel);
       }
     }
     card.append(list);
