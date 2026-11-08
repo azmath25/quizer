@@ -122,3 +122,69 @@ test("F1 document library requirement is planned, not prematurely exposed as ext
   const shell=read("js/components/shell.js");
   assert.doesNotMatch(home+shell,/submitMimoBatch|submitMimoExtraction|createImportJob/);
 });
+
+function shellNav(session,{compact=false,page="home"}={}) {
+  const code=read("js/components/shell.js")
+    .replace(/^import .*\n/gm,"")
+    .replace(/^export /gm,"")+"\nreturn mountShell;";
+  const elements={};
+  const make=()=>({innerHTML:"",style:{setProperty(){}},
+    addEventListener(){},setAttribute(k,v){this[k]=v},
+    removeAttribute(k){delete this[k]},classList:{remove(){},add(){}}});
+  for(const selector of ["#site-header","#desktop-nav","#account-link","#mobile-nav",
+    "#site-footer","#theme-trigger","#theme-menu",".brand"]){
+    elements[selector]=make();
+  }
+  const dom={
+    body:{dataset:{page}},
+    documentElement:{dataset:{},style:{setProperty(){}}},
+    querySelector:selector=>elements[selector]||null,
+    querySelectorAll:()=>[],
+    addEventListener(){},
+  };
+  const storage={getItem:()=>null,setItem(){}};
+  const window={matchMedia:()=>({matches:compact,addEventListener(){}})};
+  const mount=new Function("watchSession","getSession","icon","e","document",
+    "window","localStorage",code)(
+      callback=>callback(session),()=>session,icon,escape,dom,window,storage);
+  mount({showAssistant:false,showBackdrop:false});
+  return {
+    desktop:elements["#desktop-nav"].innerHTML,
+    mobile:elements["#mobile-nav"].innerHTML,
+    brand:elements[".brand"],
+    account:elements["#account-link"],
+  };
+}
+const urls=markup=>[...markup.matchAll(/href="([^"]+)"/g)].map(x=>x[1]);
+
+test("F1 actual header renders guest navigation once, without private teacher/admin links",()=>{
+  const n=shellNav({...guest,authResolved:true});
+  assert.deepEqual(urls(n.desktop),["quizzes.html"]);
+  assert.deepEqual(urls(n.mobile),["index.html","quizzes.html","login.html"]);
+  assert.equal(n.account.href,"login.html");
+  assert.equal(n.brand["aria-current"],"page");
+});
+
+test("F1 actual tablet header keeps student Activity accessible",()=>{
+  const n=shellNav({...student,authResolved:true},{compact:true});
+  assert.deepEqual(urls(n.desktop),["quizzes.html","activity.html"]);
+  assert.match(n.desktop,/global-more-options/);
+  assert.deepEqual(urls(n.mobile),["index.html","quizzes.html","activity.html","profile.html"]);
+  assert.doesNotMatch(n.mobile,/admin\.html|teaching\.html|ai\.html/);
+});
+
+test("F1 teacher/admin nav keeps each route only once, including mobile More",()=>{
+  for(const admin of [false,true]){
+    const session={...teacher,authResolved:true,capabilities:{teach:true,admin}};
+    const n=shellNav(session,{compact:true});
+    const d=urls(n.desktop),m=urls(n.mobile);
+    for(const url of ["quizzes.html","teaching.html","ai.html","activity.html"]){
+      assert.equal(d.filter(x=>x===url).length,1,"desktop "+url);
+      assert.equal(m.filter(x=>x===url).length,1,"mobile "+url);
+    }
+    assert.equal(d.includes("admin.html"),admin);
+    assert.equal(m.includes("admin.html"),admin);
+    assert.match(n.mobile,/mobile-more-options/);
+    assert.equal(m.filter(x=>x==="profile.html").length,1);
+  }
+});
