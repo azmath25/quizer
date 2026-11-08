@@ -34,7 +34,7 @@ function validatedPage(content,source){
   // separator while preserving real TeX macros such as \\nu and \\nabla.
   const questions=page.questions.map(q=>({
     ...q,
-    statement_latex:q.statement_latex.replace(/\\n(?=\\s|[A-Z])/g,"\n"),
+    statement_latex:q.statement_latex.replace(/\\n(?=\s|[A-Z])/g,"\n"),
   }));
   return {...page,questions};
 }
