@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Production M1 static frontend release to an isolated Vercel project.
 # No GitHub Actions, no Firebase deploy, no new Mimo provider calls.
-# Resumes the already-created, linked isolated M1 Vercel project safely.
-# Does not create projects, relink, modify other Vercel projects or deploy Firebase.
+# Resume only the existing, already-linked isolated M1 Vercel project.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
@@ -48,8 +47,7 @@ if [[ ! -f vercel.json || ! -f .vercelignore ||
 fi
 
 echo "Preflight — source commit: $HEAD"
-echo "Target: existing isolated Vercel project '$TEAM/$PROJECT'."
-echo "No new project or Git link will be created."
+echo "Target: existing isolated Vercel project '$TEAM/$PROJECT' (no creation or relinking)."
 echo "Existing GitHub Pages site and Firebase functions are untouched."
 echo "Running verified M1 tests and static build…"
 bash scripts/mimo/m1-verify-cloudshell.sh
@@ -86,40 +84,15 @@ if [[ "$1" == "--plan" ]]; then
   exit 0
 fi
 
-# Vercel CLI 65.12.1 is the already-observed Cloud Shell release tool.
-# Keep this version pinned; a newer CLI must be re-audited separately.
+# Use the Vercel CLI version confirmed by the user's previous attempt.
 if command -v vercel >/dev/null 2>&1 &&
-   vercel --version 2>/dev/null | grep -Eq '^Vercel CLI 65\\.12\\.1$|^65\\.12\\.1
-case "$DEPLOY_URL" in
-  https://*) ;;
-  *) echo "Unexpected Vercel deployment URL. Inspect deployment output: $DEPLOY_URL" >&2; exit 4;;
-esac
-echo "Production deployment URL: $DEPLOY_URL"
-if command -v curl >/dev/null 2>&1; then
-  HTML="$(curl --retry 3 --retry-delay 2 --fail --location --silent --show-error "$DEPLOY_URL/ai.html")"
-  if [[ "$HTML" != *"m1-native-20261108"* || "$HTML" != *"ai-studio-native-m1.css"* ]]; then
-    echo "STOP: Deployed /ai.html does not contain pinned M1 assets." >&2
-    exit 4
-  fi
-  curl --retry 3 --retry-delay 2 --fail --location --silent --show-error \
-    "$DEPLOY_URL/assets/css/ai-studio-native-m1.css" >/dev/null
-  curl --retry 3 --retry-delay 2 --fail --location --silent --show-error \
-    "$DEPLOY_URL/js/components/mimo-png-viewer.js" >/dev/null
-  echo "M1_VERCEL_PUBLIC_ASSETS_PASS"
-fi
-echo "M1_VERCEL_PROD_DEPLOY_PASS"
-echo "NEXT: Firebase Authentication > Settings > Authorized domains:"
-echo "       Add the EXACT hostname of this Vercel deployment's stable production domain."
-echo "       Test signed-in teacher chat and existing Mimo job/PNG in Chrome."
-echo "NOTE: Google OAuth from a new web domain may show auth/unauthorized-domain until authorized."
-echo "GitHub Pages original site was not changed."
-; then
+   vercel --version 2>/dev/null | grep -Eq '^(Vercel CLI )?65[.]12[.]1$'; then
   VERCEL=(vercel)
 else
   VERCEL=(npx --yes vercel@65.12.1)
 fi
-# Node 22.21+ supports proxy environment variables for fetch via this opt-in.
-# Never display proxy settings or Vercel tokens in logs.
+# Node.js 22.21+ supports proxy environment variables for fetch.
+# Never print proxy URLs, credentials or local .env files.
 export NODE_USE_ENV_PROXY=1
 
 echo "Checking Vercel CLI authorization."
@@ -129,11 +102,11 @@ if ! "${VERCEL[@]}" whoami >/dev/null 2>&1; then
 fi
 "${VERCEL[@]}" whoami
 
-# The prior release already created and linked the isolated project, but the
-# upload failed. Resume ONLY that project; do not create or relink anything.
+# The first release successfully created and linked this project but
+# failed during upload. Do not create a duplicate or link another project.
 if [[ ! -f .vercel/project.json ]]; then
-  echo "STOP: Existing project link is missing. Do not create a new project." >&2
-  echo "From the existing release worktree, link the known project, then retry:" >&2
+  echo "STOP: Existing Vercel project link is missing. Do not create a new project." >&2
+  echo "To link the known existing project, run (without exposing credentials):" >&2
   echo "  npx --yes vercel@65.12.1 link --yes --scope '$TEAM' --project '$PROJECT'" >&2
   exit 3
 fi
@@ -151,13 +124,12 @@ if ! "${VERCEL[@]}" project inspect "$PROJECT" --scope "$TEAM" >/dev/null; then
   exit 3
 fi
 
-# Safe unauthenticated reachability diagnostics. HTTP 401 from the user endpoint
-# is EXPECTED without a bearer token; we do not print or request credentials.
-echo "Checking HTTPS connectivity to Vercel API (no credentials)…"
+# Diagnoses CLI 'fetch failed' without using, reading, or printing tokens.
+echo "Checking unauthenticated Vercel API reachability…"
 curl --connect-timeout 12 --max-time 25 \
    --silent --show-error -o /dev/null \
-   -w "Vercel API response (HTTP %{http_code}; 401 is expected unauthenticated).\\n" \
-   "https://api.vercel.com/v2/user" || echo "curl cannot reach Vercel API; Node check follows."
+   -w "Vercel API response (HTTP %{http_code}; 401 expected without token).\\n" \
+   "https://api.vercel.com/v2/user" || echo "curl reachability failed; checking Node fetch next."
 node --input-type=module <<'JS'
 try {
   const response=await fetch("https://api.vercel.com/v2/user", {
@@ -172,9 +144,8 @@ try {
 }
 JS
 
-echo "Retrying static deployment to VERIFIED existing M1 project, using compressed archive."
-echo "Original GitHub Pages and Firebase functions are not modified."
-# Vercel's documented archive mode reduces requests for many static files.
+echo "Retrying static deployment to the verified existing M1 project with compressed archive."
+# Vercel documents --archive=tgz for more reliable multi-file uploads.
 DEPLOY_URL=$("${VERCEL[@]}" deploy --prod --yes --scope "$TEAM" --archive=tgz)
 case "$DEPLOY_URL" in
   https://*) ;;
