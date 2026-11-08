@@ -233,7 +233,8 @@ export function createBatchService({
     const bytes=await transport().png(p.runId);
     if(bytes.length>4*1024*1024||!bytes.subarray(0,8)
       .equals(Buffer.from([137,80,78,71,13,10,26,10])))fail("MIMO_INVALID_RESPONSE");
-    return {contentType:"image/png",base64:bytes.toString("base64")};
+    return {contentType:"image/png",base64:bytes.toString("base64"),
+      byteLength:bytes.length,sha256:hash(bytes)};
   }
 
 
