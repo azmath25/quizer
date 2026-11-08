@@ -81,7 +81,11 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
         if(flags.length>=20) break;
         reason(flags,"Extractor: "+comment(reviewReason));
       }
-      const hasFigure=q.has_figure;
+      const embeddedFigure=/\\includegraphics\b|\\begin\s*\{\s*tikzpicture\s*\}/i
+        .test(q.statement_latex);
+      const hasFigure=q.has_figure||embeddedFigure;
+      if(embeddedFigure && !q.has_figure)
+        reason(flags,"Figure command exists despite missing figure flag");
       if(hasFigure)
         reason(flags,source.hasReconstruction
           ?"Compiled page PNG is not bound to this question"
@@ -114,7 +118,7 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
       const lines=[
         "% Mimo source page "+source.number+", printed question "+comment(number),
       ];
-      if(q.has_figure){
+      if(hasFigure){
         lines.push("% FIGURE UNBOUND — page "+source.number+
           (source.hasReconstruction?" has a compiled PNG; attach it only to the correct question.":" needs an image."));
         if(q.figure_description)
@@ -152,25 +156,37 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
     body.join("\n\n")+"\n";
   if(latex.length>MAX_TEX_CHARS)
     throw Error("Generated LaTeX exceeds the existing Quizer importer limit.");
-  let importerCompatible=false,parserError=null;
+  let importerCompatible=false,parserError=null,parserWarnings=[];
   try {
     const parsed=parseLatex(latex,{filename:"mimo-draft.tex"});
+    parserWarnings=parsed.warnings||[];
     if(parsed.quiz.questions.length!==items.length)
       throw Error("Importer returned a different number of questions.");
-    for(let i=0;i<items.length;i++){
-      const item=items[i],actual=parsed.quiz.questions[i];
-      if(actual.type!==(item.type==="multiple_choice"?"choice":"open"))
-        throw Error("Importer changed a question type at index "+(i+1));
-      if(item.type==="multiple_choice" && item.extractedAnswer!==null){
-        const position=ordered
-          .find(p=>p.number===item.pageNumber).page.questions
-          .find(q=>q.printed_number===item.printedNumber).options
-          .findIndex(o=>o.label===item.extractedAnswer);
-        if(actual.answer!=="o"+(position+1))
-          throw Error("Importer changed an answer at index "+(i+1));
-      } else if(item.type!=="multiple_choice" && item.extractedAnswer!==null &&
-         !actual.answers.includes(escaped(item.extractedAnswer))){
-        throw Error("Importer changed an answer at index "+(i+1));
+    let i=0;
+    for(const source of ordered){
+      for(const original of source.page.questions){
+        const actual=parsed.quiz.questions[i];
+        const label="question "+(i+1);
+        if(actual.type!==(original.question_type==="multiple_choice"?"choice":"open"))
+          throw Error("Importer changed type in "+label);
+        if(actual.prompt!==escaped(original.statement_latex).trim())
+          throw Error("Importer changed problem text in "+label);
+        if(original.question_type==="multiple_choice"){
+          if(actual.options.length!==original.options.length ||
+             actual.options.some((option,j)=>
+               option.text!==escaped(original.options[j].latex).trim()))
+            throw Error("Importer changed the choices in "+label);
+          const position=original.options.findIndex(o=>o.label===original.answer);
+          if(position<0||actual.answer!=="o"+(position+1))
+            throw Error("Importer changed the answer in "+label);
+        }else if(original.answer===null){
+          if(actual.answerMode!=="manual"||actual.answers.length)
+            throw Error("Importer changed manual marking in "+label);
+        }else if(actual.answers.length!==1 ||
+          actual.answers[0]!==escaped(original.answer).trim()){
+          throw Error("Importer changed the answer in "+label);
+        }
+        i++;
       }
     }
     importerCompatible=true;
@@ -188,7 +204,7 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
       figuresUnbound:items.filter(q=>q.figureRef).length,
       missingSolutions:items.length,blocked,
     },
-    importerCompatible,parserError,
+    importerCompatible,parserError,parserWarnings,
     readyForAutomaticImport:false,
     automaticallySaved:false,published:false,
   };
