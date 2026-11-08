@@ -67,9 +67,16 @@ export function createMimoPngViewer({
       const download = element("a", "Download compiled PNG", "ai-secondary");
       download.href = url;
       download.download = "page-" + pageNumber + "-tikz.png";
+      if (typeof response?.sha256 === "string" &&
+          /^[a-f0-9]{64}$/.test(response.sha256))
+        download.title = "SHA-256: " + response.sha256;
       visual.replaceChildren(img, download);
       loaded = true;
-      status.textContent = "PNG ready. Review against the original PDF.";
+      const size = Number.isSafeInteger(response?.byteLength) &&
+        response.byteLength > 0 ? " · " +
+        response.byteLength.toLocaleString() + " bytes" : "";
+      status.textContent = "PNG ready" + size +
+        ". Compare its geometry with the original PDF.";
       retry.textContent = "PNG loaded";
       return true;
     } catch (error) {
