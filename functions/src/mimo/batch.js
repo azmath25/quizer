@@ -178,6 +178,7 @@ export function createBatchService({
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,
         recoveredFromCheckpoint:p.recoveredFromCheckpoint===true,
+        verificationUnusable:p.verificationUnusable===true,
         error:p.error||null,
         stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
         retryAt:typeof p.retryAt==="string"&&p.retryAt.length<=35&&Number.isFinite(Date.parse(p.retryAt))?p.retryAt:null,
@@ -219,7 +220,8 @@ export function createBatchService({
       page:snap.data().page,review:snap.data().review||null,
       reviewVersion:snap.data().reviewVersion||0,
       hasReconstruction:job.pages.find(p=>p.number===n).hasReconstruction===true,
-      recoveredFromCheckpoint:job.pages.find(p=>p.number===n).recoveredFromCheckpoint===true};
+      recoveredFromCheckpoint:job.pages.find(p=>p.number===n).recoveredFromCheckpoint===true,
+      verificationUnusable:job.pages.find(p=>p.number===n).verificationUnusable===true};
   }
   async function image({auth,data}){
     if(!isObj(data)||Object.keys(data).some(k=>!["jobId","pageNumber"].includes(k)))
@@ -399,20 +401,21 @@ export function createBatchService({
     try{
       const mimo=transport(),run=await mimo.run(p.runId);
       if(run.status==="completed"){
-        let page,recoveredFromCheckpoint;
+        let page,recoveredFromCheckpoint,verificationUnusable;
         try{
-          ({page,recoveredFromCheckpoint}=completedPageForReview(
+          ({page,recoveredFromCheckpoint,verificationUnusable}=completedPageForReview(
             run,pageSource(job,p.number)));
         }catch{fail("MIMO_INVALID_EXTRACTION");}
         const hasReconstruction=run.output?.nodes?.compile_png?.status==="completed";
         await recordRef(job.jobId,p.number).set({
           uid:job.uid,jobId:job.jobId,pageNumber:p.number,page,
           review:null,completedAt:time(),recoveredFromCheckpoint,
+          verificationUnusable,
         },{merge:true});
         await mark(job.jobId,p.number,{state:fromState,runId:p.runId},{
           state:"completed",questionCount:page.questions.length,
           figureCount:page.questions.filter(q=>q.has_figure).length,
-          hasReconstruction,recoveredFromCheckpoint,
+          hasReconstruction,recoveredFromCheckpoint,verificationUnusable,
           stage:"output",stageStatus:"completed",retryAt:null,error:null,
         });
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
