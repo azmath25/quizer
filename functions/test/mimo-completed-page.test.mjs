@@ -106,3 +106,49 @@ test("rejects oversize exports and rejects untrusted source attribution",()=>{
   assert.throws(()=>completedPageForReview(
     completed(JSON.stringify(extracted())),{...source,sha256:"not trusted"}));
 });
+
+test("current published v1 contract uses first-pass extraction even if independent QA is empty",()=>{
+  const run=completed(JSON.stringify(extracted()));
+  run.output.exports.verified_page_json="";
+  const result=completedPageForReview(run,source);
+  assert.equal(result.recoveredFromCheckpoint,false);
+  assert.equal(result.verificationUnusable,true);
+  assert.equal(result.page.quality_status,"review_required");
+  assert.equal(result.page.questions.length,1);
+  assert.equal(result.page.questions[0].review_required,true);
+  assert.match(result.page.questions[0].review_reasons.at(-1),
+    /returned no visible output/);
+});
+
+test("valid independent QA is used as the candidate reviewed answer",()=>{
+  const raw=extracted(),v=extracted();
+  v.questions[0].statement_latex="Corrected $x^2+9x=36$";
+  const run=completed(JSON.stringify(raw));
+  run.output.exports.verified_page_json=JSON.stringify(v);
+  const result=completedPageForReview(run,source);
+  assert.equal(result.verificationUnusable,false);
+  assert.equal(result.page.questions[0].statement_latex,v.questions[0].statement_latex);
+});
+
+test("invalid or truncated independent QA is never treated as a verified extraction",()=>{
+  const run=completed(JSON.stringify(extracted()));
+  run.output.exports.verified_page_json="{malformed";
+  let result=completedPageForReview(run,source);
+  assert.equal(result.verificationUnusable,true);
+  assert.equal(result.page.quality_status,"review_required");
+  assert.match(result.page.questions[0].review_reasons.at(-1),
+    /invalid or differed/);
+  run.output.exports.verified_page_json=JSON.stringify({
+    ...extracted(),questions:[{...question(),printed_number:"999"}],
+  });
+  result=completedPageForReview(run,source);
+  assert.equal(result.verificationUnusable,true);
+  assert.equal(result.page.questions[0].printed_number,"6");
+});
+
+test("current v1 contract cannot produce an empty primary extraction",()=>{
+  const run=completed("");
+  run.output.exports.verified_page_json=JSON.stringify(extracted());
+  run.output.nodes.extract.result.content="";
+  assert.throws(()=>completedPageForReview(run,source));
+});
