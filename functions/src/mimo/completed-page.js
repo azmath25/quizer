@@ -1,19 +1,56 @@
 /**
- * Recover a completed Mimo page using immutable checkpoints without any
- * provider retry, job submission, or mutation of the original run.
+ * Interpret Mimo's published PDF output contract for Quizer.
  *
- * A failed/invalid independent verification is NEVER represented as passed QA.
- * The fallback is intentionally narrow: only a truly empty completed verify
- * result, paired with a completed and schema-valid extraction checkpoint.
+ * Current workflow v1 exports:
+ * - extracted_page_json: FIRST-PASS vision extraction (mandatory, nonempty)
+ * - verified_page_json: independent visual QA (may be empty or invalid)
+ *
+ * The QA result can improve a page, but it can never erase an otherwise
+ * schema-valid extraction. Any missing/invalid/mismatched QA is explicitly
+ * marked as needing teacher review. For older already-completed runs whose
+ * export was incorrectly sourced from QA, salvage the stored first-pass
+ * checkpoint without resubmitting a paid job.
  */
-import {ExtractionContractError,validateExtractedPage} from "../../shared/mimo-extraction.js";
+import {ExtractionContractError,validateExtractedPage}
+  from "../../shared/mimo-extraction.js";
 
 const MAX_EXPORT_CHARS=250000;
 export const EMPTY_VERIFY_REVIEW_REASON=
   "Independent AI verification returned no visible output; check every question against the original page.";
+export const INVALID_VERIFY_REVIEW_REASON=
+  "Independent AI verification was invalid or differed from the first pass; compare all questions to the original page.";
 
 function invalid(){
-  throw new ExtractionContractError("Completed run has no usable verified extraction");
+  throw new ExtractionContractError("Completed run has no usable extraction");
+}
+
+function validatedPage(content,source){
+  if(typeof content!=="string"||!content.trim()||
+    content.length>MAX_EXPORT_CHARS)invalid();
+  const page=validateExtractedPage(JSON.parse(content),source);
+  if(page.questions.length===0||page.quality_status==="fail")invalid();
+  return page;
+}
+
+function reviewOnly(page,reason,recoveredFromCheckpoint=false){
+  const marked=validateExtractedPage({
+    schema:page.schema,
+    quality_status:"review_required",
+    questions:page.questions.map(q=>({
+      ...q,
+      review_required:true,
+      review_reasons:[...q.review_reasons.slice(0,19),reason],
+    })),
+  },page.source);
+  return {
+    page:marked,recoveredFromCheckpoint,verificationUnusable:true,
+  };
+}
+
+function samePrintedQuestions(first,verified){
+  if(first.questions.length!==verified.questions.length)return false;
+  return first.questions.every((item,i)=>
+    item.printed_number===verified.questions[i].printed_number);
 }
 
 export function completedPageForReview(run,source){
@@ -22,34 +59,43 @@ export function completedPageForReview(run,source){
   const final=output?.exports?.extracted_page_json;
   if(typeof final!=="string"||final.length>MAX_EXPORT_CHARS)invalid();
 
-  // Never override a present but malformed or contradictory verification
-  // output with an earlier, less trustworthy extraction.
-  if(final.trim()){
-    const page=validateExtractedPage(JSON.parse(final),source);
-    if(page.questions.length===0||page.quality_status==="fail")invalid();
-    return {page,recoveredFromCheckpoint:false};
+  // Historical broken v1 runs used verify as the export source.
+  // This is recoverable ONLY if the final verifier was truly empty and an
+  // immutable completed first-pass text checkpoint exists.
+  if(!final.trim()){
+    const verify=output?.nodes?.verify;
+    const extract=output?.nodes?.extract;
+    if(verify?.status!=="completed"||verify?.result?.kind!=="text"||
+       typeof verify?.result?.content!=="string"||
+       verify.result.content.trim()!==""||
+       extract?.status!=="completed"||extract?.result?.kind!=="text")
+      invalid();
+    return reviewOnly(validatedPage(extract.result.content,source),
+      EMPTY_VERIFY_REVIEW_REASON,true);
   }
 
-  const verify=output?.nodes?.verify;
-  const extract=output?.nodes?.extract;
-  if(verify?.status!=="completed"||verify?.result?.kind!=="text"||
-     typeof verify?.result?.content!=="string"||
-     verify.result.content.trim()!==""||
-     extract?.status!=="completed"||extract?.result?.kind!=="text"||
-     typeof extract?.result?.content!=="string"||
-     !extract.result.content.trim()||
-     extract.result.content.length>MAX_EXPORT_CHARS)invalid();
+  const first=validatedPage(final,source);
+  const exports=output?.exports||{};
+  if(!Object.prototype.hasOwnProperty.call(exports,"verified_page_json")){
+    // Old releases exported their QA result in extracted_page_json.
+    return {page:first,recoveredFromCheckpoint:false,verificationUnusable:false};
+  }
 
-  const first=validateExtractedPage(JSON.parse(extract.result.content),source);
-  if(first.questions.length===0||first.quality_status==="fail")invalid();
-  const recovered=validateExtractedPage({
-    schema:first.schema,
-    quality_status:"review_required",
-    questions:first.questions.map(q=>({
-      ...q,
-      review_required:true,
-      review_reasons:[...q.review_reasons,EMPTY_VERIFY_REVIEW_REASON],
-    })),
-  },source);
-  return {page:recovered,recoveredFromCheckpoint:true};
+  const verification=exports.verified_page_json;
+  if(typeof verification!=="string"||verification.length>MAX_EXPORT_CHARS)invalid();
+  if(!verification.trim())
+    return reviewOnly(first,EMPTY_VERIFY_REVIEW_REASON);
+
+  let verified;
+  try{verified=validatedPage(verification,source);}
+  catch{
+    // The first-pass result remains available, but MUST be manually checked.
+    return reviewOnly(first,INVALID_VERIFY_REVIEW_REASON);
+  }
+  if(!samePrintedQuestions(first,verified))
+    return reviewOnly(first,INVALID_VERIFY_REVIEW_REASON);
+
+  // Independent QA is a candidate correction, NEVER teacher approval.
+  // Every question is still pending explicit review in Quizer.
+  return {page:verified,recoveredFromCheckpoint:false,verificationUnusable:false};
 }
