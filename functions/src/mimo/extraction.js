@@ -5,8 +5,8 @@
  * are never automatically replayed.
  */
 import {safeMimoRunDiagnostic} from "./run-diagnostics.js";
+import {completedPageForReview} from "./completed-page.js";
 import { createHash } from "node:crypto";
-import { validateExtractedPage } from "../../shared/mimo-extraction.js";
 
 export const EXTRACTION_WORKFLOW = Object.freeze({
   origin: "https://mimo-execution-993130348924.europe-west1.run.app",
@@ -304,15 +304,13 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       const state=["failed","cancelled"].includes(run.status)?"failed":"running";
       return {jobId:data.jobId,state,runId:job.runId,stages:stageRows,error:state==="failed"?"MIMO_RUN_FAILED":null,...(state==="failed"?safeMimoRunDiagnostic(run.output):{})};
     }
-    let raw=run.output?.exports?.extracted_page_json;
-    if (typeof raw!=="string" || raw.length>250000) fail("MIMO_INVALID_RESPONSE");
-    let page;
-    try { page=validateExtractedPage(JSON.parse(raw),job.source); }
+    let page,recoveredFromCheckpoint;
+    try { ({page,recoveredFromCheckpoint}=completedPageForReview(run,job.source)); }
     catch { fail("MIMO_INVALID_EXTRACTION"); }
     const decision=run.output?.exports?.diagram_decision_json;
     await ref.update({state:"completed"});
     return {jobId:data.jobId,state:"completed",runId:job.runId,stages:stageRows,
-      page,imageAssetId:job.imageAssetId??null,
+      page,recoveredFromCheckpoint,imageAssetId:job.imageAssetId??null,
       diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
       hasReconstruction:stageRows.some(r=>r.id==="compile_png"&&r.status==="completed") ||
         (!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed")};
