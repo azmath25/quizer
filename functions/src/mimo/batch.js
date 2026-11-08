@@ -6,6 +6,7 @@
  */
 import {createHash, randomUUID} from "node:crypto";
 import {safeMimoRunDiagnostic} from "./run-diagnostics.js";
+import {completedPageForReview} from "./completed-page.js";
 import {validateExtractedPage,createExtractionReview,decideExtractionQuestion,prepareReviewedExtractionImport} from "../../shared/mimo-extraction.js";
 import {
   EXTRACTION_WORKFLOW,ExtractionError,authorizeExtractionRole,
@@ -175,7 +176,9 @@ export function createBatchService({
       pages:(job.pages||[]).map(p=>({
         number:p.number,state:p.state,runId:p.runId||null,
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
-        hasReconstruction:p.hasReconstruction===true,error:p.error||null,
+        hasReconstruction:p.hasReconstruction===true,
+        recoveredFromCheckpoint:p.recoveredFromCheckpoint===true,
+        error:p.error||null,
         stage:p.stage||"queued",stageStatus:p.stageStatus||"pending",
         retryAt:typeof p.retryAt==="string"&&p.retryAt.length<=35&&Number.isFinite(Date.parse(p.retryAt))?p.retryAt:null,
         retryCount:Number.isInteger(p.retryCount)&&p.retryCount>=0&&p.retryCount<=100?p.retryCount:0,
@@ -395,21 +398,21 @@ export function createBatchService({
     try{
       const mimo=transport(),run=await mimo.run(p.runId);
       if(run.status==="completed"){
-        const raw=run.output?.exports?.extracted_page_json;
-        if(typeof raw!=="string"||raw.length>250000)
-          fail("MIMO_INVALID_EXTRACTION");
-        let page;
-        try{page=validateExtractedPage(JSON.parse(raw),pageSource(job,p.number));}
-        catch{fail("MIMO_INVALID_EXTRACTION");}
+        let page,recoveredFromCheckpoint;
+        try{
+          ({page,recoveredFromCheckpoint}=completedPageForReview(
+            run,pageSource(job,p.number)));
+        }catch{fail("MIMO_INVALID_EXTRACTION");}
         const hasReconstruction=run.output?.nodes?.compile_png?.status==="completed";
         await recordRef(job.jobId,p.number).set({
           uid:job.uid,jobId:job.jobId,pageNumber:p.number,page,
-          review:null,completedAt:time(),
+          review:null,completedAt:time(),recoveredFromCheckpoint,
         },{merge:true});
         await mark(job.jobId,p.number,{state:fromState,runId:p.runId},{
           state:"completed",questionCount:page.questions.length,
           figureCount:page.questions.filter(q=>q.has_figure).length,
-          hasReconstruction,stage:"output",stageStatus:"completed",retryAt:null,error:null,
+          hasReconstruction,recoveredFromCheckpoint,
+          stage:"output",stageStatus:"completed",retryAt:null,error:null,
         });
       }else if(["failed","cancelled","dispatch_failed","waiting_for_review"].includes(run.status)){
         await mark(job.jobId,p.number,{state:fromState,runId:p.runId},
