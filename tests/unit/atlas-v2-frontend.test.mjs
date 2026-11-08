@@ -59,7 +59,7 @@ test("Home has new working dashboard layout but no new API calls", () => {
   }
   assert.match(home, /session\.capabilities\.teach/);
   assert.match(home, /quizCard\(q, \{management: teacher\}\)/);
-  assert.match(home, /<h2>Continue<\\/h2>/);
+  assert.match(home, /<h2>Continue<\/h2>/);
   assert.match(home, /Verify your email address/);
 });
 
