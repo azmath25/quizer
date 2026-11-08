@@ -153,50 +153,36 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <a class="skip" href="#workspace">Skip to workspace</a>
 <div class="app axiom-studio" id="app">
   <div class="shell axiom-shell" id="shell">
-    <aside class="sidebar axiom-sidebar" aria-label="AI Studio navigation">
+    <aside class="sidebar axiom-sidebar" aria-label="Saved conversations">
       <div class="axiom-side-inner">
         <div class="axiom-brand ai-native-context">
-          <div class="ai-native-context-label" aria-label="AI Studio workspace">
-            <span class="ai-native-context-mark" aria-hidden="true"><svg class="ico sm"><use href="#ic-spark"/></svg></span>
-            <span><strong>AI Studio</strong><small>Conversations &amp; documents</small></span>
-          </div>
-          <button class="icon-btn axiom-sidebar-close" data-act="close-drawers" type="button" aria-label="Close navigation"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
+          <div class="ai-native-context-label"><strong>Recent chats</strong></div>
+          <button class="icon-btn axiom-sidebar-close" data-act="close-drawers" type="button" aria-label="Close conversations"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
-        <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> <span>New chat</span><kbd>⌘ J</kbd></button>
-        <label class="side-search axiom-search"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg><input id="ai-chat-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search saved conversations"><span class="kbd">⌘ K</span></label>
-        <div class="axiom-overline"><span>YOUR WORKSPACE</span><span></span></div>
-        <nav class="sidenav axiom-nav" aria-label="Workspace views">
-          <button class="nav-row active" id="ai-tab-chat" type="button" aria-selected="true"><svg class="ico" aria-hidden="true"><use href="#ic-chat"/></svg> <span>Conversations</span> <small id="chat-count">0</small></button>
-          <button class="nav-row" id="ai-pin-filter" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-pin"/></svg> <span>Pinned chats</span></button>
-          <button class="nav-row" id="ai-tab-jobs" type="button" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg> <span>Documents</span> <small id="job-count">0</small></button>
-        </nav>
-        <div class="axiom-overline axiom-history-head"><span id="history-label">RECENT CONVERSATIONS</span><small id="history-count"></small></div>
+        <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> New conversation</button>
+        <label class="side-search axiom-search"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg><input id="ai-chat-search" type="search" placeholder="Search saved chats" autocomplete="off" aria-label="Search saved conversations"></label>
+        <div class="ai-chat-list-heading">
+          <span id="history-label">Recent conversations</span>
+          <small id="history-count"></small>
+          <button id="ai-pin-filter" class="ai-pin-filter" type="button" aria-label="Show pinned conversations"><svg class="ico sm" aria-hidden="true"><use href="#ic-pin"/></svg> Pinned</button>
+        </div>
         <div class="history" id="ai-threads" aria-label="Saved conversations"></div>
-        <div class="axiom-sidebar-bottom">
-          <div class="axiom-service-card">
-            <strong><span class="axiom-status-dot"></span> Private workspace</strong>
-            <p>Chats and document jobs are saved to your account.</p>
-            <button type="button" data-act="commands" class="axiom-service-command"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> Commands <kbd>⌘ K</kbd></button>
-          </div>
-          <div class="axiom-sidebar-footer ai-native-session">
-            <svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg>
-            <span><strong>Private AI workspace</strong><small>Access managed by your Quizer account</small></span>
-          </div>
-        </div>
+        <span id="chat-count" hidden>0</span><span id="job-count" hidden>0</span>
+        <div class="axiom-sidebar-footer ai-native-session" hidden>Private AI workspace</div>
       </div>
     </aside>
     <div class="axiom-center">
       <header class="topbar axiom-topbar">
-        <div class="axiom-crumbs">
-          <button class="icon-btn mobile-only" type="button" data-act="sidebar" aria-label="Open navigation"><svg class="ico" aria-hidden="true"><use href="#ic-bars"/></svg></button>
-          <span class="axiom-crumb-label">WORKSPACE</span><svg class="ico sm" aria-hidden="true"><use href="#ic-chevron"/></svg>
-          <span class="axiom-crumb-current" id="ai-route-name">New chat</span>
+        <div class="studio-mode-tabs" role="tablist" aria-label="AI Studio views">
+          <button class="icon-btn mobile-only" type="button" data-act="sidebar" aria-label="Open saved conversations"><svg class="ico" aria-hidden="true"><use href="#ic-bars"/></svg></button>
+          <button id="ai-tab-chat" class="studio-mode active" role="tab" type="button" aria-selected="true"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> Chat</button>
+          <button id="ai-tab-jobs" class="studio-mode" role="tab" type="button" aria-selected="false"><svg class="ico sm" aria-hidden="true"><use href="#ic-doc"/></svg> Documents</button>
+          <span id="ai-route-name" hidden>New chat</span>
         </div>
         <div class="tools axiom-toolbar">
-          <span class="axiom-private"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Private</span>
-          <button class="icon-btn" data-act="commands" type="button" title="Commands · Ctrl/⌘ K" aria-label="Open commands"><svg class="ico" aria-hidden="true"><use href="#ic-search"/></svg></button>
+          <button class="icon-btn" data-act="commands" type="button" title="Commands · Ctrl/⌘ K" aria-label="Search commands"><svg class="ico" aria-hidden="true"><use href="#ic-search"/></svg></button>
           <button class="icon-btn" data-act="settings" type="button" aria-label="Studio preferences" title="Preferences"><svg class="ico" aria-hidden="true"><use href="#ic-settings"/></svg></button>
-          <button class="icon-btn axiom-toggle" data-act="inspector" type="button" aria-label="Toggle workbench" aria-expanded="false" title="Show job workbench"><svg class="ico" aria-hidden="true"><use href="#ic-panel"/></svg></button>
+          <button class="icon-btn axiom-toggle" data-act="inspector" type="button" aria-label="Show or hide saved document jobs" aria-expanded="false" title="Saved jobs"><svg class="ico" aria-hidden="true"><use href="#ic-panel"/></svg></button>
         </div>
       </header>
       <main class="stage axiom-stage" id="workspace">
@@ -227,48 +213,51 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
           </div>
         </section>
         <section id="ai-jobs-panel" class="studio-jobs-panel" hidden aria-label="Document extraction workspace">
-          <div class="conversation-head axiom-conversation-head">
-            <div class="current-title">
-              <span class="title-symbol"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg></span>
-              <span class="title-copy"><h1>Documents</h1><p>Source pages · extraction · diagrams</p></span>
-            </div>
-            <button class="mini-btn" id="ai-return-chat" type="button"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> Back to chat</button>
-          </div>
           <div class="studio-jobs-content axiom-docs">
-            <div class="axiom-doc-intro">
-              <span class="axiom-overlabel">DOCUMENT WORKSPACE</span>
-              <h2>Extract a document, review every page.</h2>
-              <p>Run extraction in the background, inspect page progress and reconstructed diagrams, then review the questions before importing.</p>
-            </div>
-            <section class="axiom-doc-form" aria-label="New extraction"><form id="ai-job-form" class="ai-job-form">
-        <label>Target
-          <select id="ai-job-target"><option value="quiz">Create private quiz draft</option><option value="bank">Add to Problem Bank</option></select>
-        </label>
-        <label>PDF or photographed problems (up to 8 MiB)
-          <input id="ai-job-file" type="file" required accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
-        </label>
-        <section id="ai-local-source-preview" class="axiom-local-preview" aria-label="Local source inspection" hidden></section>
-        <label>First PDF page
-          <input id="ai-job-page" type="number" min="1" max="100" value="1">
-        </label>
-        <label>Last PDF page (leave empty for whole document)
-          <input id="ai-job-last-page" type="number" min="1" max="100" placeholder="Entire PDF">
-        </label>
-        <label>Hard provider budget per page, including conditional TikZ
-          <select id="ai-job-budget">
-            <option value="0.15">Economy · $0.15 (may stop multi-stage extraction)</option>
-            <option value="0.30" selected>Standard · $0.30 per page</option>
-            <option value="0.50">Complex diagrams · $0.50 per page</option>
-          </select>
-        </label>
-        <label>Maximum reserved AI budget for this document (USD)
-          <input id="ai-job-total-budget" type="number" min="0.15" max="50" step="0.01" value="15">
-        </label>
-        <p class="ai-muted">Pages run separately in the background. The total cap reserves each page's maximum before execution; it is not a price estimate or actual bill. If exhausted, the job stops before another paid run. Review every question and diagram before private import. The provider may still reject individual jobs even within budget.</p>
-        <p class="ai-muted" id="ai-job-estimate" role="status" aria-live="polite"></p>
-        <label><input id="ai-upload-consent" type="checkbox" required> I authorize uploading this source to Mimo for processing.</label>
-        <button id="ai-start-job" class="ai-primary" type="submit">Create extraction job</button>
-      </form></section>
+            <header class="ai-doc-header">
+              <div><h1>Extract PDF or image</h1>
+                <p>Upload a source, start extraction, and review the results when ready.</p>
+              </div>
+              <button class="mini-btn" type="button" data-act="inspector" id="ai-view-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-clock"/></svg> Saved jobs</button>
+              <button class="mini-btn" id="ai-return-chat" type="button" hidden>Back to chat</button>
+            </header>
+            <section class="axiom-doc-form" aria-label="New extraction">
+              <form id="ai-job-form" class="ai-job-form">
+                <label class="ai-file-field">PDF or image (up to 8 MiB)
+                  <input id="ai-job-file" type="file" required accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
+                </label>
+                <label class="ai-target-field">Send extracted questions to
+                  <select id="ai-job-target"><option value="quiz">Private quiz draft</option><option value="bank">Problem Bank</option></select>
+                </label>
+                <section id="ai-local-source-preview" class="axiom-local-preview" aria-label="Local source inspection" hidden></section>
+                <details class="ai-advanced-settings">
+                  <summary>Page range and spending limits <span>Optional</span></summary>
+                  <div class="ai-advanced-grid">
+                    <label>First PDF page
+                      <input id="ai-job-page" type="number" min="1" max="100" value="1">
+                    </label>
+                    <label>Last PDF page (blank = entire PDF)
+                      <input id="ai-job-last-page" type="number" min="1" max="100" placeholder="Entire PDF">
+                    </label>
+                    <label>Maximum provider budget per page, including TikZ
+                      <select id="ai-job-budget">
+                        <option value="0.15">Economy · $0.15 (may stop early)</option>
+                        <option value="0.30" selected>Standard · $0.30 per page</option>
+                        <option value="0.50">Complex diagrams · $0.50 per page</option>
+                      </select>
+                    </label>
+                    <label>Maximum reserved budget for this document (USD)
+                      <input id="ai-job-total-budget" type="number" min="0.15" max="50" step="0.01" value="15">
+                    </label>
+                    <p class="ai-muted">Caps are reservations, not a price estimate. Processing stops before an additional run if its cap would be exceeded. Every result requires review.</p>
+                    <p class="ai-muted" id="ai-job-estimate" role="status" aria-live="polite"></p>
+                  </div>
+                </details>
+                <p class="ai-default-cost-note">Default limits: $0.30 per page, $15 reserved total. Change these above before starting.</p>
+                <label class="ai-consent"><input id="ai-upload-consent" type="checkbox" required> I authorize sending this source to Mimo for processing.</label>
+                <button id="ai-start-job" class="ai-primary" type="submit">Start extraction</button>
+              </form>
+            </section>
             <div id="ai-job-result" class="ai-job-view" aria-live="polite"></div>
           </div>
         </section>
