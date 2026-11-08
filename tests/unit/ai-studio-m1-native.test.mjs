@@ -40,7 +40,7 @@ test("M1: chat, old threads, PDF jobs and T1 visual artifact remain in one docum
   assert.match(ui,/mountLocalSourcePreview\(/);
   assert.match(ui,/snipPageContent\(/);
   assert.match(html,/assets\/css\/ai-studio-native-m1.css\?v=m1-20261108/);
-  assert.match(html,/js\/pages\/ai-studio.js\?v=m1-native-20261108/);
+  assert.match(html,/js\/pages\/ai-studio.js\?v=(?:m1-native|m2-latex)-20261108/);
 });
 
 test("M1: completed PNG viewer exposes download and clear failure state without AI POST", () => {
