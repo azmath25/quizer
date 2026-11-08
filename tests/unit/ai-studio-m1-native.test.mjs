@@ -15,8 +15,8 @@ test("M1: only Quizer shared shell supplies global site branding/account/navigat
   assert.match(html,/<nav id="mobile-nav"/);
   assert.match(ui,/mountShell\(\{showAssistant:false,showBackdrop:false\}\)/);
   assert.match(shell,/id="desktop-nav"/);
-  assert.match(html,/class="axiom-brand ai-native-context"/);
-  assert.match(html,/Recent chats<\/strong>/);
+  assert.match(html,/class="ai-chat-sidebar-primary"/);
+  assert.match(html,/id="ai-new-chat"/);
   assert.doesNotMatch(html,/class="axiom-brand-link"/);
   assert.doesNotMatch(html,/Quizer <em>AI<\/em>/);
   assert.doesNotMatch(html,/Signed-in teacher \/ admin/);
