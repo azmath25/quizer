@@ -155,16 +155,15 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
   <div class="shell axiom-shell" id="shell">
     <aside class="sidebar axiom-sidebar" aria-label="Saved conversations">
       <div class="axiom-side-inner">
-        <div class="axiom-brand ai-native-context">
-          <div class="ai-native-context-label"><strong>Recent chats</strong></div>
+        <div class="ai-chat-sidebar-primary">
+          <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> New chat</button>
           <button class="icon-btn axiom-sidebar-close" data-act="close-drawers" type="button" aria-label="Close conversations"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
-        <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> New conversation</button>
         <label class="side-search axiom-search"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg><input id="ai-chat-search" type="search" placeholder="Search saved chats" autocomplete="off" aria-label="Search saved conversations"></label>
         <div class="ai-chat-list-heading">
-          <span id="history-label">Recent conversations</span>
+          <span id="history-label">Recent</span>
           <small id="history-count"></small>
-          <button id="ai-pin-filter" class="ai-pin-filter" type="button" aria-label="Show pinned conversations"><svg class="ico sm" aria-hidden="true"><use href="#ic-pin"/></svg> Pinned</button>
+          <button id="ai-pin-filter" class="ai-pin-filter" type="button" aria-label="Show pinned conversations" title="Show pinned chats" aria-pressed="false"><svg class="ico sm" aria-hidden="true"><use href="#ic-pin"/></svg></button>
         </div>
         <div class="history" id="ai-threads" aria-label="Saved conversations"></div>
         <span id="chat-count" hidden>0</span><span id="job-count" hidden>0</span>
@@ -196,17 +195,14 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
             <div class="axiom-composer-inner">
               <div id="pending" class="attached"></div>
               <form class="composer axiom-composer" id="ai-chat-form">
-                <div class="axiom-composer-eyebrow"><span><svg class="ico sm" aria-hidden="true"><use href="#ic-spark"/></svg> QUIZER ASSISTANT</span><span>Private, account-protected chat</span></div>
-                <textarea id="ai-prompt" rows="2" maxlength="3000" aria-label="Your message" placeholder="Ask about mathematics, quizzes, or a document..."></textarea>
+                <textarea id="ai-prompt" rows="2" maxlength="3000" aria-label="Your message" placeholder="Message the assistant..."></textarea>
                 <div class="composer-tools">
-                  <button class="compose-btn axiom-command" type="button" data-act="commands" title="Open command palette"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> <span>Commands</span></button>
                   <button class="compose-btn" type="button" data-act="attach" title="Attach a PNG or JPEG photo for private extraction"><svg class="ico sm" aria-hidden="true"><use href="#ic-paperclip"/></svg><span>Photo</span></button>
                   <button class="compose-btn" id="ai-snip-math" type="button" title="Snip visible page text and recover MathJax LaTeX"><svg class="ico sm" aria-hidden="true"><use href="#ic-snip"/></svg><span>Snip</span></button>
-                  <span class="compose-mode" id="compose-mode"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> General chat</span>
+                  <span class="compose-mode" id="compose-mode" hidden>General chat</span>
                   <button class="send" id="ai-send" type="submit" aria-label="Send message" title="Send · Enter"><svg class="ico" aria-hidden="true"><use href="#ic-send"/></svg></button>
                 </div>
               </form>
-              <div class="composer-note"><span><kbd>/</kbd> commands · <kbd>⌘ K</kbd> search</span><span>Enter sends · Shift+Enter newline</span></div>
               <input id="ai-chat-photo" type="file" accept="image/png,image/jpeg" hidden aria-label="Attach mathematics photo">
               <input id="ai-chat-text-file" type="file" accept=".txt,.tex,text/plain" hidden aria-label="Import a plain-text or TeX source into chat">
             </div>
