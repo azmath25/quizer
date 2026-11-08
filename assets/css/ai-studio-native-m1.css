@@ -1,0 +1,123 @@
+/* M1 — Quizer-native AI Studio, presentation-only adapter.
+ * Loaded after the existing production/Axiom styles. Quizer's shared
+ * #site-header remains the sole global logo, navigation, theme and account UI.
+ * No changes to API, history, auth, job or import code are made here.
+ */
+body[data-page="ai"]{overflow-x:hidden}
+
+.axiom-studio .axiom-brand.ai-native-context{
+  padding:0 10px 18px;
+  gap:8px;
+  min-height:47px;
+  border-bottom:1px solid var(--ax-border);
+  margin-bottom:17px;
+}
+.axiom-studio .ai-native-context-label{
+  display:flex;align-items:center;gap:11px;min-width:0;
+  font-family:var(--font-sans),system-ui,sans-serif;
+}
+.axiom-studio .ai-native-context-mark{
+  flex:none;display:grid;place-items:center;width:30px;height:30px;
+  border-radius:9px;color:var(--brand);
+  background:color-mix(in srgb,var(--brand) 9%,var(--surface));
+}
+.axiom-studio .ai-native-context-label strong{
+  display:block;font-size:14px;font-weight:750;letter-spacing:-.02em;
+}
+.axiom-studio .ai-native-context-label small{
+  display:block;color:var(--ax-muted);font-size:10px;line-height:1.5;
+}
+.axiom-studio .ai-native-session{
+  padding:12px 8px 2px;
+  border-top:1px solid var(--ax-border);
+  color:var(--ax-muted);gap:10px;
+}
+.axiom-studio .ai-native-session strong{
+  color:var(--ax-ink);font-size:11px;font-weight:700;
+}
+.axiom-studio .ai-native-session small{line-height:1.5}
+.axiom-studio .axiom-side-inner{padding-top:18px}
+.axiom-studio .axiom-service-card{
+  padding:11px 12px;border-radius:10px;
+}
+.axiom-studio .axiom-service-card p{margin:5px 0 8px}
+.axiom-studio .axiom-sidebar-bottom{padding-top:10px}
+.axiom-studio .conversation.axiom-thread{overscroll-behavior:contain}
+.axiom-studio .message-list{min-width:0}
+.axiom-studio .studio-jobs-content.axiom-docs{overflow-x:hidden}
+
+/* A completed TikZ artifact is a first-class preview, not a review-form extra.
+ * The authenticated in-memory blob link is only created on user request (or
+ * automatically when a completed page is selected). There are no new POSTs.
+ */
+.axiom-studio .ai-generated-figure{
+  display:grid;gap:10px;margin:14px 0;padding:16px;
+  border:1px solid var(--ax-border);border-radius:14px;
+  background:var(--ax-surface);min-width:0;
+}
+.axiom-studio .ai-generated-figure h3{
+  margin:0;font-size:15px;font-weight:750;line-height:1.5;color:var(--ax-ink);
+}
+.axiom-studio .ai-generated-figure p{margin:0;font-size:11px;line-height:1.65}
+.axiom-studio .ai-generated-figure button{
+  justify-self:start;max-width:100%;min-height:36px;
+  padding:8px 13px;border:1px solid var(--ax-border);
+  border-radius:9px;background:var(--ax-surface);color:var(--ax-ink);
+  font:inherit;cursor:pointer;
+}
+.axiom-studio .ai-generated-figure button:hover:not(:disabled){
+  border-color:var(--brand);color:var(--brand);
+}
+.axiom-studio .ai-generated-figure button:disabled{cursor:default;opacity:.75}
+.axiom-studio .ai-compiled-png{display:grid;justify-items:start;gap:10px;min-width:0}
+.axiom-studio .ai-compiled-png img{
+  display:block;max-width:100%;height:auto;object-fit:contain;
+  border:1px solid var(--ax-border);background:var(--surface);
+  border-radius:9px;
+}
+.axiom-studio .ai-compiled-png a{
+  display:inline-flex;min-height:36px;align-items:center;padding:8px 14px;
+  background:var(--brand);color:white;border-radius:9px;
+  font-size:12px;font-weight:700;text-decoration:none;
+}
+.axiom-studio .ai-compiled-png a:hover{
+  background:var(--brand-hover);color:white;
+}
+.axiom-studio .ai-compiled-png a:focus-visible,
+.axiom-studio .ai-generated-figure button:focus-visible{
+  outline:3px solid var(--brand);outline-offset:3px;
+}
+/* On the job overview, keep an unloaded image small until the teacher asks
+ * to view it; opening a page automatically requests only that page's image.
+ */
+.axiom-studio #ai-job-result .ai-generated-figure{
+  margin-block:10px 16px;
+}
+.axiom-studio #ai-job-list .ai-generated-figure{margin:8px 0}
+
+@media(max-width:1180px){
+  .axiom-studio .ai-generated-figure{padding:13px}
+}
+@media(max-width:760px){
+  /* Reserve space for BOTH the shared Quizer header and its real mobile nav.
+   * The older 58px-only rule concealed the composer underneath mobile nav.
+   */
+  .axiom-studio{
+    height:calc(100dvh - 64px - 72px - env(safe-area-inset-bottom));
+    min-height:0;
+  }
+  .axiom-studio .axiom-side-inner{padding-top:16px}
+  .axiom-studio .ai-native-context-label strong{font-size:13px}
+  .axiom-studio .composer-area.axiom-composer-area{
+    padding-bottom:max(10px,env(safe-area-inset-bottom));
+  }
+  .axiom-studio .studio-jobs-content.axiom-docs{padding-bottom:22px}
+  .axiom-studio .ai-generated-figure{margin:10px 0;padding:12px}
+}
+@media(max-height:650px){
+  .axiom-studio .axiom-service-card{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .axiom-studio .ai-generated-figure button,
+  .axiom-studio .ai-compiled-png a{transition:none}
+}
