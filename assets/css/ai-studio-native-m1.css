@@ -4,6 +4,7 @@
  * No changes to API, history, auth, job or import code are made here.
  */
 body[data-page="ai"]{overflow-x:hidden}
+.axiom-studio{font-family:var(--font-sans),system-ui,sans-serif}
 
 .axiom-studio .axiom-brand.ai-native-context{
   padding:0 10px 18px;
