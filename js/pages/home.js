@@ -17,17 +17,20 @@ function draw(root, session, data) {
   const quizzes = teacher ? (data.myQuizzes ?? []) : (data.publicQuizzes ?? []);
   const pending = teacher ? (data.marking ?? []) : [];
   const listing = teacher ? "teaching.html" : "quizzes.html";
-  const title = signedIn
-    ? (name ? `Welcome back, ${e(name)}.` : "Your workspace")
-    : "Practice mathematics.";
+  // Show the next useful task, not a second navigation menu or a statistics
+  // dashboard. Resume appears before the list when an attempt is active.
+  const title = active.length
+    ? "Continue where you left off"
+    : teacher ? "Your teaching workspace"
+      : signedIn ? (name ? `Welcome back, ${e(name)}` : "Your quizzes")
+        : "Mathematics quizzes";
   const intro = teacher
-    ? "Continue your work, review submissions, or prepare a new quiz."
-    : signedIn
-      ? "Continue a quiz or review your recent results."
-      : "Choose a quiz to get started. Sign in to save your progress.";
-  const primary = teacher
-    ? linkButton("Create quiz", "upload.html", "primary", "plus")
-    : signedIn ? "" : linkButton("Browse quizzes", "quizzes.html", "primary", "arrow");
+    ? "Your current quizzes and items needing attention."
+    : signedIn ? "Continue practising and review your results."
+      : "Choose a quiz to start practising.";
+  const primary = active.length ? ""
+    : teacher ? linkButton("Create quiz", "upload.html", "primary", "plus")
+      : signedIn ? "" : linkButton("Browse quizzes", "quizzes.html", "primary", "arrow");
 
   const resume = active.length ? `<section class="home-section">
     <div class="section-head"><h2>Continue</h2><a href="activity.html">All attempts ${icon("arrow")}</a></div>
@@ -46,10 +49,10 @@ function draw(root, session, data) {
     ${quizzes.length ? `<div class="grid two">${quizzes.slice(0, 2)
       .map(q => quizCard(q, {management: teacher})).join("")}</div>`
     : `<div class="panel">${empty(
-        teacher ? "Create your first quiz" : "No quizzes yet",
-        teacher ? "Start from your problem bank or a new set of questions."
+        teacher ? "No quizzes created yet" : "No quizzes yet",
+        teacher ? "Use Create quiz above to start your first one."
           : "Published quizzes will appear here.",
-        teacher ? linkButton("Create quiz", "upload.html", "primary") : ""
+        ""
       )}</div>`}
   </section>`;
 
@@ -63,23 +66,18 @@ function draw(root, session, data) {
       </div>`).join("")}</div>
   </section>` : "";
 
-  const activity = signedIn ? `<section class="home-section">
+  const activity = signedIn && recent.length ? `<section class="home-section">
     <div class="section-head"><h2>Recent results</h2><a href="activity.html">All activity</a></div>
     <div class="panel home-side-panel">
-      ${recent.length ? recent.slice(0, 3).map(a => `
+      ${recent.slice(0, 3).map(a => `
         <a class="list-row" href="results.html?id=${encodeURIComponent(a.id)}">
           <div class="row-main"><h3>${e(a.quizTitle || "Quiz")}</h3>
             <p>${date(a.startedAt)}</p></div>
           ${badge(a.gradeState === "pending_manual" ? "Marking" : a.status)}
-        </a>`).join("") : '<p class="muted small">Your results will appear after you complete a quiz.</p>'}
+        </a>`).join("")}
     </div>
-  </section>` : `<section class="home-section">
-    <div class="section-head"><h2>Save your progress</h2></div>
-    <div class="panel home-side-panel">
-      <p class="muted small">Sign in to save quiz attempts and see previous results.</p>
-      <div class="home-signin">${linkButton("Sign in", "login.html", "secondary")}</div>
-    </div>
-  </section>`;
+  </section>` : "";
+  const showRail = Boolean(needsMarking || activity);
 
   root.innerHTML = `<div class="home-v2 home-ordered">
     <header class="home-intro">
@@ -88,11 +86,11 @@ function draw(root, session, data) {
     </header>
     ${signedIn && !session.user.emailVerified
       ? notice("Verify your email address before starting a quiz.", "warning") : ""}
-    <div class="home-content">
+    <div class="home-content ${showRail ? "" : "home-content-single"}">
       <div class="home-feed">${resume}${quizCards}</div>
-      <aside class="home-rail" aria-label="Progress and items needing attention">
+      ${showRail ? `<aside class="home-rail" aria-label="Progress and items needing attention">
         ${needsMarking}${activity}
-      </aside>
+      </aside>` : ""}
     </div>
   </div>`;
 }
