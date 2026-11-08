@@ -24,6 +24,8 @@ node --test \
   tests/unit/ai-chat-markdown.test.mjs \
   tests/unit/restore-floating-snip.test.mjs
 
+echo "Regenerating the ignored backend shared mirror from authoritative shared/ source…"
+node scripts/sync-functions-shared.mjs
 echo "Checking external Quizer shared references and static build…"
 node scripts/verify-static.mjs
 node scripts/build.mjs
