@@ -579,3 +579,76 @@ test("completed Mimo run with invalid final QA is NOT silently replaced by earli
   assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,
     1);
 });
+
+test("new v1 export contract completes page review even if independent QA is empty",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  const model=async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(2)))return json({
+      id:runId(2),status:"completed",
+      output:{
+        exports:{
+          extracted_page_json:JSON.stringify(extracted(6)),
+          verified_page_json:"",
+        },
+        nodes:{
+          extract:{status:"completed",result:{
+            kind:"text",content:JSON.stringify(extracted(6)),
+          }},
+          verify:{status:"completed",result:{kind:"text",content:""}},
+          compile_png:{status:"skipped"},
+        },
+      },
+    });
+    return fallback(url,options);
+  };
+  const app=service(db,model);
+  const job=await app.start({auth:auth(uid),data:request(
+    "new_version1_extract_export_20261108",{pageStart:2,pageEnd:2})});
+  await app.sweep();await app.sweep();
+  const state=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(state.state,"ready_review");
+  assert.equal(state.completed,1);
+  assert.equal(state.pages[0].recoveredFromCheckpoint,false);
+  assert.equal(state.pages[0].verificationUnusable,true);
+  const result=await app.getPage({auth:auth(uid),data:{jobId:job.jobId,pageNumber:2}});
+  assert.equal(result.page.questions.length,1);
+  assert.equal(result.page.questions[0].printed_number,"6");
+  assert.equal(result.page.quality_status,"review_required");
+  assert.equal(result.verificationUnusable,true);
+  const posts=calls.filter(x=>x.url.endsWith("/runs")&&x.options?.method==="POST");
+  assert.equal(posts.length,1);
+  assert.equal(JSON.parse(posts[0].options.body).version,1);
+  await app.sweep();
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options?.method==="POST").length,1,
+    "completed checkpoint must not trigger another provider call");
+});
+
+test("new v1 contract uses valid independent QA without changing original PDF records",async()=>{
+  const db=firestore(),calls=[],fallback=upstream(calls);
+  const first=extracted(1),verified=extracted(1);
+  verified.questions[0].statement_latex="Corrected formula $x^2+9x=36$";
+  const app=service(db,async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1)))return json({
+      id:runId(1),status:"completed",
+      output:{
+        exports:{
+          extracted_page_json:JSON.stringify(first),
+          verified_page_json:JSON.stringify(verified),
+        },
+        nodes:{compile_png:{status:"skipped"}},
+      },
+    });
+    return fallback(url,options);
+  });
+  const job=await app.start({auth:auth(uid),data:request(
+    "new_version1_verified_20261108",{pageStart:1,pageEnd:1})});
+  await app.sweep();await app.sweep();
+  const done=await app.status({auth:auth(uid),data:{jobId:job.jobId}});
+  assert.equal(done.state,"ready_review");
+  assert.equal(done.pages[0].verificationUnusable,false);
+  const page=await app.getPage({auth:auth(uid),
+    data:{jobId:job.jobId,pageNumber:1}});
+  assert.equal(page.page.questions[0].statement_latex,
+    verified.questions[0].statement_latex);
+  assert.equal(page.review,null,"no automatic teacher approval");
+});
