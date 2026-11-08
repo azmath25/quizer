@@ -28,6 +28,7 @@ node scripts/build.mjs
 cmp shared/mimo-quizer-latex.js functions/shared/mimo-quizer-latex.js
 test -f dist/ai.html
 test -f dist/shared/mimo-quizer-latex.js
+test -f dist/assets/css/ai-studio-latex-m2.css
 test -f dist/js/pages/ai-studio.js
 grep -q 'm2-latex-20261108' dist/ai.html
 echo "M2_STATIC_TESTS_PASS"
