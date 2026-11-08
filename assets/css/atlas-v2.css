@@ -298,3 +298,138 @@ body[data-page="home"] .home-hero{
   .button,.quiz-card,.home-action-link{transition:none!important}
   .button:hover,.home-action-link:hover{transform:none!important}
 }
+
+/* Quiz taking: generous reading space and calm, clearly selected answers. */
+body[data-page="quiz"] .quiz-overview{
+  max-width:870px;margin:0 auto
+}
+body[data-page="quiz"] .quiz-overview .panel.flush{
+  border-radius:19px;overflow:hidden;box-shadow:var(--shadow)
+}
+body[data-page="quiz"] .overview-header{
+  padding:clamp(23px,3vw,42px);
+  background:var(--brand-tint);border-color:var(--border)
+}
+body[data-page="quiz"] .overview-header h1{
+  font-size:clamp(1.65rem,2.5vw,2.45rem);font-weight:800
+}
+body[data-page="quiz"] .overview-body{padding:clamp(22px,3vw,35px)}
+body[data-page="quiz"] .quiz-facts{gap:9px}
+body[data-page="quiz"] .quiz-facts>div{
+  border:1px solid var(--border);border-radius:11px;
+  padding:12px;background:var(--surface)
+}
+body[data-page="quiz"] .runner-layout{
+  grid-template-columns:minmax(0,1fr) minmax(235px,270px);
+  gap:clamp(17px,2.6vw,30px)
+}
+body[data-page="quiz"] .runner-question{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;padding:clamp(23px,3.2vw,43px);
+  box-shadow:var(--shadow);min-height:350px
+}
+body[data-page="quiz"] .runner-top{margin-bottom:20px}
+body[data-page="quiz"] .runner-title h1{
+  font-size:clamp(1.08rem,1.2vw,1.3rem);font-weight:800;letter-spacing:-.03em
+}
+body[data-page="quiz"] .timer{
+  background:var(--surface);color:var(--text);
+  border-color:var(--border-strong);border-radius:11px
+}
+body[data-page="quiz"] .question-meta{
+  padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:25px
+}
+body[data-page="quiz"] .runner-question>.math-content{
+  font-size:clamp(1rem,1vw,1.1rem);line-height:1.9
+}
+body[data-page="quiz"] .choices{gap:11px;margin-top:27px}
+body[data-page="quiz"] .choice{
+  min-height:61px;align-items:center;
+  padding:15px 16px;border-radius:12px;border-color:var(--border);
+  background:var(--surface);transition:border-color .15s,background .15s
+}
+body[data-page="quiz"] .choice:hover{border-color:var(--border-strong);background:var(--surface-alt)}
+body[data-page="quiz"] .choice:has(input:checked){
+  border-color:var(--brand);background:var(--brand-tint);
+  box-shadow:0 0 0 1px var(--brand)
+}
+body[data-page="quiz"] .choice-letter{
+  border-radius:8px;background:var(--surface-alt);font-weight:800
+}
+body[data-page="quiz"] .choice:has(input:checked) .choice-letter{
+  color:var(--brand);background:var(--surface)
+}
+body[data-page="quiz"] .runner-sidebar{top:81px}
+body[data-page="quiz"] .runner-sidebar .panel{
+  border-radius:16px;border-color:var(--border);box-shadow:var(--shadow)
+}
+body[data-page="quiz"] .question-grid{gap:7px}
+body[data-page="quiz"] .question-grid button{border-radius:9px;font-weight:750}
+body[data-page="quiz"] .question-grid button.current{
+  background:var(--brand);color:var(--on-brand);border-color:var(--brand)
+}
+body[data-page="quiz"] .question-grid button.answered:not(.current){
+  color:var(--brand);background:var(--brand-tint)
+}
+/* Teacher source editor and bank: use available upper-right workspace
+   rather than pushing the selection editor under the problem list. */
+body[data-page="problems"] .bank-layout{
+  gap:clamp(17px,2.2vw,28px)
+}
+@media(min-width:1101px){
+  body[data-page="problems"] .bank-layout:has(.selection-panel:not([hidden])){
+    grid-template-columns:minmax(0,1fr) minmax(300px,370px)
+  }
+}
+body[data-page="problems"] #bank-list{
+  max-width:none;gap:17px;min-width:0
+}
+body[data-page="problems"] .selection-panel{
+  top:83px;max-height:calc(100dvh - 108px);
+  border-radius:16px;padding:21px;background:var(--surface);
+  box-shadow:var(--shadow)
+}
+body[data-page="problems"] .sel-head{
+  border-bottom:1px solid var(--border);padding-bottom:13px;margin-bottom:15px
+}
+body[data-page="problems"] .sel-head h2{font-size:1.08rem;font-weight:800}
+body[data-page="problems"] .prob-card-box{
+  border-radius:16px;border:1px solid var(--border);overflow:hidden
+}
+body[data-page="problems"] .toolbar{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:12px
+}
+body[data-page="quiz-editor"] .editor-grid{
+  grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:23px
+}
+body[data-page="quiz-editor"] .editor-preview{
+  top:83px;max-height:calc(100dvh - 105px);
+  border-radius:17px;border:1px solid var(--border);box-shadow:var(--shadow)
+}
+body[data-page="quiz-editor"] .editor-panel{
+  gap:17px;min-width:0
+}
+body[data-page="quiz-editor"] .source-input{
+  border-radius:12px;line-height:1.8;font-size:.84rem;tab-size:2
+}
+body[data-page="quiz-editor"] .editor-actions{
+  border-radius:12px;gap:10px
+}
+@media(max-width:900px){
+  body[data-page="quiz"] .runner-layout{grid-template-columns:minmax(0,1fr)}
+  body[data-page="quiz"] .runner-question{padding:20px}
+  body[data-page="quiz"] .quiz-facts{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body[data-page="quiz-editor"] .editor-grid{grid-template-columns:minmax(0,1fr)}
+  body[data-page="quiz-editor"] .editor-preview{
+    position:static;max-height:none
+  }
+}
+@media(max-width:550px){
+  body[data-page="quiz"] .overview-body{padding:18px}
+  body[data-page="quiz"] .runner-question{padding:17px}
+  body[data-page="quiz"] .question-meta{gap:8px}
+  body[data-page="quiz"] .choice{padding:13px 12px}
+  body[data-page="quiz"] .quiz-facts>div{padding:9px}
+  body[data-page="problems"] .selection-panel{padding:14px}
+}
