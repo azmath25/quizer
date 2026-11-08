@@ -177,6 +177,8 @@ export function createBatchService({
         number:p.number,state:p.state,runId:p.runId||null,
         questionCount:p.questionCount||0,figureCount:p.figureCount||0,
         hasReconstruction:p.hasReconstruction===true,
+        reviewSaved:p.reviewSaved===true,
+        approvedCount:Number.isInteger(p.approvedCount)?p.approvedCount:0,
         recoveredFromCheckpoint:p.recoveredFromCheckpoint===true,
         verificationUnusable:p.verificationUnusable===true,
         error:p.error||null,
@@ -288,12 +290,20 @@ export function createBatchService({
     }
     await db.runTransaction(async tx=>{
       const current=await tx.get(ref);
-      if(!current.exists||current.data().uid!==job.uid)
+      const parent=await tx.get(parentRef(job.jobId));
+      if(!current.exists||current.data().uid!==job.uid||
+        !parent.exists||parent.data().uid!==job.uid)
         fail("JOB_NOT_READY");
       if((current.data().reviewVersion||0)!==data.expectedVersion)
         fail("REVIEW_VERSION_CONFLICT");
+      const pages=parent.data().pages||[];
+      const index=pages.findIndex(p=>p.number===n&&p.state==="completed");
+      if(index<0)fail("JOB_NOT_READY");
+      const updated=pages.slice();
+      updated[index]={...pages[index],reviewSaved:true,approvedCount:approved};
       tx.update(ref,{review,reviewVersion:data.expectedVersion+1,
         reviewedAt:time(),approvedCount:approved});
+      tx.update(parentRef(job.jobId),{pages:updated,updatedAt:time()});
     });
     return {jobId:job.jobId,pageNumber:n,
       approvedCount:approved,reviewVersion:data.expectedVersion+1};
