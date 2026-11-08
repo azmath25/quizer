@@ -29,7 +29,14 @@ function validatedPage(content,source){
     content.length>MAX_EXPORT_CHARS)invalid();
   const page=validateExtractedPage(JSON.parse(content),source);
   if(page.questions.length===0||page.quality_status==="fail")invalid();
-  return page;
+  // Some model outputs encode a visual newline as the *literal* characters
+  // backslash+n (e.g. "$x=2$\\nWhat..."). Convert that narrow prose
+  // separator while preserving real TeX macros such as \\nu and \\nabla.
+  const questions=page.questions.map(q=>({
+    ...q,
+    statement_latex:q.statement_latex.replace(/\\n(?=\\s|[A-Z])/g,"\n"),
+  }));
+  return {...page,questions};
 }
 
 function reviewOnly(page,reason,recoveredFromCheckpoint=false){
