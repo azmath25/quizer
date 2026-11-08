@@ -121,6 +121,35 @@ test("M2: rejects hostile TeX, malformed model schema and title TeX injection",(
   assert.throws(()=>build([page(1,[])]),/No extracted questions/);
 });
 
+
+test("M2: Quizer parser cleanup cannot silently remove model statement content",()=>{
+  const output=build([page(1,[question({
+    statement:"Refer to equation \\label{eq:test} and solve $2x=4$.",
+  })])]);
+  assert.equal(output.importerCompatible,false);
+  assert.match(output.parserError,/changed problem text/);
+  assert.equal(output.readyForAutomaticImport,false);
+});
+
+test("M2: embedded unbound figure commands are flagged even when model figure flag is false",()=>{
+  const output=build([page(1,[question({
+    statement:"Read the graph: \\includegraphics{unlinked.png}.",
+  })])]);
+  assert.equal(output.importerCompatible,true);
+  assert.equal(output.summary.figuresUnbound,1);
+  assert.equal(output.summary.blocked,1);
+  assert.equal(output.items[0].figureRef.status,"unbound_to_question");
+  assert.match(output.items[0].issues.join(" "),/Figure command exists despite missing figure flag/);
+});
+
+test("M2: escaped versus unescaped percent signs are preserved by existing importer",()=>{
+  const original="Use \\\\% and 10% in the statement";
+  const output=build([page(1,[question({statement:original})])]);
+  assert.equal(output.importerCompatible,true);
+  assert.match(output.latex,/10\\%/);
+  assert.match(parseLatex(output.latex).quiz.questions[0].prompt,/10\\%/);
+});
+
 test("M2: UI assembles GET-only existing completed pages on demand, no provider runs",()=>{
   const app=readFileSync(new URL("../../js/pages/ai-studio.js",import.meta.url),"utf8");
   assert.match(app,/async function previewMimoQuizerDraft\(job,trigger\)/);
