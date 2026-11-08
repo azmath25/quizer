@@ -35,7 +35,7 @@ function draw(root, session, data) {
     ? linkButton("Create a quiz", "upload.html", "primary", "plus")
     : linkButton("Explore quizzes", "quizzes.html", "primary", "arrow");
   const secondary = teacher
-    ? linkButton("Open AI Studio", "ai.html", "secondary", "spark")
+    ? linkButton("Open AI Studio", "ai.html", "secondary", "sparkles")
     : signedIn ? linkButton("My activity", "activity.html", "secondary", "clock")
       : linkButton("Sign in", "login.html", "secondary");
   const stats = [
@@ -50,7 +50,7 @@ function draw(root, session, data) {
   const actionLinks = teacher ? [
     ["Create a quiz", "upload.html", "plus"],
     ["Problem bank", "problems.html", "book"],
-    ["AI conversations", "ai.html", "spark"],
+    ["AI conversations", "ai.html", "sparkles"],
     ["Extract a document", "ai.html?mode=job", "quiz"],
   ] : signedIn ? [
     ["Browse quizzes", "quizzes.html", "quiz"],
