@@ -114,9 +114,12 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
       const lines=[
         "% Mimo source page "+source.number+", printed question "+comment(number),
       ];
-      if(q.has_figure)
+      if(q.has_figure){
         lines.push("% FIGURE UNBOUND — page "+source.number+
           (source.hasReconstruction?" has a compiled PNG; attach it only to the correct question.":" needs an image."));
+        if(q.figure_description)
+          lines.push("% FIGURE DESCRIPTION — "+comment(q.figure_description));
+      }
       if(q.continuation!=="complete")
         lines.push("% UNRESOLVED CONTINUATION — "+comment(q.continuation));
       if(q.uncertain_spans.length)
