@@ -504,3 +504,78 @@ test("historical Mimo RPM review is classified safely without exposing raw error
   assert.equal(state.pages[0].diagnosticCode,"provider_rate_limited");
   assert.equal(state.pages[1].state,"queued");
 });
+
+test("completed Mimo run with empty QA export is rescued for manual review without another paid run",async()=>{
+  const db=firestore(),calls=[],base=upstream(calls);
+  let statusUncertain=true;
+  const fetchImpl=async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1))){
+      calls.push({url,options});
+      if(statusUncertain)throw Error("GET timed out after completed remote execution");
+      return json({
+        id:runId(1),status:"completed",
+        output:{
+          exports:{extracted_page_json:""},
+          nodes:{
+            extract:{status:"completed",result:{
+              kind:"text",content:JSON.stringify(extracted(1)),
+            }},
+            verify:{status:"completed",result:{kind:"text",content:""}},
+            compile_png:{status:"skipped"},
+          },
+        },
+      });
+    }
+    return base(url,options);
+  };
+  const app=service(db,fetchImpl);
+  const started=await app.start({auth:auth(uid),
+    data:request("recover_empty_verify_batch_20261108")});
+  await app.sweep(); // submit one paid run
+  await app.sweep(); // GET loses response, now needs action
+  let status=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(status.pages[0].state,"attention");
+  statusUncertain=false;
+  const postsBefore=calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length;
+  const result=await app.reconcile({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(result.pages[0].state,"completed");
+  assert.equal(result.pages[0].recoveredFromCheckpoint,true);
+  assert.equal(result.pages[0].questionCount,1);
+  const recovered=await app.getPage({auth:auth(uid),data:{
+    jobId:started.jobId,pageNumber:1,
+  }});
+  assert.equal(recovered.page.quality_status,"review_required");
+  assert.equal(recovered.page.questions[0].review_required,true);
+  assert.match(recovered.page.questions[0].review_reasons.at(-1),
+    /Independent AI verification returned no visible output/);
+  assert.equal(result.neverStartedNewRuns,true);
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,
+    postsBefore,"reconciliation MUST NOT submit another paid run");
+});
+
+test("completed Mimo run with invalid final QA is NOT silently replaced by earlier extraction",async()=>{
+  const db=firestore(),calls=[],base=upstream(calls);
+  const app=service(db,async(url,options)=>{
+    if(url.endsWith("/v1/runs/"+runId(1)))return json({
+      id:runId(1),status:"completed",output:{
+        exports:{extracted_page_json:"this is not JSON"},
+        nodes:{
+          extract:{status:"completed",result:{
+            kind:"text",content:JSON.stringify(extracted(1)),
+          }},
+          verify:{status:"completed",result:{kind:"text",content:""}},
+        },
+      },
+    });
+    return base(url,options);
+  });
+  const started=await app.start({auth:auth(uid),
+    data:request("reject_invalid_verified_final_20261108")});
+  await app.sweep();
+  await app.sweep();
+  const status=await app.status({auth:auth(uid),data:{jobId:started.jobId}});
+  assert.equal(status.pages[0].state,"attention");
+  assert.equal(status.pages[0].error,"MIMO_INVALID_EXTRACTION");
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options.method==="POST").length,
+    1);
+});
