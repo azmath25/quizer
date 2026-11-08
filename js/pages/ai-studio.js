@@ -14,6 +14,7 @@ import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
 import {mountLocalSourcePreview} from "../components/ai-source-preview.js";
 import {createMimoPngViewer} from "../components/mimo-png-viewer.js";
+import {buildMimoQuizerLatex} from "../../shared/mimo-quizer-latex.js";
 import {inspectLocalDocument,makeTeacherContext} from "../services/local-document.js";
 
 const $=id=>document.getElementById(id);
@@ -612,6 +613,108 @@ function documentTaskLabel(page,jobState){
   if(page.state==="claiming")return "Dispatching";
   return String(page.state||"Unknown");
 }
+/**
+ * M2: assemble the entire *existing completed* PDF job into an editable
+ * Quizer TeX draft. This does not save/import a quiz or start any Mimo run.
+ */
+async function previewMimoQuizerDraft(job,trigger){
+  if(!Array.isArray(job.pages)||!job.pages.length||
+     job.pages.some(page=>page.state!=="completed"))
+    throw Error("Complete the document pages before generating a full LaTeX draft.");
+  const id=job.jobId;
+  trigger.disabled=true;trigger.textContent="Reading existing completed pages…";
+  try{
+    const rows=[];
+    // Explicit opt-in and bounded concurrency: never fetch 100 pages on open.
+    for(let i=0;i<job.pages.length;i+=3){
+      const chunk=await Promise.all(job.pages.slice(i,i+3).map(page=>
+        readMimoBatchPage(id,page.number).then(response=>({
+          pageNumber:response.pageNumber,page:response.page,
+          hasReconstruction:response.hasReconstruction===true,
+          verificationUnusable:response.verificationUnusable===true,
+          recoveredFromCheckpoint:response.recoveredFromCheckpoint===true,
+        }))));
+      if(selectedJob!==id)return;
+      rows.push(...chunk);
+    }
+    const title=String(job.fileName||"Mimo mathematics extraction")
+      .replace(/\.[a-z0-9]+$/i,"")
+      .replace(/[^\p{L}\p{N} ._-]/gu," ")
+      .slice(0,120).trim()||"Mimo mathematics extraction";
+    const draft=buildMimoQuizerLatex({pages:rows,title});
+    if(selectedJob!==id)return;
+    const panel=node("section","","ai-m2-latex-panel");
+    const head=node("h3","Quizer LaTeX · editable draft");
+    const count=node("p",draft.summary.pages+" source pages · "+
+      draft.summary.questions+" questions · "+
+      draft.summary.missingAnswers+" missing answers · "+
+      draft.summary.figuresUnbound+" unbound figures · "+
+      draft.summary.blocked+" structurally blocked questions","ai-muted");
+    const notice=node("p",
+      "No new Mimo run was started. Extracted answers are NOT independently solved or mathematically verified. "+
+      "Unresolved multiple-choice keys are intentionally left blank. Page PNGs are not assigned to individual questions.",
+      "ai-alert");
+    panel.append(head,count,notice);
+    const compatibility=node("p",draft.importerCompatible
+      ?"Quizer's parser accepts this draft structure. This does NOT verify answers, figures or review flags."
+      :"Not ready for Quizer import: "+(draft.parserError||"Resolve missing keys and source issues first."),
+      draft.importerCompatible?"ai-muted":"ai-alert");
+    panel.append(compatibility);
+    const label=node("label","Full source (editable after copying or downloading)");
+    const textarea=node("textarea");
+    textarea.value=draft.latex;textarea.readOnly=true;textarea.rows=17;
+    textarea.setAttribute("aria-label","Complete Mimo to Quizer LaTeX draft");
+    label.append(textarea);panel.append(label);
+    const actions=node("div","","ai-buttons");
+    const copy=node("button","Copy LaTeX","ai-secondary");copy.type="button";
+    copy.onclick=async()=>{
+      try{
+        await navigator.clipboard.writeText(draft.latex);
+        status("Copied LaTeX draft; no changes were saved to Quizer.");
+      }catch{
+        textarea.focus();textarea.select();
+        status("Clipboard permission denied. Select and copy the displayed LaTeX manually.",true);
+      }
+    };
+    const download=node("button","Download editable .tex","ai-primary");
+    download.type="button";
+    download.onclick=()=>{
+      const blob=new Blob([draft.latex],{type:"text/x-tex;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const link=node("a");link.href=url;
+      link.download="mimo-quizer-draft-"+id.slice(0,12)+".tex";
+      link.click();setTimeout(()=>URL.revokeObjectURL(url),0);
+      status("LaTeX draft downloaded. Resolve warnings before using the normal Quizer importer.");
+    };
+    actions.append(copy,download);panel.append(actions);
+    const flagged=draft.items.filter(item=>item.issues.length);
+    if(flagged.length){
+      const details=node("details");
+      const summary=node("summary",flagged.length+" questions require checking");
+      details.append(summary);
+      const list=node("ol");
+      for(const item of flagged.slice(0,100)){
+        const bullet=node("li","Page "+item.pageNumber+
+          ", printed #"+item.printedNumber+": "+item.issues.join("; "));
+        list.append(bullet);
+      }
+      if(flagged.length>100)list.append(node("li","More flags are in the source items."));
+      details.append(list);panel.append(details);
+    }
+    // Never replace the durable job overview, only append a local draft.
+    const output=$("ai-job-result");
+    output.querySelector(".ai-m2-latex-panel")?.remove();
+    output.append(panel);
+    panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }catch(error){
+    if(selectedJob===id)status(String(error?.message||"Could not generate LaTeX draft."),true);
+  }finally{
+    if(trigger.isConnected){
+      trigger.disabled=false;trigger.textContent="Preview full Quizer LaTeX draft (no AI run)";
+    }
+  }
+}
+
 async function selectBatch(id){
   const target=$("ai-job-result");
   target.replaceChildren(node("p","Loading durable document status…","ai-muted"));
@@ -708,6 +811,13 @@ async function selectBatch(id){
     }
     card.append(list);
     target.replaceChildren(card);
+    if(Array.isArray(job.pages)&&job.pages.length&&
+       job.pages.every(page=>page.state==="completed")){
+      const preview=node("button","Preview full Quizer LaTeX draft (no AI run)","ai-secondary");
+      preview.type="button";
+      preview.onclick=()=>void previewMimoQuizerDraft(job,preview);
+      target.append(preview);
+    }
     if(job.state==="ready_review"){
       const button=node("button",job.target==="bank"
         ?"Import all approved questions to Problem Bank"
