@@ -15,10 +15,12 @@ node --check js/components/mimo-png-viewer.js
 node --check js/services/mimo-chat.js
 node --check js/services/mimo-extraction.js
 node --check tests/unit/ai-studio-m1-native.test.mjs
+node --check tests/unit/m1-vercel-release-resume.test.mjs
 
 echo "Running UI/auth/history, TikZ and snipping regression tests…"
 node --test \
   tests/unit/ai-studio-m1-native.test.mjs \
+  tests/unit/m1-vercel-release-resume.test.mjs \
   tests/unit/ai-studio-focus.test.mjs \
   tests/unit/t1-mimo-png-viewer.test.mjs \
   tests/unit/ai-chat-markdown.test.mjs \
