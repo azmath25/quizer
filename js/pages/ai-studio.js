@@ -574,6 +574,10 @@ async function openBatchPage(jobId,pageNumber){
           img.alt="Reconstructed page diagram — compare against original before approval";
           img.style.maxWidth="min(100%,480px)";
           target.append(img);
+          const download=node("a","Download reconstructed PNG","ai-secondary");
+          download.href=url;
+          download.download="page-"+pageNumber+"-tikz.png";
+          target.append(download);
           const save=node("button","Save verified PNG to private assets","ai-secondary");
           save.type="button";
           save.onclick=async()=>{
@@ -752,6 +756,10 @@ async function selectJob(id){
             const img=node("img");img.src=url;img.alt="Generated TikZ diagram; teacher must verify against original";
             img.style.maxWidth="min(100%,480px)";
             target.append(img);
+            const download=node("a","Download reconstructed PNG","ai-secondary");
+            download.href=url;
+            download.download="mimo-reconstructed-diagram.png";
+            target.append(download);
             const save=node("button","Save verified PNG as private Quizer asset","ai-secondary");
             save.onclick=async()=>{
               save.disabled=true;
