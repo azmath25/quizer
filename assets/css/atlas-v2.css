@@ -10,7 +10,7 @@
 }
 :where(button,a){-webkit-tap-highlight-color:transparent}
 :where(main){width:100%;max-width:var(--content-max)}
-#math-bg{opacity:.28}
+#math-bg{display:none}
 
 /* One calm, permanent Quizer identity. The old rotating second logo face
    remains in the markup for existing JS/tests, but is never displayed. */
