@@ -24,14 +24,16 @@ test("Atlas typography, light/dark tokens, accessible focus and responsive layou
   const tokens = read("assets/css/tokens.css");
   const global = read("assets/css/atlas-v2.css");
   const studio = read("assets/css/ai-studio-atlas-v2.css");
-  assert.match(tokens, /--brand: #335bc8/);
+  assert.match(tokens, /--brand: #0281af/);
+  assert.doesNotMatch(tokens, /--brand: #335bc8/);
   assert.match(tokens, /--font-sans: "Plus Jakarta Sans"/);
   assert.match(tokens, /:root\[data-theme="dark"\]/);
   assert.match(tokens, /:root\[data-theme="system"\]/);
   assert.match(global, /:focus-visible/);
   assert.match(global, /prefers-reduced-motion:reduce/);
   assert.match(global, /@media\(max-width:760px\)/);
-  assert.match(studio, /--studio-nav:/);
+  assert.doesNotMatch(studio, /--studio-nav:/);
+  assert.doesNotMatch(studio, /#[0-9a-f]{3,8}\\b/i);
   assert.match(studio, /\.studio-jobs-content\.axiom-docs/);
   assert.match(studio, /\.conversation\.axiom-thread/);
   assert.match(studio, /\.composer-area\.axiom-composer-area/);
@@ -47,9 +49,13 @@ test("Home has new working dashboard layout but no new API calls", () => {
   assert.match(home, /apiSWR\("getDashboard"/);
   assert.equal((home.match(/apiSWR\(/g) || []).length, 1);
   assert.doesNotMatch(home, /fetch\(|firebase\.functions|localStorage/);
-  for (const cls of ["home-hero", "home-metrics", "home-content", "home-rail",
-    "home-action-list", "home-feed", "home-continue"]) {
+  for (const cls of ["home-intro", "home-content", "home-rail",
+    "home-feed", "home-continue"]) {
     assert.ok(home.includes(cls), "Missing dashboard " + cls);
+  }
+  for (const duplicated of ["home-action-list", "home-metrics", "home-hero-side",
+    "Quick access", "Your workspace shortcuts"]) {
+    assert.ok(!home.includes(duplicated), "Redundant navigation or statistic: " + duplicated);
   }
   assert.match(home, /session\.capabilities\.teach/);
   assert.match(home, /quizCard\(q, \{management: teacher\}\)/);
@@ -101,4 +107,36 @@ test("Quiz runner, problem bank and editor keep operational selector contracts",
   const editor = read("js/pages/quiz-editor.js");
   assert.match(editor, /editor-preview/);
   assert.match(editor, /mathquiz\.aiImport/);
+});
+
+test("Studio has one local mode switch and no third navigation visible by default", () => {
+  const html = read("ai.html");
+  const js = read("js/pages/ai-studio.js");
+  const css = read("assets/css/ai-studio-atlas-v2.css");
+  for (const id of ["ai-tab-chat", "ai-tab-jobs", "ai-job-form",
+    "ai-job-budget", "ai-job-total-budget", "ai-job-page",
+    "ai-job-last-page", "ai-upload-consent", "ai-view-jobs",
+    "ai-job-list", "ai-threads"]) {
+    assert.equal(html.split('id="' + id + '"').length - 1, 1, "duplicate/missing " + id);
+  }
+  assert.match(html, /class="studio-mode-tabs" role="tablist"/);
+  assert.doesNotMatch(html, /<nav class="sidenav axiom-nav"/);
+  assert.match(html, /<details class="ai-advanced-settings">/);
+  assert.doesNotMatch(html, /<details class="ai-advanced-settings" open/);
+  assert.match(html, /data-act="inspector" id="ai-view-jobs"/);
+  assert.match(css, /documents-mode \.sidebar\.axiom-sidebar\{display:none!important\}/);
+  assert.match(js, /app\.classList\.toggle\("documents-mode",!chat\)/);
+  assert.match(js, /if\(!chat\)inspectorVisible=false/);
+  assert.match(js, /inspectorVisible\?"":"none"/);
+  assert.match(js, /listMimoBatches\(/);
+  assert.match(js, /submitMimoBatch\(/);
+});
+
+test("Home has one navigation source, with account routes still secured", () => {
+  const home = read("js/pages/home.js"), shell = read("js/components/shell.js");
+  assert.doesNotMatch(home, /<nav|home-action-list|home-action-link/);
+  assert.match(shell, /id="desktop-nav"/);
+  assert.match(shell, /id="mobile-nav"/);
+  assert.match(shell, /s\.capabilities\.teach \|\| s\.capabilities\.admin/);
+  assert.match(home, /teacher \? "teaching\.html" : "quizzes\.html"/);
 });
