@@ -134,7 +134,7 @@ const compactChatDate=value=>{
   const source=typeof value==="object"&&value!==null
     ?(value.seconds??value._seconds??value.iso??value.date??null):value;
   if(source===null)return "";
-  const amount=typeof source==="number"||(typeof source==="string"&&/^\\d{10,13}$/.test(source))
+  const amount=typeof source==="number"||(typeof source==="string"&&/^\d{10,13}$/.test(source))
     ?Number(source):null;
   const date=new Date(amount===null?source:amount<1e12?amount*1000:amount);
   return Number.isFinite(date.getTime())
