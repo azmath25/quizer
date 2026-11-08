@@ -20,6 +20,9 @@ const $=id=>document.getElementById(id);
 const app=$("app"),gate=$("ai-access-gate");
 let threads=[],threadId=null,messages=[],jobs=[],selectedJob=null,review=null,hasOlder=false;
 let busyChat=false,busyJob=false,imageContext="",pendingImageQuestion="",selectedImage=null;
+// Pending feedback is local presentation state. It never writes chat history,
+// implies model streaming, or starts another provider call.
+let pendingReply=false,chatViewEpoch=0,pendingViewEpoch=-1;
 const originalSources=new Map();
 const batchReviews=new Map();
 let transientUrls=[];
@@ -204,7 +207,7 @@ function drawThreads(){
 function drawMessages(){
   $("ai-load-older").hidden=!hasOlder;
   const target=$("ai-messages");target.replaceChildren();
-  $("ai-chat-panel").classList.toggle("empty-chat",!messages.length);
+  $("ai-chat-panel").classList.toggle("empty-chat",!messages.length&&!pendingReply);
   for(const m of messages){
     const role=m.role==="assistant"?"assistant":"user";
     const article=node("article","","message "+role);
@@ -238,6 +241,21 @@ function drawMessages(){
     }
     if(role==="assistant")void typesetChatMarkdown(body,typeset);
   }
+  // One temporary, accessible reply indicator; not part of persisted messages.
+  if(pendingReply&&pendingViewEpoch===chatViewEpoch){
+    const pending=node("article","","message assistant ai-reply-pending");
+    pending.id="ai-pending-reply";
+    pending.setAttribute("role","status");
+    pending.setAttribute("aria-label","Assistant is generating a reply");
+    const avatar=node("span","","msg-icon");avatar.append(icon("spark"));
+    const content=node("div","","msg-content");
+    const loading=node("div","","ai-reply-progress");
+    const dots=node("span","","ai-reply-dots");
+    dots.setAttribute("aria-hidden","true");
+    for(let i=0;i<3;i++)dots.append(node("i"));
+    loading.append(dots,node("span","Generating reply…","ai-reply-progress-label"));
+    content.append(loading);pending.append(avatar,content);target.append(pending);
+  }
   const scroller=$("conversation");scroller.scrollTop=scroller.scrollHeight;
   studioHead();
 }
@@ -264,6 +282,7 @@ async function loadThreads(){
 }
 async function openThread(id){
   const data=await teacherChatHistory("chat.get",{threadId:id});
+  chatViewEpoch++;
   threadId=id;selectedImage=null;messages=Array.isArray(data?.messages)?data.messages:[];
   hasOlder=data?.hasMore===true;
   history.replaceState(null,"","ai.html?thread="+encodeURIComponent(id));
@@ -285,6 +304,7 @@ async function loadOlder(){
   finally{$("ai-load-older").disabled=false;}
 }
 function newThread(){
+  chatViewEpoch++;
   threadId=null;messages=[];hasOlder=false;imageContext="";selectedImage=null;
   history.replaceState(null,"","ai.html");
   drawThreads();drawMessages();$("ai-prompt").value="";
@@ -294,13 +314,14 @@ function newThread(){
 async function sendText(message,context=""){
   if(busyChat||!message.trim())return;
   busyChat=true;$("ai-send").disabled=true;
+  pendingReply=true;pendingViewEpoch=chatViewEpoch;
   const snapshot=messages.slice();
   const sentThreadId=threadId, sentImage=selectedImage;
   const input=$("ai-prompt"),submittedDraft=input.value;
   input.value="";
   messages.push({role:"user",content:message,
     imageAssetId:selectedImage?.assetId||null,imageJobId:selectedImage?.jobId||null});
-  drawMessages();status("Sending your message to Mimo…");
+  drawMessages();status("");
   try {
     const answer=await sendTeacherChatMessage({
       message,context,threadId,requestId:crypto.randomUUID(),
@@ -315,6 +336,7 @@ async function sendText(message,context=""){
     }
     messages.push({role:"assistant",content:answer.reply});
     threadId=answer.threadId||threadId;
+    pendingReply=false;
     drawMessages();
     if(answer.saved&&threadId){
       history.replaceState(null,"","ai.html?thread="+encodeURIComponent(threadId));
@@ -324,6 +346,7 @@ async function sendText(message,context=""){
     selectedImage=null;
     return true;
   }catch(error){
+    pendingReply=false;
     if(threadId===sentThreadId){
       messages=snapshot;drawMessages();
       if(!input.value)input.value=submittedDraft;
@@ -331,7 +354,11 @@ async function sendText(message,context=""){
     status(safeError(error),true);
     return false;
   }
-  finally{busyChat=false;$("ai-send").disabled=false;}
+  finally{
+    pendingReply=false;busyChat=false;
+    $("ai-pending-reply")?.remove();
+    $("ai-send").disabled=false;
+  }
 }
 async function chatSubmit(event){
   event.preventDefault();
