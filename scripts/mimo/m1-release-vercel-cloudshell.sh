@@ -154,10 +154,10 @@ fi
 # Safe unauthenticated reachability diagnostics. HTTP 401 from the user endpoint
 # is EXPECTED without a bearer token; we do not print or request credentials.
 echo "Checking HTTPS connectivity to Vercel API (no credentials)…"
-curl --connect-timeout 12 --max-time 25 --fail-with-body \
+curl --connect-timeout 12 --max-time 25 \
    --silent --show-error -o /dev/null \
-   -w "Vercel API TCP/TLS reachable (HTTP %{http_code}).\\n" \
-   "https://api.vercel.com/v2/user" || true
+   -w "Vercel API response (HTTP %{http_code}; 401 is expected unauthenticated).\\n" \
+   "https://api.vercel.com/v2/user" || echo "curl cannot reach Vercel API; Node check follows."
 node --input-type=module <<'JS'
 try {
   const response=await fetch("https://api.vercel.com/v2/user", {
