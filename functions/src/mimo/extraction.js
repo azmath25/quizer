@@ -304,13 +304,15 @@ export function createExtractionService({db,projectKey,fetchImpl=globalThis.fetc
       const state=["failed","cancelled"].includes(run.status)?"failed":"running";
       return {jobId:data.jobId,state,runId:job.runId,stages:stageRows,error:state==="failed"?"MIMO_RUN_FAILED":null,...(state==="failed"?safeMimoRunDiagnostic(run.output):{})};
     }
-    let page,recoveredFromCheckpoint;
-    try { ({page,recoveredFromCheckpoint}=completedPageForReview(run,job.source)); }
+    let page,recoveredFromCheckpoint,verificationUnusable;
+    try { ({page,recoveredFromCheckpoint,verificationUnusable}=
+      completedPageForReview(run,job.source)); }
     catch { fail("MIMO_INVALID_EXTRACTION"); }
     const decision=run.output?.exports?.diagram_decision_json;
     await ref.update({state:"completed"});
     return {jobId:data.jobId,state:"completed",runId:job.runId,stages:stageRows,
-      page,recoveredFromCheckpoint,imageAssetId:job.imageAssetId??null,
+      page,recoveredFromCheckpoint,verificationUnusable,
+      imageAssetId:job.imageAssetId??null,
       diagramDecision:typeof decision==="string"?decision.slice(0,25000):null,
       hasReconstruction:stageRows.some(r=>r.id==="compile_png"&&r.status==="completed") ||
         (!!run.output?.nodes?.compile_png && run.output.nodes.compile_png.status==="completed")};
