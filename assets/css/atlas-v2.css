@@ -456,3 +456,29 @@ body[data-page="home"] .home-signin{margin-top:15px}
   }
   #mobile-nav{grid-template-columns:repeat(var(--mobile-items,4),minmax(0,1fr))}
 }
+
+
+/* F1 — do not leave an empty right column when there are no results/marking. */
+body[data-page="home"] .home-content.home-content-single{
+  grid-template-columns:minmax(0,1fr);
+}
+body[data-page="home"] .home-content.home-content-single .home-feed{
+  max-width:100%;
+}
+body[data-page="home"] .home-ordered .home-intro{
+  padding-top:clamp(8px,1vw,18px);
+  padding-bottom:clamp(15px,2vw,23px);
+}
+body[data-page="home"] .home-ordered .home-section .section-head a{
+  white-space:nowrap;
+}
+@media(max-width:760px){
+  body[data-page="home"] .home-ordered{gap:19px}
+  body[data-page="home"] .home-ordered .home-content{
+    display:grid;grid-template-columns:minmax(0,1fr);gap:20px;
+  }
+  body[data-page="home"] .home-ordered .home-continue .welcome-strip{margin:0}
+  body[data-page="home"] .home-ordered .home-feed .grid.two{
+    grid-template-columns:minmax(0,1fr);
+  }
+}
