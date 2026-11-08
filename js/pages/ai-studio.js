@@ -618,23 +618,25 @@ function documentTaskLabel(page,jobState){
  * Quizer TeX draft. This does not save/import a quiz or start any Mimo run.
  */
 async function previewMimoQuizerDraft(job,trigger){
-  if(!Array.isArray(job.pages)||!job.pages.length||
-     job.pages.some(page=>page.state!=="completed"))
-    throw Error("Complete the document pages before generating a full LaTeX draft.");
+  const completedPages=Array.isArray(job.pages)?
+    job.pages.filter(page=>page.state==="completed"):[];
+  if(!completedPages.length)
+    throw Error("No completed pages are available for a LaTeX draft.");
+  const partial=completedPages.length!==job.pages.length;
   const id=job.jobId;
   trigger.disabled=true;trigger.textContent="Reading existing completed pages…";
   try{
     const rows=[];
     // Explicit opt-in and bounded concurrency: never fetch 100 pages on open.
-    for(let i=0;i<job.pages.length;i+=3){
-      const chunk=await Promise.all(job.pages.slice(i,i+3).map(page=>
+    for(let i=0;i<completedPages.length;i+=3){
+      const chunk=await Promise.all(completedPages.slice(i,i+3).map(page=>
         readMimoBatchPage(id,page.number).then(response=>({
           pageNumber:response.pageNumber,page:response.page,
           hasReconstruction:response.hasReconstruction===true,
           verificationUnusable:response.verificationUnusable===true,
           recoveredFromCheckpoint:response.recoveredFromCheckpoint===true,
         }))));
-      if(selectedJob!==id)return;
+      if(selectedJob!==id||!trigger.isConnected)return;
       rows.push(...chunk);
     }
     const title=String(job.fileName||"Mimo mathematics extraction")
@@ -642,9 +644,11 @@ async function previewMimoQuizerDraft(job,trigger){
       .replace(/[^\p{L}\p{N} ._-]/gu," ")
       .slice(0,120).trim()||"Mimo mathematics extraction";
     const draft=buildMimoQuizerLatex({pages:rows,title});
-    if(selectedJob!==id)return;
+    if(selectedJob!==id||!trigger.isConnected)return;
     const panel=node("section","","ai-m2-latex-panel");
-    const head=node("h3","Quizer LaTeX · editable draft");
+    const head=node("h3",partial
+      ?"Quizer LaTeX · partial draft from completed pages"
+      :"Quizer LaTeX · complete source draft");
     const count=node("p",draft.summary.pages+" source pages · "+
       draft.summary.questions+" questions · "+
       draft.summary.missingAnswers+" missing answers · "+
@@ -655,6 +659,10 @@ async function previewMimoQuizerDraft(job,trigger){
       "Unresolved multiple-choice keys are intentionally left blank. Page PNGs are not assigned to individual questions.",
       "ai-alert");
     panel.append(head,count,notice);
+    if(partial)panel.append(node("p",
+      "Partial document: "+completedPages.length+" of "+job.pages.length+
+      " pages completed. Remaining pages are excluded and this draft cannot represent the whole PDF.",
+      "ai-alert"));
     const compatibility=node("p",draft.importerCompatible
       ?"Quizer's parser accepts this draft structure. This does NOT verify answers, figures or review flags."
       :"Not ready for Quizer import: "+(draft.parserError||"Resolve missing keys and source issues first."),
@@ -710,7 +718,7 @@ async function previewMimoQuizerDraft(job,trigger){
     if(selectedJob===id)status(String(error?.message||"Could not generate LaTeX draft."),true);
   }finally{
     if(trigger.isConnected){
-      trigger.disabled=false;trigger.textContent="Preview full Quizer LaTeX draft (no AI run)";
+      trigger.disabled=false;trigger.textContent="Preview completed pages as Quizer LaTeX (no AI run)";
     }
   }
 }
@@ -811,9 +819,8 @@ async function selectBatch(id){
     }
     card.append(list);
     target.replaceChildren(card);
-    if(Array.isArray(job.pages)&&job.pages.length&&
-       job.pages.every(page=>page.state==="completed")){
-      const preview=node("button","Preview full Quizer LaTeX draft (no AI run)","ai-secondary");
+    if(Array.isArray(job.pages)&&job.pages.some(page=>page.state==="completed")){
+      const preview=node("button","Preview completed pages as Quizer LaTeX (no AI run)","ai-secondary");
       preview.type="button";
       preview.onclick=()=>void previewMimoQuizerDraft(job,preview);
       target.append(preview);
