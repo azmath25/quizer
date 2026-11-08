@@ -12,11 +12,13 @@ node --check js/components/shell.js
 node --check js/pages/home.js
 node --check js/pages/ai-studio.js
 node --check tests/unit/atlas-v2-frontend.test.mjs
+node --check tests/unit/f1-shell-home.test.mjs
 node --check tests/unit/ai-chat-hierarchy.test.mjs
 
 echo "Running frontend, security and T1 regression checks…"
 node --test \
   tests/unit/atlas-v2-frontend.test.mjs \
+  tests/unit/f1-shell-home.test.mjs \
   tests/unit/ai-chat-hierarchy.test.mjs \
   tests/unit/ai-studio-m1-native.test.mjs \
   tests/unit/ai-studio-focus.test.mjs \
