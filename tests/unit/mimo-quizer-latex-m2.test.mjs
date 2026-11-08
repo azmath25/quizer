@@ -89,6 +89,7 @@ test("M2: page PNG can only be a page-scoped unresolved figure reference",()=>{
   assert.equal(output.summary.blocked,1);
   assert.doesNotMatch(output.latex,/\\includegraphics\{.*compile_png/);
   assert.match(output.latex,/FIGURE UNBOUND/);
+  assert.match(output.latex,/FIGURE DESCRIPTION — A line chart/);
   assert.equal(output.readyForAutomaticImport,false);
 });
 
@@ -106,6 +107,7 @@ test("M2: pages sorted, repeated numbers flagged, source identity fenced",()=>{
   const output=build([page(3,[question({number:"17"})]),page(1,[question({number:"17"})])]);
   assert.deepEqual(output.pageNumbers,[1,3]);
   assert.match(output.items[1].issues.join(" "),/repeats on page 1/);
+  assert.equal(output.items[1].importerBlocked,true);
   assert.throws(()=>build([page(1,[question()]),page(1,[question({number:"2"})])]),/Duplicate/);
   const mixed=page(2,[question({number:"2"})]);
   mixed.page.source.sha256="b".repeat(64);
@@ -122,10 +124,11 @@ test("M2: rejects hostile TeX, malformed model schema and title TeX injection",(
 test("M2: UI assembles GET-only existing completed pages on demand, no provider runs",()=>{
   const app=readFileSync(new URL("../../js/pages/ai-studio.js",import.meta.url),"utf8");
   assert.match(app,/async function previewMimoQuizerDraft\(job,trigger\)/);
-  assert.match(app,/job\.pages\.some\(page=>page\.state!=="completed"\)/);
+  assert.match(app,/job\.pages\.filter\(page=>page\.state==="completed"\)/);
+  assert.match(app,/Partial document:/);
   assert.match(app,/readMimoBatchPage\(id,page\.number\)/);
   assert.match(app,/buildMimoQuizerLatex\(\{pages:rows,title\}\)/);
-  assert.match(app,/Preview full Quizer LaTeX draft \(no AI run\)/);
+  assert.match(app,/Preview completed pages as Quizer LaTeX \(no AI run\)/);
   const scoped=app.slice(app.indexOf("async function previewMimoQuizerDraft"),
     app.indexOf("async function selectBatch"));
   assert.doesNotMatch(scoped,/submitMimoBatch\(|submitMimoExtraction\(|importApprovedExtraction\(|uploadAsset\(/);
