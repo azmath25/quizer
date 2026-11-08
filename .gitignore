@@ -17,3 +17,7 @@ tests/qa/generated-images/
 
 # Vercel CLI local project link (never commit IDs/tokens).
 .vercel/
+
+# Generated from shared/ by scripts/sync-functions-shared.mjs.
+# The checked-in source, not this derived backend mirror, is authoritative.
+functions/shared/
