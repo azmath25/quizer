@@ -652,3 +652,32 @@ test("new v1 contract uses valid independent QA without changing original PDF re
     verified.questions[0].statement_latex);
   assert.equal(page.review,null,"no automatic teacher approval");
 });
+
+test("duplicate completed-run polling cannot erase an existing teacher review",async()=>{
+  const db=firestore(),calls=[],app=service(db,upstream(calls));
+  const job=await app.start({auth:auth(uid),data:request(
+    "checkpoint_create_once_no_review_clobber_20261108",
+    {pageStart:1,pageEnd:1},
+  )});
+  await app.sweep();await app.sweep();
+  const parentKey="mimoBatchJobs/"+job.jobId;
+  const pageKey="mimoBatchPages/"+digest(Buffer.from(job.jobId+":1"));
+  const original=db.records.get(pageKey);
+  assert.ok(original);
+  const savedReview={schema:"test.review",edits:["preserve these notes"]};
+  db.records.set(pageKey,{...original,review:savedReview,reviewVersion:7});
+  const prior=db.records.get(parentKey);
+  db.records.set(parentKey,{
+    ...prior,state:"running",needsAttentionPolling:false,
+    pages:prior.pages.map(p=>({...p,state:"submitted"})),
+  });
+  const postsBefore=calls.filter(x=>x.url.endsWith("/runs")&&x.options?.method==="POST").length;
+  await app.sweep(); // same completed remote run, duplicated owner/scheduler poll
+  const record=db.records.get(pageKey);
+  assert.deepEqual(record.review,savedReview);
+  assert.equal(record.reviewVersion,7);
+  assert.equal((await app.status({auth:auth(uid),data:{jobId:job.jobId}})).state,
+    "ready_review");
+  assert.equal(calls.filter(x=>x.url.endsWith("/runs")&&x.options?.method==="POST").length,
+    postsBefore);
+});
