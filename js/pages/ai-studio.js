@@ -58,10 +58,13 @@ const persistAliases=()=>{try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(
 function studioHead(){
   const current=threads.find(t=>t.id===threadId),mode=MODES[studioMode]||MODES.chat;
   const head=$("conversation-head");head.replaceChildren();
+  // Empty chat has one entry point: the composer. No duplicate "New conversation"
+  // heading, large welcome banner, or suggested-prompt tiles.
+  head.hidden=!threadId;
   const title=node("div","","current-title");
   const symbol=node("span","","title-symbol");symbol.append(icon(mode.icon));
   const copy=node("span","","title-copy");
-  copy.append(node("h1",displayTitle(current)),node("p",mode.desc));
+  copy.append(node("h1",current?displayTitle(current):"Conversation"));
   title.append(symbol,copy);head.append(title);
   const actions=node("div","","head-tools");
   const more=node("details","","chat-options");
@@ -98,36 +101,6 @@ function studioHead(){
     document.createTextNode(" "+mode.name));
   $("ai-prompt").placeholder=mode.placeholder;
 }
-function studioWelcome(){
-  const mode=MODES[studioMode]||MODES.chat;
-  const wrap=node("div","","welcome");
-  const symbol=node("span","","welcome-symbol");symbol.append(icon("spark"));
-  wrap.append(symbol,node("h2","Start with a question."),node("p",mode.desc));
-  const grid=node("div","","prompt-grid");
-  for(const [title,prompt] of mode.prompts.slice(0,2)){
-    const b=node("button","","prompt-card");b.type="button";
-    const mark=node("span");mark.append(icon("spark",true));
-    b.append(mark,node("strong",title));b.onclick=()=>{
-      $("ai-prompt").value=prompt;$("ai-prompt").focus();
-    };
-    grid.append(b);
-  }
-  wrap.append(grid);
-  if(mode.prompts.length>2){
-    const details=node("details","","more-prompts");
-    details.append(node("summary","More ideas"));
-    const more=node("div","","prompt-grid");
-    for(const [title,prompt] of mode.prompts.slice(2)){
-      const b=node("button","","prompt-card");b.type="button";
-      const mark=node("span");mark.append(icon("spark",true));
-      b.append(mark,node("strong",title));
-      b.onclick=()=>{$("ai-prompt").value=prompt;$("ai-prompt").focus();};
-      more.append(b);
-    }
-    details.append(more);wrap.append(details);
-  }
-  return wrap;
-}
 function applyStudioLayout(){
   const wide=innerWidth>1180;
   const documents=app.classList.contains("documents-mode");
@@ -151,6 +124,19 @@ const node=(tag,text="",className="")=>{
 };
 const humanTime=t=>{const d=new Date(t);return Number.isFinite(d.getTime())
   ?d.toLocaleString(): "Time unavailable";};
+const compactChatDate=value=>{
+  if(!value)return "";
+  // Neon and older message records may use ISO dates or epoch seconds/ms.
+  // Missing/invalid timestamps must not fill the sidebar with error labels.
+  const source=typeof value==="object"&&value!==null
+    ?(value.seconds??value._seconds??value.iso??value.date??null):value;
+  if(source===null)return "";
+  const amount=typeof source==="number"||(typeof source==="string"&&/^\\d{10,13}$/.test(source))
+    ?Number(source):null;
+  const date=new Date(amount===null?source:amount<1e12?amount*1000:amount);
+  return Number.isFinite(date.getTime())
+    ?date.toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";
+};
 function status(text,error=false){
   const el=$("ai-status");el.textContent=text;el.className=error?"ai-error":"ai-muted";
 }
@@ -190,7 +176,8 @@ function drawThreads(){
       String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
   $("chat-count").textContent=String(threads.length);
   $("history-count").textContent=String(visible.length);
-  $("history-label").textContent=pinnedOnly?"Pinned conversations":"Recent conversations";
+  $("history-label").textContent=pinnedOnly?"Pinned":"Recent";
+  $("ai-pin-filter").setAttribute("aria-pressed",String(pinnedOnly));
   for(const entry of visible){
     const row=node("div","","history-row");
     if(entry.id===threadId)row.classList.add("active");
@@ -198,8 +185,9 @@ function drawThreads(){
     b.setAttribute("aria-current",String(entry.id===threadId));
     const symbol=node("span","","history-icon");symbol.append(icon("chat"));
     const label=node("span","","history-text");
-    label.append(node("strong",displayTitle(entry)),
-      node("small","General chat · "+humanTime(entry.updatedAt||entry.createdAt)));
+    label.append(node("strong",displayTitle(entry)));
+    const updated=compactChatDate(entry.updatedAt||entry.createdAt);
+    if(updated)label.append(node("small",updated));
     b.append(symbol,label);b.onclick=()=>void openThread(entry.id).catch(e=>status(safeError(e),true));
     const pin=node("button","","pin-btn");
     pin.type="button";pin.title="Pin on this device";
@@ -216,7 +204,7 @@ function drawThreads(){
 function drawMessages(){
   $("ai-load-older").hidden=!hasOlder;
   const target=$("ai-messages");target.replaceChildren();
-  if(!messages.length)target.append(studioWelcome());
+  $("ai-chat-panel").classList.toggle("empty-chat",!messages.length);
   for(const m of messages){
     const role=m.role==="assistant"?"assistant":"user";
     const article=node("article","","message "+role);
