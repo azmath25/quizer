@@ -23,7 +23,7 @@ REGION = "europe-west1"
 BRANCH = "fix/pdf-queue-fairness-20261108"
 INDEX_URL = (
     "https://firestore.googleapis.com/v1/projects/sat-quiz-fd317/"
-    "databases/%28default%29/collectionGroups/mimoBatchJobs/indexes"
+    "databases/(default)/collectionGroups/mimoBatchJobs/indexes"
 )
 TARGETS = ",".join(
     "functions:mathquiz:" + name for name in
@@ -105,7 +105,9 @@ def firestore_request(method: str, url: str, body=None):
         with urlopen(req, timeout=30) as response:
             return json.load(response)
     except HTTPError as exc:
-        raise Stop("Firestore API request failed (HTTP " + str(exc.code) + ")") from None
+        # Do not print response payloads or auth headers from production APIs.
+        raise Stop("Firestore index API " + method + " failed (HTTP " +
+                   str(exc.code) + "); verify database path, IAM, and API status") from None
     except (URLError, TimeoutError, ValueError):
         raise Stop("Firestore API unavailable or returned invalid data") from None
 
