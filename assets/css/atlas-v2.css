@@ -433,3 +433,61 @@ body[data-page="quiz-editor"] .editor-actions{
   body[data-page="quiz"] .quiz-facts>div{padding:9px}
   body[data-page="problems"] .selection-panel{padding:14px}
 }
+
+/* Structure-first corrections: no new brand colors or duplicate home menus. */
+body[data-page="home"] .home-v2.home-ordered{
+  display:grid;gap:24px
+}
+body[data-page="home"] .home-intro{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:22px;padding:20px 0 23px;border-bottom:1px solid var(--border);
+  background:transparent;box-shadow:none
+}
+body[data-page="home"] .home-intro h1{
+  margin:0 0 5px;color:var(--text);
+  font-size:clamp(25px,2.4vw,35px);font-weight:800;
+  letter-spacing:-.04em;line-height:1.22
+}
+body[data-page="home"] .home-intro p{
+  color:var(--muted);font-size:13px;line-height:1.65;margin:0
+}
+body[data-page="home"] .home-intro-action{flex:none}
+body[data-page="home"] .home-content{
+  display:grid;grid-template-columns:minmax(0,1.8fr) minmax(265px,1fr);
+  gap:clamp(20px,3vw,32px);align-items:start
+}
+body[data-page="home"] .home-feed,
+body[data-page="home"] .home-rail{display:grid;gap:22px;min-width:0}
+body[data-page="home"] .home-continue{
+  display:flex;gap:12px;flex-wrap:wrap
+}
+body[data-page="home"] .home-continue .welcome-strip{
+  flex:1 1 240px;margin:0
+}
+body[data-page="home"] .home-section{margin:0}
+body[data-page="home"] .section-head{
+  margin:0 0 14px;min-height:32px
+}
+body[data-page="home"] .home-side-panel{
+  padding:17px 20px;box-shadow:none
+}
+body[data-page="home"] .home-side-panel .list-row{
+  padding:14px 0;border-radius:0
+}
+body[data-page="home"] .home-side-panel .list-row:first-child{padding-top:0}
+body[data-page="home"] .home-side-panel .list-row:last-child{padding-bottom:0;border-bottom:0}
+body[data-page="home"] .home-signin{margin-top:15px}
+@media(max-width:900px){
+  body[data-page="home"] .home-content{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:760px){
+  body[data-page="home"] .home-intro{padding:8px 0 19px;align-items:flex-start}
+  body[data-page="home"] .home-intro h1{font-size:26px}
+  body[data-page="home"] .home-intro p{font-size:12px}
+  body[data-page="home"] .home-intro-action{flex:none}
+  body[data-page="home"] .home-intro-action .button{min-height:39px;padding:8px 11px}
+}
+@media(max-width:510px){
+  body[data-page="home"] .home-intro{display:block}
+  body[data-page="home"] .home-intro-action{margin-top:15px}
+}
