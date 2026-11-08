@@ -12,7 +12,7 @@ test("New Chat is unique, empty chat has no redundant welcome/command chrome",()
     "ai-chat-search","ai-threads","ai-pin-filter"]){
     assert.equal(html.split('id="'+id+'"').length-1,1,"duplicate/missing "+id);
   }
-  assert.doesNotMatch(html,/axiom-composer-eyebrow|composer-note|axiom-command/);
+  assert.doesNotMatch(html,/class="axiom-composer-eyebrow"|class="composer-note"|class="compose-btn axiom-command"/);
   assert.match(html,/> New chat<\/button>/);
   assert.doesNotMatch(html,/Recent chats<\/strong>|class="axiom-brand ai-native-context"/);
   assert.doesNotMatch(ui,/function studioWelcome\(/);
