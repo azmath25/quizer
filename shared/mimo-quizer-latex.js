@@ -16,7 +16,11 @@ const MAX_TEX_CHARS = 2 * 1024 * 1024;
 const MAX_QUESTIONS = 500;
 const hasOwn = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
 const object = o => o !== null && typeof o === "object" && !Array.isArray(o);
-const escaped = text => String(text).replace(/(^|[^\\])%/gm, "$1\\%");
+const escaped = text => String(text).replace(/%/g, (_token,index,source) => {
+  let slashes=0;
+  for(let i=index-1;i>=0 && source[i]==="\\";i--)slashes++;
+  return slashes%2 ? "%" : "\\%";
+});
 const comment = text => String(text).replace(/[\r\n%]/g, " ").replace(/\s+/g, " ").slice(0,250);
 const heading = text => {
   const name = String(text || "Mimo mathematics extraction").trim();
@@ -62,7 +66,8 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
       throw Error("Quizer supports at most 500 questions per quiz.");
     for(const q of source.page.questions) {
       const number=q.printed_number,flags=[];
-      if(seenPrinted.has(number))
+      const repeated=seenPrinted.has(number);
+      if(repeated)
         reason(flags,"Printed number repeats on page "+seenPrinted.get(number));
       seenPrinted.set(number,source.number);
       if(source.page.quality_status!=="pass" || q.review_required)
@@ -101,7 +106,7 @@ export function buildMimoQuizerLatex({pages,title="Mimo mathematics extraction"}
           description:q.figure_description,
         }:null,
         issues:flags,
-        importerBlocked:missingKey&&q.question_type==="multiple_choice" ||
+        importerBlocked:repeated || missingKey&&q.question_type==="multiple_choice" ||
           hasFigure || q.continuation!=="complete" ||
           q.uncertain_spans.length>0 || source.page.quality_status==="fail",
       };
