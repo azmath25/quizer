@@ -178,6 +178,13 @@ def main():
     print("Running local mock-transport checks; no paid provider requests.", flush=True)
     run("bash", "scripts/mimo/verify-hardfix-cloudshell.sh",
         timeout=900, output=False)
+    # Only Firebase Functions need production npm dependencies locally.
+    # The root project's 680+ browser/test packages are NOT required for
+    # either this release or its focused mock-transport tests.
+    print("Installing Functions-only dependencies; no root npm ci.", flush=True)
+    run("npm", "ci", "--prefix", "functions", "--omit=dev",
+        "--no-audit", "--no-fund", "--prefer-offline",
+        timeout=900, output=False)
     ensure_indexes(True)
     print("Deploying ONLY Mimo batch Firebase Functions.", flush=True)
     run("firebase", "deploy", "--only", TARGETS,
