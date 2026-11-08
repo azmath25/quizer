@@ -78,13 +78,16 @@ Order: short contextual title → *Continue* active attempt (if present) or Crea
 ```
 [Shared Quizer header]
 [Chat] [Documents]                                 [Preferences]
-[Document source + Start extraction]                [Saved jobs on request]
-[Persistent job title / state / next action]
-[Pages: source → extracted text → figures → verified content]
+[Documents library]                                [+ New extraction]
+[Folders / saved documents / search and sort]
+[Open document → its persistent job, pages, figures and result]
+[Click New extraction → source upload + options → Start]
 [When complete: OPEN IN QUIZER EDITOR]
 ```
 
-- Default Documents screen has **one primary upload area**, destination choice (private quiz / problem bank), and recent/active jobs below or accessible through one Saved Jobs action.
+- **Default Documents screen is the document library, not an extraction form.** It lists saved documents in user-managed folders (initially **All documents** and **Unfiled**), with search, filter, status and newest-first ordering. Opening a document shows its durable job, pages, figures and result. The existing source upload/extraction form stays **closed and unmounted until the user clicks + New extraction**, then opens in a separate focused route/view. Do not automatically open a new extraction on arrival, after finishing a job, or when returning to Documents.
+- **Folder model:** folder ID, owning teacher, name, optional parent folder and ordering metadata; a document references a folder ID without changing its source job ID. Moving/renaming a folder does not rerun Mimo. No fabricated folders, folder counts or client-only persistence presented as durable: implement with server-enforced ownership and Neon records in the later F4 milestone after the storage contract is verified. Provide Unfiled for existing jobs and safe migration/compatibility.
+- User explicitly chooses a destination (private quiz / Problem Bank), source and limits only inside the New extraction view. Returning to the library or a saved job never automatically triggers submission.
 - File range, page budget, total cap, retry controls and low-level model logs are inside Advanced or the relevant job detail. Summary of limits still visible before costly submission.
 - Exactly **one durable parent job** per uploaded document. Child page tasks and per-figure tasks belong to that job; do not create unrelated jobs for every page/retry.
 - Processing happens in the background. Show real statuses: queued, running, awaiting attention, completed, failed, outcome unknown. Job survives tab closing and can be resumed.
@@ -166,7 +169,7 @@ Screen acceptance captures: 1440×900 desktop, 768×1024 tablet, 390×844 phone;
 
 **F3 — Picture Chat (distinct from Documents):** verify supported server-side multimodal call contract; implement private image upload/reference/history/reply path, preserving same thread. Targeted tests ensure it does **not** trigger extraction.
 
-**F4 — Documents UI:** one parent job, simple upload/status, saved jobs on demand, diagnostic page/figure viewer and safe retry. Preserve Mimo API and existing jobs. If backend lacks an essential job state/contract, document it before making that separate backend change.
+**F4 — Documents UI + folder library:** default view is **saved documents organized into folders**, not upload. On explicit **New extraction**, show the upload/options form. Open existing jobs in-place with diagnostic page/figure viewer and safe retry. Design/verify Neon owner-scoped folders and folder assignment before enabling persistence, preserving existing unfiled Mimo jobs and never rewriting provider job IDs. If the backend lacks an essential state/contract, document that dependency before making a separately scoped backend change.
 
 **F5 — Quizer editor handoff:** complete ordered LaTeX + figure assets → existing importer and editor. Make editor the **sole final review/approval** point; tests for missing images, ordering, idempotency and private draft. Do not migrate quiz core to Neon.
 
@@ -179,7 +182,8 @@ Every milestone: `specific files → targeted tests → full relevant static/CI 
 ## 7. Acceptance criteria: definition of 'good frontend'
 
 - One global nav; zero duplicated home nav grids, duplicated title bars or permanently visible unused inspectors.
-- User can reach chat, new chat, pictures, documents, previous jobs and import with one clear route; current mode always obvious.
+- User can reach chat, new chat, pictures, the document **folder library**, previous jobs and editor import with one clear route; current mode always obvious.
+- **Documents opens in the library, never the upload form.** Only the explicit New extraction action opens the extraction workflow. Organizing a saved document into a folder never starts AI work.
 - UI hierarchy remains readable without changing colors.
 - Existing teacher/student login works on every page without a separate AI sign-in.
 - Chat image **does not** create a document extraction job.
