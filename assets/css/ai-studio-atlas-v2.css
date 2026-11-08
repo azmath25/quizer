@@ -328,3 +328,117 @@ body[data-page="ai"]{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .axiom-studio .sidebar,.axiom-studio .inspector{transition:none!important}
 }
+
+/* AI chat hierarchy: no empty hero, no redundant heading, one simple composer.
+   The temporary typing indicator is purely presentational, never stored/sent. */
+.axiom-studio .ai-chat-sidebar-primary{
+  display:flex;align-items:center;gap:8px;margin:0 0 12px
+}
+.axiom-studio .ai-chat-sidebar-primary .axiom-new{
+  margin:0;min-width:0;flex:1
+}
+.axiom-studio .ai-chat-sidebar-primary .axiom-sidebar-close{
+  flex:none;margin:0
+}
+.axiom-studio .side-search.axiom-search{margin-top:0}
+.axiom-studio .ai-chat-list-heading{
+  min-height:34px;padding:6px 4px;
+}
+.axiom-studio .history-row{
+  min-height:0;padding:1px 3px;border-radius:8px
+}
+.axiom-studio .history-row .history-open{padding:7px 3px;gap:8px}
+.axiom-studio .history-text strong{
+  font-size:11px;line-height:1.45;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis
+}
+.axiom-studio .history-text small{
+  color:var(--muted);font-size:10px;line-height:1.4
+}
+.axiom-studio .history-row .pin-btn{
+  opacity:0;color:var(--muted);min-width:30px;min-height:34px
+}
+.axiom-studio .history-row:hover .pin-btn,
+.axiom-studio .history-row:focus-within .pin-btn,
+.axiom-studio .history-row .pin-btn.pinned{
+  opacity:1
+}
+@media(hover:none){
+  .axiom-studio .history-row .pin-btn{opacity:.6}
+}
+.axiom-studio .conversation-head.axiom-conversation-head[hidden]{
+  display:none!important
+}
+.axiom-studio #ai-chat-panel.empty-chat .conversation.axiom-thread{
+  padding-block:0
+}
+.axiom-studio #ai-chat-panel.empty-chat .message-list:empty{
+  min-height:0
+}
+.axiom-studio .composer-area.axiom-composer-area{
+  padding-top:12px;border-top:0;background:var(--bg)
+}
+.axiom-studio .composer.axiom-composer{
+  overflow:hidden;border:1px solid var(--border-strong);
+  border-radius:12px;box-shadow:none
+}
+.axiom-studio .composer.axiom-composer textarea{
+  display:block;width:100%;min-height:54px;max-height:176px;
+  margin:0;padding:14px 16px 7px;
+  background:transparent;border:0!important;
+  border-radius:0;outline:0;box-shadow:none!important;
+  line-height:1.6;resize:vertical
+}
+.axiom-studio .composer.axiom-composer .composer-tools{
+  border-top:0!important;padding:4px 9px 8px;gap:5px
+}
+.axiom-studio .compose-btn{
+  border-radius:8px;min-height:35px;padding:7px 9px
+}
+.axiom-studio .send{
+  height:37px;width:37px;min-width:37px;
+  border-radius:10px;margin-left:auto;
+  background:var(--brand);color:var(--on-brand)
+}
+.axiom-studio .send:hover{background:var(--brand-hover)}
+.axiom-studio #compose-mode[hidden]{display:none!important}
+
+/* A single assistant-shaped waiting row below the just-submitted message. */
+.axiom-studio .message.ai-reply-pending{
+  display:flex;gap:12px;align-items:center;
+  margin:9px 0 25px;min-height:40px
+}
+.axiom-studio .ai-reply-pending .msg-icon{
+  width:30px;height:30px;border-radius:9px;
+  background:var(--brand-tint);color:var(--brand)
+}
+.axiom-studio .ai-reply-pending .msg-content{min-width:0}
+.axiom-studio .ai-reply-progress{
+  display:inline-flex;align-items:center;gap:10px;
+  min-height:30px;color:var(--muted);font-size:11px
+}
+.axiom-studio .ai-reply-dots{
+  display:inline-flex;align-items:center;gap:4px
+}
+.axiom-studio .ai-reply-dots i{
+  display:block;width:6px;height:6px;flex:none;
+  border-radius:50%;background:var(--brand);
+  opacity:.4;transform:translateY(0);
+  animation:ai-reply-pulse 1.05s ease-in-out infinite
+}
+.axiom-studio .ai-reply-dots i:nth-child(2){animation-delay:.14s}
+.axiom-studio .ai-reply-dots i:nth-child(3){animation-delay:.28s}
+@keyframes ai-reply-pulse{
+  0%,65%,100%{opacity:.35;transform:translateY(0)}
+  32%{opacity:1;transform:translateY(-4px)}
+}
+@media(max-width:760px){
+  .axiom-studio .ai-chat-sidebar-primary{margin-bottom:9px}
+  .axiom-studio .composer.axiom-composer textarea{max-height:110px}
+  .axiom-studio .compose-btn{padding:7px;min-height:33px}
+}
+@media(prefers-reduced-motion:reduce){
+  .axiom-studio .ai-reply-dots i{
+    animation:none;opacity:.75;transform:none
+  }
+}
