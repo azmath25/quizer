@@ -102,7 +102,14 @@ async function boundedResponse(response, limit, binary = false) {
     }
   } finally { reader.releaseLock(); }
   const data=Buffer.concat(parts);
-  if (binary) return data;
+  if (binary) {
+    // Never let an upstream JSON error page be mistaken for a downloadable
+    // image even if it uses a successful HTTP status.
+    const mediaType=(response.headers?.get("content-type")||"")
+      .split(";")[0].trim().toLowerCase();
+    if (mediaType!=="image/png") fail("MIMO_INVALID_RESPONSE");
+    return data;
+  }
   if (!(response.headers?.get("content-type") || "").toLowerCase().includes("application/json"))
     fail("MIMO_INVALID_RESPONSE");
   try { return JSON.parse(data.toString("utf8")); }
