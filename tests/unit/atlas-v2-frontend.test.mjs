@@ -26,7 +26,7 @@ test("Atlas typography, light/dark tokens, accessible focus and responsive layou
   const studio = read("assets/css/ai-studio-atlas-v2.css");
   assert.match(tokens, /--brand: #0281af/);
   assert.doesNotMatch(tokens, /--brand: #335bc8/);
-  assert.match(tokens, /--font-sans: "Plus Jakarta Sans"/);
+  assert.match(tokens, /--font-sans: "Inter"/);
   assert.match(tokens, /:root\[data-theme="dark"\]/);
   assert.match(tokens, /:root\[data-theme="system"\]/);
   assert.match(global, /:focus-visible/);
@@ -59,7 +59,7 @@ test("Home has new working dashboard layout but no new API calls", () => {
   }
   assert.match(home, /session\.capabilities\.teach/);
   assert.match(home, /quizCard\(q, \{management: teacher\}\)/);
-  assert.match(home, /Continue unfinished quizzes/);
+  assert.match(home, /<h2>Continue<\\/h2>/);
   assert.match(home, /Verify your email address/);
 });
 
