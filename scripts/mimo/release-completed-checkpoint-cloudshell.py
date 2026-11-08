@@ -19,6 +19,7 @@ FUNCTIONS = (
     "mimoBatchReconcile",
     "mimoBatchSweep",
     "mimoBatchStatus",
+    "mimoBatchGetPage",
     "mimoExtractStatus",
 )
 TARGETS = ",".join("functions:mathquiz:" + name for name in FUNCTIONS)
@@ -74,7 +75,7 @@ def apply() -> None:
     command("npm", "ci", "--prefix", "functions", "--omit=dev",
             "--no-audit", "--no-fund", "--prefer-offline",
             timeout=360, output=False)
-    print("Deploying only four Quizer Mimo status/reconciliation functions.", flush=True)
+    print("Deploying only five Quizer Mimo PDF status/review-recovery functions.", flush=True)
     command("firebase", "deploy", "--project", PROJECT,
             "--only", TARGETS, "--non-interactive",
             timeout=1200, output=False)
