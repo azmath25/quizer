@@ -20,7 +20,7 @@ test("AI Studio is a real module, not the old simulated localStorage demo",()=>{
 
 test("teacher-only shell, shared navigation and appearance remain intact",()=>{
   assert.match(shell,/\["ai", "ai\.html", "AI Studio"\]/);
-  assert.match(home,/href="ai\.html"/);
+  assert.doesNotMatch(home,/home-action-list|home-action-link|<nav/);
   assert.match(page,/<header id="site-header"/);
   assert.match(page,/<nav id="mobile-nav"/);
   assert.match(client,/mountShell\(\{showAssistant:false,showBackdrop:false\}\)/);
