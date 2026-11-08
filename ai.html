@@ -110,6 +110,8 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 <link rel="stylesheet" href="assets/css/ai-studio-axiom-p1.css?v=p1-20261107-2">
 <link rel="stylesheet" href="assets/css/ai-studio-native-m1.css?v=m1-20261108">
 <script type="module" src="js/pages/ai-studio.js?v=m1-native-20261108"></script>
+<link rel="stylesheet" href="assets/css/atlas-v2.css?v=atlas-20261108">
+<link rel="stylesheet" href="assets/css/ai-studio-atlas-v2.css?v=atlas-20261108">
 </head>
 <body data-page="ai">
 <header id="site-header"></header>
@@ -160,20 +162,20 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
           </div>
           <button class="icon-btn axiom-sidebar-close" data-act="close-drawers" type="button" aria-label="Close navigation"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
-        <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> <span>New exploration</span><kbd>⌘ J</kbd></button>
+        <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> <span>New chat</span><kbd>⌘ J</kbd></button>
         <label class="side-search axiom-search"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg><input id="ai-chat-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search saved conversations"><span class="kbd">⌘ K</span></label>
         <div class="axiom-overline"><span>YOUR WORKSPACE</span><span></span></div>
         <nav class="sidenav axiom-nav" aria-label="Workspace views">
           <button class="nav-row active" id="ai-tab-chat" type="button" aria-selected="true"><svg class="ico" aria-hidden="true"><use href="#ic-chat"/></svg> <span>Conversations</span> <small id="chat-count">0</small></button>
           <button class="nav-row" id="ai-pin-filter" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-pin"/></svg> <span>Pinned chats</span></button>
-          <button class="nav-row" id="ai-tab-jobs" type="button" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg> <span>Document lab</span> <small id="job-count">0</small></button>
+          <button class="nav-row" id="ai-tab-jobs" type="button" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg> <span>Documents</span> <small id="job-count">0</small></button>
         </nav>
         <div class="axiom-overline axiom-history-head"><span id="history-label">RECENT CONVERSATIONS</span><small id="history-count"></small></div>
         <div class="history" id="ai-threads" aria-label="Saved conversations"></div>
         <div class="axiom-sidebar-bottom">
           <div class="axiom-service-card">
-            <strong><span class="axiom-status-dot"></span> Server-backed workspace</strong>
-            <p>Conversations use your account. Document jobs run on Mimo and require your review.</p>
+            <strong><span class="axiom-status-dot"></span> Private workspace</strong>
+            <p>Chats and document jobs are saved to your account.</p>
             <button type="button" data-act="commands" class="axiom-service-command"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> Commands <kbd>⌘ K</kbd></button>
           </div>
           <div class="axiom-sidebar-footer ai-native-session">
@@ -188,7 +190,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
         <div class="axiom-crumbs">
           <button class="icon-btn mobile-only" type="button" data-act="sidebar" aria-label="Open navigation"><svg class="ico" aria-hidden="true"><use href="#ic-bars"/></svg></button>
           <span class="axiom-crumb-label">WORKSPACE</span><svg class="ico sm" aria-hidden="true"><use href="#ic-chevron"/></svg>
-          <span class="axiom-crumb-current" id="ai-route-name">New exploration</span>
+          <span class="axiom-crumb-current" id="ai-route-name">New chat</span>
         </div>
         <div class="tools axiom-toolbar">
           <span class="axiom-private"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Private</span>
@@ -208,7 +210,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
             <div class="axiom-composer-inner">
               <div id="pending" class="attached"></div>
               <form class="composer axiom-composer" id="ai-chat-form">
-                <div class="axiom-composer-eyebrow"><span><svg class="ico sm" aria-hidden="true"><use href="#ic-spark"/></svg> MATH COPILOT</span><span>Secure Firebase → Mimo</span></div>
+                <div class="axiom-composer-eyebrow"><span><svg class="ico sm" aria-hidden="true"><use href="#ic-spark"/></svg> QUIZER ASSISTANT</span><span>Private, account-protected chat</span></div>
                 <textarea id="ai-prompt" rows="2" maxlength="3000" aria-label="Your message" placeholder="Ask about mathematics, quizzes, or a document..."></textarea>
                 <div class="composer-tools">
                   <button class="compose-btn axiom-command" type="button" data-act="commands" title="Open command palette"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> <span>Commands</span></button>
@@ -228,14 +230,14 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
           <div class="conversation-head axiom-conversation-head">
             <div class="current-title">
               <span class="title-symbol"><svg class="ico" aria-hidden="true"><use href="#ic-doc"/></svg></span>
-              <span class="title-copy"><h1>Document lab</h1><p>Private PDF & image extraction · page-by-page review · TikZ</p></span>
+              <span class="title-copy"><h1>Documents</h1><p>Source pages · extraction · diagrams</p></span>
             </div>
             <button class="mini-btn" id="ai-return-chat" type="button"><svg class="ico sm" aria-hidden="true"><use href="#ic-chat"/></svg> Back to chat</button>
           </div>
           <div class="studio-jobs-content axiom-docs">
             <div class="axiom-doc-intro">
               <span class="axiom-overlabel">DOCUMENT WORKSPACE</span>
-              <h2>Turn source pages into reviewed questions.</h2>
+              <h2>Extract a document, review every page.</h2>
               <p>Run extraction in the background, inspect page progress and reconstructed diagrams, then review the questions before importing.</p>
             </div>
             <section class="axiom-doc-form" aria-label="New extraction"><form id="ai-job-form" class="ai-job-form">
@@ -275,7 +277,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
     </div>
     <aside class="inspector axiom-workbench" aria-label="Saved jobs and progress">
       <div class="inspector-head axiom-workbench-head">
-        <span><small class="axiom-overlabel">THE WORKBENCH</small><strong>Document jobs</strong><small>Live Mimo stages · private review</small></span>
+        <span><small class="axiom-overlabel">SAVED WORK</small><strong>Document jobs</strong><small>Live Mimo stages · private review</small></span>
         <button class="icon-btn" data-act="inspector" type="button" aria-label="Close workbench"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
       </div>
       <div class="axiom-workbench-tabs" role="tablist" aria-label="Workbench views">
@@ -286,7 +288,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
         <button id="ai-jobs-refresh" type="button" class="mini-btn"><svg class="ico sm" aria-hidden="true"><use href="#ic-retry"/></svg> Refresh jobs</button>
       </div>
       <div class="inspector-body" id="ai-job-list"></div>
-      <div class="inspector-foot"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Actual server records · No simulated progress</div>
+      <div class="inspector-foot"><svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg> Your saved document history</div>
     </aside>
     <div class="backdrop" data-act="close-drawers"></div>
   </div>
