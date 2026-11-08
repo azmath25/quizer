@@ -152,3 +152,15 @@ test("current v1 contract cannot produce an empty primary extraction",()=>{
   run.output.nodes.extract.result.content="";
   assert.throws(()=>completedPageForReview(run,source));
 });
+
+test("literal model-escaped newline is rendered as prose newline without altering TeX fractions",()=>{
+  const sourcePage=extracted();
+  sourcePage.questions[0].statement_latex=String.raw`$x^2=4$\nWhat is x? $\frac{1}{2}$ and $\nu$`;
+  const run=completed(JSON.stringify(sourcePage));
+  run.output.exports.verified_page_json="";
+  const result=completedPageForReview(run,source);
+  const text=result.page.questions[0].statement_latex;
+  assert.ok(text.includes("\nWhat is x?"),"literal backslash-n between prose lines normalized");
+  assert.ok(text.includes(String.raw`\frac{1}{2}`),"real TeX fraction intact");
+  assert.ok(text.includes(String.raw`\nu`),"real Greek letter macro intact");
+});
