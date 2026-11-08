@@ -36,7 +36,7 @@ const icon=(name,small=false)=>{
   use.setAttribute("href","#ic-"+name);svg.append(use);return svg;
 };
 const MODES={
-  chat:{name:"General chat",icon:"chat",desc:"Think, explain, brainstorm and plan.",placeholder:"Ask a question or brainstorm an idea...",
+  chat:{name:"General chat",icon:"chat",desc:"Think, explain, brainstorm and plan.",placeholder:"Message the assistant...",
     prompts:[["Understand a concept","Explain a difficult mathematical concept with examples"],["Plan a lesson","Outline a lesson on modular arithmetic"],["Explore an idea","Brainstorm an original olympiad problem"],["Compare methods","Compare two different solution methods"]]},
   solver:{name:"Problem solver",icon:"math",desc:"Reason through mathematics, notation and proofs.",placeholder:"Enter a problem or a LaTeX expression...",
     prompts:[["Solve step by step","Solve $x^2-5x+6=0$ step by step"],["Audit a proof","Identify gaps in the following mathematical proof"],["Find alternatives","Find two approaches to this problem"],["Get a hint","Give me a hint rather than the full solution"]]},
