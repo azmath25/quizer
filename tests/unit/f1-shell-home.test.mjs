@@ -96,7 +96,8 @@ test("F1 global header has one Home via brand; tablet More and phone More preser
   const css = read("assets/css/atlas-v2.css");
   const html = read("index.html");
   const font = read("assets/css/tokens.css");
-  assert.doesNotMatch(shell,/\["home", "index\.html", "Home"\],\s*\["quiz"/);
+  const desktopLinks = shell.slice(shell.indexOf("const links ="),shell.indexOf("const THEMES"));
+  assert.doesNotMatch(desktopLinks,/\["home", "index\.html", "Home"\]/);
   assert.match(shell,/const compactNavQuery = window\.matchMedia\?/);
   assert.match(shell,/global-more-options/);
   assert.match(shell,/mobile-more-options/);
