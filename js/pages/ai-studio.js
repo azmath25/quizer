@@ -130,14 +130,16 @@ function studioWelcome(){
 }
 function applyStudioLayout(){
   const wide=innerWidth>1180;
+  const documents=app.classList.contains("documents-mode");
   app.classList.toggle("show-inspector",!wide&&inspectorVisible);
   const inspector=app.querySelector(".inspector");
   if(wide){
     inspector.style.display=inspectorVisible?"":"none";
-    // Presentation sizing only. Existing chat/job state and callbacks
-    // remain unchanged; the workbench is still explicitly optional.
-    $("shell").style.gridTemplateColumns=inspectorVisible
-      ?"280px minmax(0,1fr) 330px":"280px minmax(0,1fr)";
+    // Document extraction is one wide workspace until Saved jobs is opened.
+    // Chat keeps just a narrow conversation-history rail.
+    $("shell").style.gridTemplateColumns=documents
+      ? (inspectorVisible?"minmax(0,1fr) 290px":"minmax(0,1fr)")
+      : (inspectorVisible?"246px minmax(0,1fr) 290px":"246px minmax(0,1fr)");
   }else{inspector.style.display="";$("shell").style.gridTemplateColumns="";}
   for(const button of app.querySelectorAll('[data-act="inspector"]'))
     button.setAttribute("aria-expanded",String(inspectorVisible));
@@ -167,7 +169,9 @@ function activeTab(tab){
   $("ai-tab-jobs").classList.toggle("active",!chat);
   $("ai-pin-filter").classList.toggle("active",chat&&pinnedOnly);
   app.classList.remove("show-sidebar");
-  if(!chat&&innerWidth<=1180){inspectorVisible=false;applyStudioLayout();}
+  app.classList.toggle("documents-mode",!chat);
+  if(!chat)inspectorVisible=false;
+  applyStudioLayout();
   for(const [id,selected] of [["ai-workbench-jobs",chat],["ai-workbench-extract",!chat]]){
     const button=$(id);
     if(button){button.setAttribute("aria-selected",String(selected));
@@ -899,7 +903,7 @@ function wireOriginalChrome(){
     inspectorVisible=true;applyStudioLayout();
     void loadJobs().catch(e=>status(safeError(e),true));
   });
-  listen("ai-workbench-extract","click",()=>{activeTab("jobs");if(innerWidth>1180){inspectorVisible=true;applyStudioLayout();}});
+  listen("ai-workbench-extract","click",()=>activeTab("jobs"));
   document.addEventListener("keydown",event=>{
     if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){
       event.preventDefault();openCommands();
