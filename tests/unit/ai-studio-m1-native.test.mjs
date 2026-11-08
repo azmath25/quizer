@@ -16,11 +16,11 @@ test("M1: only Quizer shared shell supplies global site branding/account/navigat
   assert.match(ui,/mountShell\(\{showAssistant:false,showBackdrop:false\}\)/);
   assert.match(shell,/id="desktop-nav"/);
   assert.match(html,/class="axiom-brand ai-native-context"/);
-  assert.match(html,/AI Studio<\/strong>/);
+  assert.match(html,/Recent chats<\/strong>/);
   assert.doesNotMatch(html,/class="axiom-brand-link"/);
   assert.doesNotMatch(html,/Quizer <em>AI<\/em>/);
   assert.doesNotMatch(html,/Signed-in teacher \/ admin/);
-  assert.match(html,/Access managed by your Quizer account/);
+  assert.match(html,/class="studio-mode-tabs" role="tablist"/);
 });
 
 test("M1: chat, old threads, PDF jobs and T1 visual artifact remain in one document", () => {
