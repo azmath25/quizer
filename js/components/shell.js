@@ -1,7 +1,8 @@
 import { watchSession, getSession } from "../firebase-client.js";
 import { icon, e } from "./ui.js";
+// Brand is the Home link. Each other destination appears only once in
+// the active global navigation (or its compact More menu).
 const links = [
-  ["home", "index.html", "Home"],
   ["quiz", "quizzes.html", "Quizzes"],
   ["activity", "activity.html", "My activity"],
   ["teach", "teaching.html", "Teaching"],
@@ -103,6 +104,7 @@ function mountBackdrop() {
 }
 export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
   if (showBackdrop) mountBackdrop();
+  const compactNavQuery = window.matchMedia?.("(min-width: 761px) and (max-width: 1100px)");
   const header = document.querySelector("#site-header");
   header.innerHTML = `<div class="header-inner"><a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M43 17H21l11 15-11 15h22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle class="brand-orbit" cx="46" cy="46" r="5" fill="var(--accent)"/></svg></span><span class="logo-flip-container" role="img" aria-label="Math Quiz"><span class="flip-card logo-flip-card"><span class="flip-face flip-face--front logo-face--small logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span><span class="flip-face flip-face--back logo-face--big logo-face"><span class="logo-mark" aria-hidden="true">√</span><span class="logo-az">Math</span><span class="logo-math">Quiz</span></span></span></span></a><nav aria-label="Main navigation" id="desktop-nav"></nav><div class="header-controls"><details class="theme-menu" id="theme-menu"><summary id="theme-trigger" class="theme-trigger" aria-label="Appearance: Light" title="Choose appearance">${icon("sun")}</summary><div class="theme-options" role="group" aria-label="Appearance"><button type="button" data-theme-choice="light" aria-pressed="false">${icon("sun")}<span>Light</span></button><button type="button" data-theme-choice="dark" aria-pressed="false">${icon("moon")}<span>Dark</span></button><button type="button" data-theme-choice="system" aria-pressed="false">${icon("monitor")}<span>System</span></button></div></details><a class="profile-link" href="profile.html" id="account-link">${icon("profile")}<span>Profile</span></a></div></div>`;
   const draw = (s) => {
@@ -111,17 +113,35 @@ export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
       .filter(([key]) => key !== "teach" || s.capabilities.teach)
       .filter(([key]) => key !== "admin" || s.capabilities.admin)
       .filter(([key]) => key !== "ai" || s.capabilities.teach || s.capabilities.admin)
-      .filter(([key]) => key !== "documents" || s.capabilities.teach || s.capabilities.admin);
+      .filter(([key]) => key !== "activity" || !!s.user);
     const active = (url) =>
       url.split(".")[0] === page ||
       (page === "home" && url === "index.html") ||
       (page === "catalog" && url === "quizzes.html");
-    document.querySelector("#desktop-nav").innerHTML = nav
-      .map(
-        ([key, url, label]) =>
-          `<a href="${url}" ${active(url) ? 'aria-current="page"' : ""}>${e(label)}</a>`,
-      )
-      .join("");
+    // At tablet widths keep the primary teacher destinations visible and
+    // move secondary links to a single accessible More menu, not display:none.
+    const compact = compactNavQuery?.matches === true;
+    const primary = compact
+      ? nav.filter(([key]) => key === "quiz" || key === "teach" || key === "ai")
+      : nav;
+    const secondary = compact
+      ? nav.filter(([key]) => key !== "quiz" && key !== "teach" && key !== "ai")
+      : [];
+    const navLink = ([,url,label]) =>
+      `<a href="${url}" ${active(url) ? 'aria-current="page"' : ""}>${e(label)}</a>`;
+    document.querySelector("#desktop-nav").innerHTML =
+      primary.map(navLink).join("") +
+      (secondary.length
+        ? `<details class="global-more ${secondary.some(([,url]) => active(url)) ? "has-current" : ""}">
+            <summary aria-label="More destinations">More</summary>
+            <div class="global-more-options">${secondary.map(navLink).join("")}</div>
+          </details>`
+        : "");
+    const brand = document.querySelector(".brand");
+    if (brand) {
+      if (page === "home") brand.setAttribute("aria-current", "page");
+      else brand.removeAttribute("aria-current");
+    }
     const account = document.querySelector("#account-link");
     account.href = s.authResolved && !s.user ? "login.html" : "profile.html";
     // The visible name is hidden only on narrow mobile headers.
@@ -129,25 +149,36 @@ export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
     account.innerHTML = s.user
       ? `<span class="avatar">${e((s.profile?.displayName || s.user.email || "U").slice(0, 1).toUpperCase())}</span><span>${e((s.profile?.displayName || "Profile").split(" ")[0])}</span>`
       : `${icon("profile")}<span>${s.authResolved ? "Sign in" : "Profile"}</span>`;
-    // The mobile bottom navigation is role-aware. Teachers previously had
-    // no discoverable link to Teaching or AI Studio on small screens.
+    // Phone: the profile/avatar control is part of this ONE bottom navigation.
+    // Teachers get a More menu for Profile, Activity and Admin when applicable,
+    // avoiding six cramped, competing navigation items.
+    const teacher = !!(s.capabilities.teach || s.capabilities.admin);
     const mobileLinks = [
       ["home", "index.html", "Home"],
       ["quiz", "quizzes.html", "Quizzes"],
       ...(s.capabilities.teach
         ? [["teach", "teaching.html", "Teaching"]]
-        : [["activity", "activity.html", "Activity"]]),
-      ...(s.capabilities.teach || s.capabilities.admin
-        ? [["ai", "ai.html", "AI Studio"]]
+        : s.user ? [["activity", "activity.html", "Activity"]] : []),
+      ...(teacher ? [["ai", "ai.html", "AI Studio"]] : []),
+      ...(!teacher
+        ? [["profile", s.user ? "profile.html" : "login.html", s.user ? "Profile" : "Sign in"]]
         : []),
-      ["profile", "profile.html", "Profile"],
     ];
     const mobileNav = document.querySelector("#mobile-nav");
-    mobileNav.style.setProperty("--mobile-items", String(mobileLinks.length));
+    const mobileExtra = teacher
+      ? [["profile", "profile.html", "Profile"],
+         ["activity", "activity.html", "My activity"],
+         ...(s.capabilities.admin ? [["admin", "admin.html", "Admin"]] : [])]
+      : [];
+    mobileNav.style.setProperty("--mobile-items", String(mobileLinks.length + (mobileExtra.length ? 1 : 0)));
     mobileNav.innerHTML = mobileLinks.map(([key, url, label]) =>
       `<a href="${url}" ${active(url) ? 'aria-current="page"' : ""}>
         ${icon(key === "ai" ? "sparkles" : key)}<span>${e(label)}</span></a>`
-    ).join("");
+    ).join("") + (mobileExtra.length
+      ? `<details class="mobile-more">
+          <summary aria-label="More destinations">${icon("profile")}<span>More</span></summary>
+          <div class="mobile-more-options">${mobileExtra.map(navLink).join("")}</div>
+        </details>` : "");
     const footer = document.querySelector("#site-footer");
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Text size</a></span>`;
     applyAppearance(s.profile?.preferences || localAppearance());
@@ -176,6 +207,7 @@ export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
     }
   });
   watchSession(draw);
+  compactNavQuery?.addEventListener?.("change", () => draw(getSession()));
   document.addEventListener("route-changed", () => {
     draw(getSession());
     popLogo();
