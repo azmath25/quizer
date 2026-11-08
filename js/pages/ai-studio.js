@@ -102,7 +102,7 @@ function studioWelcome(){
   const mode=MODES[studioMode]||MODES.chat;
   const wrap=node("div","","welcome");
   const symbol=node("span","","welcome-symbol");symbol.append(icon("spark"));
-  wrap.append(symbol,node("h2","What would you like to do?"),node("p",mode.desc));
+  wrap.append(symbol,node("h2","Start with a question."),node("p",mode.desc));
   const grid=node("div","","prompt-grid");
   for(const [title,prompt] of mode.prompts.slice(0,2)){
     const b=node("button","","prompt-card");b.type="button";
@@ -134,8 +134,10 @@ function applyStudioLayout(){
   const inspector=app.querySelector(".inspector");
   if(wide){
     inspector.style.display=inspectorVisible?"":"none";
+    // Presentation sizing only. Existing chat/job state and callbacks
+    // remain unchanged; the workbench is still explicitly optional.
     $("shell").style.gridTemplateColumns=inspectorVisible
-      ?"270px minmax(0,1fr) 358px":"270px minmax(0,1fr)";
+      ?"280px minmax(0,1fr) 330px":"280px minmax(0,1fr)";
   }else{inspector.style.display="";$("shell").style.gridTemplateColumns="";}
   for(const button of app.querySelectorAll('[data-act="inspector"]'))
     button.setAttribute("aria-expanded",String(inspectorVisible));
