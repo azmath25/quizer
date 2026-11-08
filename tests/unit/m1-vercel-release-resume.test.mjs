@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 
 const root=new URL("../../",import.meta.url);
 const read=p=>readFileSync(new URL(p,root),"utf8");
@@ -39,4 +41,12 @@ test("M1 release preflights verified public dist and generated mirror",()=>{
   assert.equal(config.outputDirectory,"dist");
   assert.equal(config.cleanUrls,false);
   assert.ok(!config.functions && !config.rewrites);
+});
+
+test("M1 release and verification Bash scripts have valid syntax",()=>{
+  for(const file of ["m1-release-vercel-cloudshell.sh","m1-verify-cloudshell.sh"]){
+    const path=fileURLToPath(new URL("scripts/mimo/"+file,root));
+    const result=spawnSync("bash",["-n",path],{encoding:"utf8"});
+    assert.equal(result.status,0,file+": "+(result.stderr||result.error||"syntax failure"));
+  }
 });
