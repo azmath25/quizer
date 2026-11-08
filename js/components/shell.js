@@ -129,15 +129,25 @@ export function mountShell({ showAssistant = true, showBackdrop = true } = {}) {
     account.innerHTML = s.user
       ? `<span class="avatar">${e((s.profile?.displayName || s.user.email || "U").slice(0, 1).toUpperCase())}</span><span>${e((s.profile?.displayName || "Profile").split(" ")[0])}</span>`
       : `${icon("profile")}<span>${s.authResolved ? "Sign in" : "Profile"}</span>`;
-    document.querySelector("#mobile-nav").innerHTML = [
-      ...links.slice(0, 3),
+    // The mobile bottom navigation is role-aware. Teachers previously had
+    // no discoverable link to Teaching or AI Studio on small screens.
+    const mobileLinks = [
+      ["home", "index.html", "Home"],
+      ["quiz", "quizzes.html", "Quizzes"],
+      ...(s.capabilities.teach
+        ? [["teach", "teaching.html", "Teaching"]]
+        : [["activity", "activity.html", "Activity"]]),
+      ...(s.capabilities.teach || s.capabilities.admin
+        ? [["ai", "ai.html", "AI Studio"]]
+        : []),
       ["profile", "profile.html", "Profile"],
-    ]
-      .map(
-        ([key, url, label]) =>
-          `<a href="${url}" ${active(url) ? 'aria-current="page"' : ""}>${icon(key)}<span>${label}</span></a>`,
-      )
-      .join("");
+    ];
+    const mobileNav = document.querySelector("#mobile-nav");
+    mobileNav.style.setProperty("--mobile-items", String(mobileLinks.length));
+    mobileNav.innerHTML = mobileLinks.map(([key, url, label]) =>
+      `<a href="${url}" ${active(url) ? 'aria-current="page"' : ""}>
+        ${icon(key === "ai" ? "sparkles" : key)}<span>${e(label)}</span></a>`
+    ).join("");
     const footer = document.querySelector("#site-footer");
     footer.innerHTML = `<span>Math Quiz</span><span>${s.capabilities.teach ? '<a href="guide.html">LaTeX guide</a> · ' : ""}<a href="profile.html#appearance">Text size</a></span>`;
     applyAppearance(s.profile?.preferences || localAppearance());
