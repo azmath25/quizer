@@ -136,7 +136,7 @@ test("Home has one navigation source, with account routes still secured", () => 
   const home = read("js/pages/home.js"), shell = read("js/components/shell.js");
   assert.doesNotMatch(home, /<nav|home-action-list|home-action-link/);
   assert.match(shell, /id="desktop-nav"/);
-  assert.match(shell, /id="mobile-nav"/);
+  assert.match(shell, /document\.querySelector\("#mobile-nav"\)/);
   assert.match(shell, /s\.capabilities\.teach \|\| s\.capabilities\.admin/);
   assert.match(home, /teacher \? "teaching\.html" : "quizzes\.html"/);
 });
