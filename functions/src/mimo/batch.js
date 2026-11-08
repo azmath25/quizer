@@ -218,7 +218,8 @@ export function createBatchService({
     return {jobId:job.jobId,pageNumber:n,
       page:snap.data().page,review:snap.data().review||null,
       reviewVersion:snap.data().reviewVersion||0,
-      hasReconstruction:job.pages.find(p=>p.number===n).hasReconstruction===true};
+      hasReconstruction:job.pages.find(p=>p.number===n).hasReconstruction===true,
+      recoveredFromCheckpoint:job.pages.find(p=>p.number===n).recoveredFromCheckpoint===true};
   }
   async function image({auth,data}){
     if(!isObj(data)||Object.keys(data).some(k=>!["jobId","pageNumber"].includes(k)))
