@@ -13,6 +13,7 @@ import {importApprovedExtraction} from "../services/ai-reviewed-import.js";
 import {uploadAsset,resolveImages} from "../services/assets.js";
 import {snipPageContent} from "../components/page-snip.js";
 import {mountLocalSourcePreview} from "../components/ai-source-preview.js";
+import {createMimoPngViewer} from "../components/mimo-png-viewer.js";
 import {inspectLocalDocument,makeTeacherContext} from "../services/local-document.js";
 
 const $=id=>document.getElementById(id);
@@ -548,6 +549,15 @@ function reviewUI(container,result,sourceVerified,{batchJobId=null,reviewVersion
   head.append(importButtons);container.append(head);
 }
 
+function makeBatchPngViewer(jobId,pageNumber){
+  return createMimoPngViewer({
+    jobId,pageNumber,
+    fetchImage:readMimoBatchImage,decodeImage:decodeMimoPng,
+    explainError:extractionError,
+    registerUrl:url=>transientUrls.push(url),
+  });
+}
+
 async function openBatchPage(jobId,pageNumber){
   selectedJob=jobId;activeTab("jobs");drawJobs();
   const target=$("ai-job-result");
@@ -567,38 +577,15 @@ async function openBatchPage(jobId,pageNumber){
           :"First-pass extraction is available, but independent AI verification was missing or unusable. Check all questions against the PDF before importing.",
         "ai-muted"));
     }
+    // T1: the compiled PNG is a completed page artifact, independent of
+    // the old question-by-question review form. This is GET-only.
+    if(result.hasReconstruction){
+      const viewer=makeBatchPngViewer(jobId,pageNumber);
+      target.append(viewer.panel);
+      void viewer.load();
+    }
     const verified=await verifySource(originalSources.get(jobId),page);
     review=result.review||buildTeacherReview(page);
-    if(result.hasReconstruction){
-      const open=node("button","Preview TikZ PNG for this page","ai-secondary");
-      open.type="button";
-      open.onclick=async()=>{
-        open.disabled=true;
-        try{
-          const blob=decodeMimoPng(await readMimoBatchImage(jobId,pageNumber));
-          const url=URL.createObjectURL(blob);transientUrls.push(url);
-          const img=node("img");img.src=url;
-          img.alt="Reconstructed page diagram — compare against original before approval";
-          img.style.maxWidth="min(100%,480px)";
-          target.append(img);
-          const save=node("button","Save verified PNG to private assets","ai-secondary");
-          save.type="button";
-          save.onclick=async()=>{
-            save.disabled=true;
-            try{
-              const file=new File([blob],"page-"+pageNumber+"-tikz.png",{type:"image/png"});
-              const assetId=await uploadAsset(file,()=>{},"image");
-              status("Figure saved privately. Use asset ID "+assetId+
-                " in the corresponding question's image binding.");
-            }catch(e){status(safeError(e),true);}
-            finally{save.disabled=false;}
-          };
-          target.append(save);
-        }catch(e){status(extractionError(e),true);}
-        finally{open.disabled=false;}
-      };
-      target.append(open);
-    }
     reviewUI(target,{jobId,page},verified,{
       batchJobId:jobId,reviewVersion:result.reviewVersion,
     });
@@ -713,6 +700,11 @@ async function selectBatch(id){
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
       list.append(b);
+      if(page.state==="completed"&&page.hasReconstruction){
+        // Opt-in retrieval in the overview, to avoid downloading every
+        // compiled diagram when a multi-page job is merely listed.
+        list.append(makeBatchPngViewer(id,page.number).panel);
+      }
     }
     card.append(list);
     target.replaceChildren(card);
