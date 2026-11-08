@@ -560,9 +560,11 @@ async function openBatchPage(jobId,pageNumber){
     const page=result.page;
     const heading=node("h2","Page "+pageNumber+" · "+page.questions.length+" questions");
     target.replaceChildren(back,heading);
-    if(result.recoveredFromCheckpoint){
+    if(result.recoveredFromCheckpoint||result.verificationUnusable){
       target.append(node("p",
-        "Recovered from the first-pass extraction because independent AI verification produced no visible answer. This is unverified material: inspect the original PDF carefully and review every question before importing.",
+        result.recoveredFromCheckpoint
+          ?"Recovered from the saved first-pass extraction. Independent AI verification returned no visible answer. Check all questions against the PDF before importing."
+          :"First-pass extraction is available, but independent AI verification was missing or unusable. Check all questions against the PDF before importing.",
         "ai-muted"));
     }
     const verified=await verifySource(originalSources.get(jobId),page);
@@ -604,8 +606,9 @@ async function openBatchPage(jobId,pageNumber){
 }
 function documentTaskLabel(page,jobState){
   const error=String(page.error||"");
-  if(page.state==="completed")return page.recoveredFromCheckpoint
-    ?"Recovered — teacher verification required":"Completed";
+  if(page.state==="completed")return page.recoveredFromCheckpoint||
+    page.verificationUnusable
+      ?"Extracted — teacher verification required":"Completed";
   if(page.state==="attention"){
     if(/^MIMO_RUN_(FAILED|CANCELLED|DISPATCH_FAILED)$/.test(error))
       return "Failed — Mimo run ended";
@@ -652,8 +655,8 @@ async function selectBatch(id){
       :job.state==="attention"
       ?"Known failed runs cannot finish without a new, separately approved job. Uncertain runs can only be checked by their existing IDs; no page is automatically retried."
       :job.state==="ready_review"
-      ?(job.pages||[]).some(p=>p.recoveredFromCheckpoint)
-        ?"Extraction recovered from an unverified first-pass checkpoint. Compare every question with the original page before approving or importing."
+      ?(job.pages||[]).some(p=>p.recoveredFromCheckpoint||p.verificationUnusable)
+        ?"Questions were extracted, but independent AI verification did not produce a usable result. Compare every question with the original PDF before approving or importing."
         :"Extraction completed. Review every page before importing any question."
       :"Mimo is running page workflows in the background. Progress uses saved checkpoints, not a simulated countdown.","ai-muted");
     card.append(explanation);
@@ -694,7 +697,7 @@ async function selectBatch(id){
     for(const page of job.pages||[]){
       const phase=labels[page.stage]||"Processing";
       const detail=page.state==="completed"
-        ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"
+        ?" · "+page.questionCount+" questions · "+page.figureCount+" figures"+(page.verificationUnusable?" · requires source verification":"")
         :page.state==="submitted"&&page.retryAt&&Number.isFinite(Date.parse(page.retryAt))
           ?" · Provider quota wait · next attempt "+new Date(page.retryAt).toLocaleString()
         :page.state==="submitted"?" · "+phase+" ("+(page.stageStatus||"running")+")"
