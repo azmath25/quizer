@@ -407,11 +407,21 @@ export function createBatchService({
             run,pageSource(job,p.number)));
         }catch{fail("MIMO_INVALID_EXTRACTION");}
         const hasReconstruction=run.output?.nodes?.compile_png?.status==="completed";
-        await recordRef(job.jobId,p.number).set({
-          uid:job.uid,jobId:job.jobId,pageNumber:p.number,page,
-          review:null,completedAt:time(),recoveredFromCheckpoint,
-          verificationUnusable,
-        },{merge:true});
+        // Persist the validated result exactly once. Competing sweep and
+        // owner reconciliation calls must NEVER overwrite a teacher's review.
+        const checkpoint=recordRef(job.jobId,p.number);
+        await db.runTransaction(async tx=>{
+          const existing=await tx.get(checkpoint);
+          if(existing.exists){
+            if(existing.data()?.uid!==job.uid)fail("JOB_NOT_FOUND");
+            return;
+          }
+          tx.create(checkpoint,{
+            uid:job.uid,jobId:job.jobId,pageNumber:p.number,page,
+            review:null,reviewVersion:0,completedAt:time(),
+            recoveredFromCheckpoint,verificationUnusable,
+          });
+        });
         await mark(job.jobId,p.number,{state:fromState,runId:p.runId},{
           state:"completed",questionCount:page.questions.length,
           figureCount:page.questions.filter(q=>q.has_figure).length,
