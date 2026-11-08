@@ -703,6 +703,34 @@ async function selectBatch(id){
       b.type="button";b.disabled=page.state!=="completed";
       b.onclick=()=>void openBatchPage(id,page.number);
       list.append(b);
+      // A compiled TikZ asset should be reachable directly from the document
+      // overview. Requiring entry into a separate per-question review form
+      // obscured real images and made successful runs look text-only.
+      if(page.state==="completed"&&page.hasReconstruction){
+        const view=node("button","View / download page "+page.number+" PNG","ai-secondary");
+        view.type="button";
+        view.onclick=async()=>{
+          view.disabled=true;
+          try{
+            const blob=decodeMimoPng(await readMimoBatchImage(id,page.number));
+            if(selectedJob!==id)return;
+            const url=URL.createObjectURL(blob);transientUrls.push(url);
+            const panel=node("figure","","ai-generated-figure");
+            const img=node("img");img.src=url;
+            img.alt="Mimo-generated TikZ diagram for PDF page "+page.number;
+            img.style.maxWidth="min(100%,560px)";
+            img.style.height="auto";
+            const download=node("a","Download compiled PNG","ai-secondary");
+            download.href=url;download.download="page-"+page.number+"-tikz.png";
+            panel.append(img,download);
+            view.replaceWith(panel);
+          }catch(error){
+            status(extractionError(error),true);
+            view.disabled=false;
+          }
+        };
+        list.append(view);
+      }
     }
     card.append(list);
     target.replaceChildren(card);
