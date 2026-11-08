@@ -108,7 +108,8 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
 </style>
 <link rel="stylesheet" href="assets/css/ai-studio-production.css?v=p1-20261107-2">
 <link rel="stylesheet" href="assets/css/ai-studio-axiom-p1.css?v=p1-20261107-2">
-<script type="module" src="js/pages/ai-studio.js?v=t1-png-20261108"></script>
+<link rel="stylesheet" href="assets/css/ai-studio-native-m1.css?v=m1-20261108">
+<script type="module" src="js/pages/ai-studio.js?v=m1-native-20261108"></script>
 </head>
 <body data-page="ai">
 <header id="site-header"></header>
@@ -152,11 +153,11 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
   <div class="shell axiom-shell" id="shell">
     <aside class="sidebar axiom-sidebar" aria-label="AI Studio navigation">
       <div class="axiom-side-inner">
-        <div class="axiom-brand">
-          <a class="axiom-brand-link" href="index.html" aria-label="Back to Quizer">
-            <span class="axiom-mark"><svg class="ico" aria-hidden="true"><use href="#ic-math"/></svg></span>
-            <span><strong>Quizer <em>AI</em></strong><small>MATHEMATICS STUDIO</small></span>
-          </a>
+        <div class="axiom-brand ai-native-context">
+          <div class="ai-native-context-label" aria-label="AI Studio workspace">
+            <span class="ai-native-context-mark" aria-hidden="true"><svg class="ico sm"><use href="#ic-spark"/></svg></span>
+            <span><strong>AI Studio</strong><small>Conversations &amp; documents</small></span>
+          </div>
           <button class="icon-btn axiom-sidebar-close" data-act="close-drawers" type="button" aria-label="Close navigation"><svg class="ico" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <button class="new axiom-new" id="ai-new-chat" type="button"><svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg> <span>New exploration</span><kbd>⌘ J</kbd></button>
@@ -175,10 +176,9 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
             <p>Conversations use your account. Document jobs run on Mimo and require your review.</p>
             <button type="button" data-act="commands" class="axiom-service-command"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"/></svg> Commands <kbd>⌘ K</kbd></button>
           </div>
-          <div class="axiom-sidebar-footer">
-            <span class="axiom-avatar"><svg class="ico" aria-hidden="true"><use href="#ic-spark"/></svg></span>
-            <span><strong>Quizer workspace</strong><small>Signed-in teacher / admin</small></span>
-            <button class="icon-btn" data-act="settings" type="button" aria-label="Workspace preferences"><svg class="ico" aria-hidden="true"><use href="#ic-settings"/></svg></button>
+          <div class="axiom-sidebar-footer ai-native-session">
+            <svg class="ico sm" aria-hidden="true"><use href="#ic-shield"/></svg>
+            <span><strong>Private AI workspace</strong><small>Access managed by your Quizer account</small></span>
           </div>
         </div>
       </div>
@@ -236,7 +236,7 @@ dialog{border:0;padding:0;width:min(92vw,580px);max-width:580px;border-radius:20
             <div class="axiom-doc-intro">
               <span class="axiom-overlabel">DOCUMENT WORKSPACE</span>
               <h2>Turn source pages into reviewed questions.</h2>
-              <p>Run extraction in the background, inspect page progress, correct mathematical text and diagrams, then approve the import.</p>
+              <p>Run extraction in the background, inspect page progress and reconstructed diagrams, then review the questions before importing.</p>
             </div>
             <section class="axiom-doc-form" aria-label="New extraction"><form id="ai-job-form" class="ai-job-form">
         <label>Target
