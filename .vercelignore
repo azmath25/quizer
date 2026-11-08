@@ -1,0 +1,17 @@
+# Vercel receives only files needed to build the static public site.
+# Backend, Firestore rules, tests, documents and CI are not deployment inputs.
+.git/
+.github/
+.firebase/
+.vercel/
+functions/
+firebase/
+tests/
+docs/
+*.log
+.env*
+*.local.js
+*.pem
+*-private.json
+*service-account*.json
+*credentials*.json
