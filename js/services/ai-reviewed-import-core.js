@@ -13,7 +13,17 @@ export function buildApprovedImportRecords(prepared,{
         seen.has(item.review_id)||!item.reviewed_by||!item.reviewed_at)
       throw new Error("Missing unique reviewed-question approval");
     seen.add(item.review_id);
-    const normalized=validateProblem(item.content,item.grading);
+    // Reviewed exports carry the immutable grading schema version. The
+    // problem-creation contract accepts ONLY grading fields; it independently
+    // attaches gradingVersion=1 during normalization. Never send that
+    // metadata back as an untrusted grading field.
+    if(!item.grading||typeof item.grading!=="object"||
+       Array.isArray(item.grading))
+      throw new Error("Invalid reviewed grading");
+    const {gradingVersion,...grading}=item.grading;
+    if(gradingVersion!==undefined&&gradingVersion!==1)
+      throw new Error("Unsupported reviewed grading version");
+    const normalized=validateProblem(item.content,grading);
     const metadata=validateMetadata({
       title:`${title} — ${i+1}`.slice(0,200),
       subject:"Mathematics",difficulty:"",tags:[],
@@ -21,7 +31,8 @@ export function buildApprovedImportRecords(prepared,{
     });
     return {
       importItemKey:"problem_"+i,originalQuestionId:item.review_id,
-      content:normalized.content,grading:normalized.grading,
+      content:normalized.content,
+      grading:((({gradingVersion,...fields})=>fields)(normalized.grading)),
       metadata,points:normalized.content.defaultPoints,
     };
   });
